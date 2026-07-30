@@ -3,18 +3,25 @@ kind: ApplicationSet
 metadata:
   name: infrastructure-apps
   namespace: argocd
-  annotations:
-    argocd.argoproj.io/sync-wave: "0"
 spec:
   goTemplate: true
   goTemplateOptions:
     - missingkey=error
   generators:
-    - git:
-        repoURL: https://github.com/anomaly51/general-1-argocd.git
-        revision: main
-        files:
-          - path: infrastructure/*/Chart.yaml
+    - list:
+        elements:
+          - name: argocd-sso
+            namespace: argocd
+            releaseName: argocd-sso
+          - name: keycloak
+            namespace: keycloak
+            releaseName: keycloak
+          - name: nfs-provisioner
+            namespace: nfs-system
+            releaseName: nfs-subdir-external-provisioner
+          - name: vault
+            namespace: vault
+            releaseName: vault
   template:
     metadata:
       name: "{{ .name }}"
@@ -23,23 +30,20 @@ spec:
         - resources-finalizer.argocd.argoproj.io
       annotations:
         argocd.argoproj.io/compare-options: ServerSideDiff=true
-        argocd.argoproj.io/sync-wave: "10"
     spec:
       project: gitops-apps
       source:
         repoURL: https://github.com/anomaly51/general-1-argocd.git
         targetRevision: main
-        path: "{{ .path.path }}"
+        path: "infrastructure/{{ .name }}"
         helm:
-          releaseName: '{{ if eq .name "nfs-provisioner" }}nfs-subdir-external-provisioner{{ else }}{{ .name }}{{ end }}'
+          releaseName: "{{ .releaseName }}"
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{ if eq .name "nfs-provisioner" }}nfs-system{{ else if eq .name "argocd-sso" }}argocd{{ else }}{{ .name }}{{ end }}'
+        namespace: "{{ .namespace }}"
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
-          - ServerSideApply=true
-          - SkipDryRunOnMissingResource=true

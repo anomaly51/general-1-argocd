@@ -4,22 +4,27 @@ metadata:
   name: gitops-apps
   namespace: argocd
 spec:
-  description: Generic project for applications managed by this GitOps repository.
+  description: Infrastructure services managed by the General-1 GitOps repository.
   sourceRepos:
     - https://github.com/anomaly51/general-1-argocd.git
-    - https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
-    - https://codecentric.github.io/helm-charts
-    - https://helm.releases.hashicorp.com
-    - registry-1.docker.io/cloudpirates
   destinations:
-    - server: https://kubernetes.default.svc
-      namespace: "*"
+    - namespace: argocd
+      server: https://kubernetes.default.svc
+    - namespace: keycloak
+      server: https://kubernetes.default.svc
+    - namespace: nfs-system
+      server: https://kubernetes.default.svc
+    - namespace: vault
+      server: https://kubernetes.default.svc
   clusterResourceWhitelist:
-    - group: "*"
-      kind: "*"
-  namespaceResourceWhitelist:
-    - group: "*"
-      kind: "*"
+    - group: ""
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: storage.k8s.io
+      kind: StorageClass
   roles:
     - name: viewer
       description: Read applications and pod logs in General-1.
