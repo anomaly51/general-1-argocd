@@ -1,9 +1,9 @@
 argocd:
-  url: https://192.168.1.172:30443
+  url: https://argocd-server.argocd
   nodePort: 30443
 
 keycloak:
-  issuer: http://192.168.1.172:30080/realms/general-1
+  issuer: http://keycloak-http.keycloak/realms/general-1
   clientID: argocd
 
 rbac:

@@ -22,6 +22,8 @@ data:
       "groups": [
         {"name": "argocd-admins"},
         {"name": "argocd-readonly"},
+        {"name": "argocd-general-1-viewers"},
+        {"name": "argocd-general-1-operators"},
         {"name": "vault-admins"},
         {"name": "vault-readonly"}
       ],
@@ -61,16 +63,19 @@ data:
           "standardFlowEnabled": true,
           "directAccessGrantsEnabled": false,
           "redirectUris": [
+            "https://argocd-server.argocd/auth/callback",
+            "https://argocd-server.argocd/pkce/verify",
             "https://192.168.1.172:30443/auth/callback",
             "https://192.168.1.172:30443/pkce/verify",
             "http://localhost:8085/auth/callback"
           ],
           "webOrigins": [
+            "https://argocd-server.argocd",
             "https://192.168.1.172:30443"
           ],
           "attributes": {
             "pkce.code.challenge.method": "S256",
-            "post.logout.redirect.uris": "https://192.168.1.172:30443/applications"
+            "post.logout.redirect.uris": "https://argocd-server.argocd/applications"
           },
           "defaultClientScopes": [
             "groups"
@@ -88,10 +93,12 @@ data:
           "standardFlowEnabled": true,
           "directAccessGrantsEnabled": false,
           "redirectUris": [
+            "http://vault-ui.vault:8200/ui/vault/auth/oidc/oidc/callback",
             "http://localhost:8200/ui/vault/auth/oidc/oidc/callback",
             "http://localhost:8250/oidc/callback"
           ],
           "webOrigins": [
+            "http://vault-ui.vault:8200",
             "http://localhost:8200"
           ],
           "defaultClientScopes": [

@@ -9,6 +9,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: ServerSideApply=true,Prune=false,Delete=false
 data:
+  application.sync.requireOverridePrivilegeForRevisionSync: "true"
   url: {{ .Values.argocd.url | quote }}
   oidc.config: |
     name: Keycloak

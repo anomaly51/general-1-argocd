@@ -20,3 +20,19 @@ spec:
   namespaceResourceWhitelist:
     - group: "*"
       kind: "*"
+  roles:
+    - name: viewer
+      description: Read applications and pod logs in General-1.
+      groups:
+        - argocd-general-1-viewers
+      policies:
+        - p, proj:gitops-apps:viewer, applications, get, gitops-apps/*, allow
+        - p, proj:gitops-apps:viewer, logs, get, gitops-apps/*, allow
+    - name: operator
+      description: Read and sync applications in General-1 without changing their definitions.
+      groups:
+        - argocd-general-1-operators
+      policies:
+        - p, proj:gitops-apps:operator, applications, get, gitops-apps/*, allow
+        - p, proj:gitops-apps:operator, applications, sync, gitops-apps/*, allow
+        - p, proj:gitops-apps:operator, logs, get, gitops-apps/*, allow

@@ -13,7 +13,7 @@ keycloakx:
           name: keycloak-bootstrap
           key: admin-password
     - name: KC_HOSTNAME
-      value: http://192.168.1.172:30080
+      value: http://keycloak-http.keycloak
     - name: KC_HOSTNAME_STRICT
       value: "true"
   extraVolumes: |
