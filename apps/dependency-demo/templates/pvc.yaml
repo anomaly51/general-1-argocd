@@ -9,9 +9,8 @@ metadata:
     argocd.argoproj.io/sync-wave: "-2"
 spec:
   accessModes:
-    - {{ .Values.persistence.accessMode | quote }}
-  volumeMode: Filesystem
-  storageClassName: {{ .Values.persistence.storageClassName | quote }}
+    - {{ .Values.persistence.accessMode }}
+  storageClassName: {{ .Values.persistence.storageClassName }}
   resources:
     requests:
       storage: {{ .Values.persistence.size }}
