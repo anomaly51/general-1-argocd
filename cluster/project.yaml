@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: gitops-apps
+  namespace: argocd
+spec:
+  description: Generic project for applications managed by this GitOps repository.
+  sourceRepos:
+    - https://github.com/your-org/your-gitops-repo.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
