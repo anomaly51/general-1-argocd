@@ -65,17 +65,14 @@ data:
           "redirectUris": [
             "https://argocd-server.argocd/auth/callback",
             "https://argocd-server.argocd/pkce/verify",
-            "https://192.168.1.172:30443/auth/callback",
-            "https://192.168.1.172:30443/pkce/verify",
             "http://localhost:8085/auth/callback"
           ],
           "webOrigins": [
-            "https://argocd-server.argocd",
-            "https://192.168.1.172:30443"
+            "https://argocd-server.argocd"
           ],
           "attributes": {
             "pkce.code.challenge.method": "S256",
-            "post.logout.redirect.uris": "https://argocd-server.argocd/applications##https://192.168.1.172:30443/applications"
+            "post.logout.redirect.uris": "https://argocd-server.argocd/applications"
           },
           "defaultClientScopes": [
             "groups"

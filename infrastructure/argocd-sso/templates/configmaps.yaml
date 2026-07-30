@@ -11,8 +11,6 @@ metadata:
 data:
   application.sync.requireOverridePrivilegeForRevisionSync: "true"
   url: {{ .Values.argocd.url | quote }}
-  additionalUrls: |
-{{ toYaml .Values.argocd.additionalUrls | indent 4 }}
   oidc.config: |
     name: Keycloak
     issuer: {{ .Values.keycloak.issuer }}
