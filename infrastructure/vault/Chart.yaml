@@ -1,0 +1,9 @@
+apiVersion: v2
+name: vault
+description: Minimal persistent HashiCorp Vault for General-1.
+type: application
+version: 0.1.0
+dependencies:
+  - name: vault
+    version: 0.34.0
+    repository: https://helm.releases.hashicorp.com

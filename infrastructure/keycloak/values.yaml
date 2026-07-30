@@ -1,0 +1,80 @@
+keycloakx:
+  fullnameOverride: keycloak
+  replicas: 1
+  args:
+    - start
+    - --import-realm
+  extraEnv: |
+    - name: KC_BOOTSTRAP_ADMIN_USERNAME
+      value: admin
+    - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-bootstrap
+          key: admin-password
+    - name: KC_HOSTNAME
+      value: http://192.168.1.172:30080
+    - name: KC_HOSTNAME_STRICT
+      value: "true"
+  extraVolumes: |
+    - name: realm
+      configMap:
+        name: keycloak-realm
+  extraVolumeMounts: |
+    - name: realm
+      mountPath: /opt/keycloak/data/import
+      readOnly: true
+  database:
+    vendor: postgres
+    hostname: keycloak-postgres
+    port: 5432
+    database: keycloak
+    username: keycloak
+    existingSecret: keycloak-bootstrap
+    existingSecretKey: database-password
+  dbchecker:
+    enabled: true
+  proxy:
+    enabled: false
+  http:
+    relativePath: /
+  service:
+    type: ClusterIP
+  serviceAccount:
+    automountServiceAccountToken: false
+  metrics:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 768Mi
+
+postgres:
+  fullnameOverride: keycloak-postgres
+  image:
+    imagePullPolicy: IfNotPresent
+  auth:
+    username: keycloak
+    database: keycloak
+    existingSecret: keycloak-bootstrap
+    secretKeys:
+      adminPasswordKey: database-password
+  persistence:
+    storageClass: local-path
+    size: 2Gi
+    annotations:
+      argocd.argoproj.io/sync-options: Delete=false,Prune=false
+  persistentVolumeClaimRetentionPolicy:
+    enabled: true
+    whenDeleted: Retain
+    whenScaled: Retain
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi

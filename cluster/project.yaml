@@ -8,6 +8,9 @@ spec:
   sourceRepos:
     - https://github.com/anomaly51/general-1-argocd.git
     - https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
+    - https://codecentric.github.io/helm-charts
+    - https://helm.releases.hashicorp.com
+    - registry-1.docker.io/cloudpirates
   destinations:
     - server: https://kubernetes.default.svc
       namespace: "*"

@@ -1,0 +1,51 @@
+vault:
+  injector:
+    enabled: false
+  server:
+    authDelegator:
+      enabled: false
+    dataStorage:
+      enabled: true
+      size: 1Gi
+      storageClass: local-path
+      annotations:
+        argocd.argoproj.io/sync-options: Delete=false,Prune=false
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+    volumes:
+      - name: bootstrap
+        secret:
+          secretName: vault-bootstrap
+          optional: true
+    volumeMounts:
+      - name: bootstrap
+        mountPath: /vault/bootstrap
+        readOnly: true
+    postStart:
+      - /bin/sh
+      - -c
+      - |
+        [ -s /vault/bootstrap/unseal-key ] || exit 0
+        for i in $(seq 1 30); do
+          vault status >/dev/null 2>&1
+          status=$?
+          [ "$status" -eq 0 ] && exit 0
+          if [ "$status" -eq 2 ]; then
+            vault operator unseal "$(cat /vault/bootstrap/unseal-key)" >/dev/null && exit 0
+          fi
+          sleep 1
+        done
+        exit 0
+    resources:
+      requests:
+        cpu: 25m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+  ui:
+    enabled: true
+    serviceType: ClusterIP
+  csi:
+    enabled: false

@@ -33,7 +33,7 @@ spec:
           releaseName: '{{ if eq .name "nfs-provisioner" }}nfs-subdir-external-provisioner{{ else }}{{ .name }}{{ end }}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{ if eq .name "nfs-provisioner" }}nfs-system{{ else }}{{ .name }}{{ end }}'
+        namespace: '{{ if eq .name "nfs-provisioner" }}nfs-system{{ else if eq .name "argocd-sso" }}argocd{{ else }}{{ .name }}{{ end }}'
       syncPolicy:
         automated:
           prune: true

@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm
+  namespace: {{ .Release.Namespace }}
+data:
+  general-1-realm.json: |
+    {
+      "realm": "general-1",
+      "displayName": "General-1",
+      "enabled": true,
+      "sslRequired": "none",
+      "registrationAllowed": false,
+      "resetPasswordAllowed": true,
+      "rememberMe": true,
+      "loginWithEmailAllowed": true,
+      "duplicateEmailsAllowed": false,
+      "bruteForceProtected": true,
+      "accessTokenLifespan": 300,
+      "ssoSessionIdleTimeout": 1800,
+      "ssoSessionMaxLifespan": 36000,
+      "groups": [
+        {"name": "argocd-admins"},
+        {"name": "argocd-readonly"},
+        {"name": "vault-admins"},
+        {"name": "vault-readonly"}
+      ],
+      "clientScopes": [
+        {
+          "name": "groups",
+          "description": "User group memberships",
+          "protocol": "openid-connect",
+          "attributes": {
+            "include.in.token.scope": "true",
+            "display.on.consent.screen": "false"
+          },
+          "protocolMappers": [
+            {
+              "name": "groups",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-group-membership-mapper",
+              "consentRequired": false,
+              "config": {
+                "claim.name": "groups",
+                "full.path": "false",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "userinfo.token.claim": "true"
+              }
+            }
+          ]
+        }
+      ],
+      "clients": [
+        {
+          "clientId": "argocd",
+          "name": "Argo CD",
+          "enabled": true,
+          "protocol": "openid-connect",
+          "publicClient": true,
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": false,
+          "redirectUris": [
+            "https://192.168.1.172:30443/auth/callback",
+            "https://192.168.1.172:30443/pkce/verify",
+            "http://localhost:8085/auth/callback"
+          ],
+          "webOrigins": [
+            "https://192.168.1.172:30443"
+          ],
+          "attributes": {
+            "pkce.code.challenge.method": "S256",
+            "post.logout.redirect.uris": "https://192.168.1.172:30443/applications"
+          },
+          "defaultClientScopes": [
+            "web-origins",
+            "acr",
+            "profile",
+            "roles",
+            "basic",
+            "email",
+            "groups"
+          ]
+        },
+        {
+          "clientId": "vault",
+          "name": "HashiCorp Vault",
+          "enabled": true,
+          "protocol": "openid-connect",
+          "publicClient": false,
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": false,
+          "redirectUris": [
+            "http://localhost:8200/ui/vault/auth/oidc/oidc/callback",
+            "http://localhost:8250/oidc/callback"
+          ],
+          "webOrigins": [
+            "http://localhost:8200"
+          ],
+          "defaultClientScopes": [
+            "web-origins",
+            "acr",
+            "profile",
+            "roles",
+            "basic",
+            "email",
+            "groups"
+          ]
+        }
+      ]
+    }

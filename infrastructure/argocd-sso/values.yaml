@@ -1,0 +1,11 @@
+argocd:
+  url: https://192.168.1.172:30443
+  nodePort: 30443
+
+keycloak:
+  issuer: http://192.168.1.172:30080/realms/general-1
+  clientID: argocd
+
+rbac:
+  adminGroup: argocd-admins
+  readonlyGroup: argocd-readonly

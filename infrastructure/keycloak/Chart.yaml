@@ -1,0 +1,12 @@
+apiVersion: v2
+name: keycloak
+description: Minimal shared identity provider for General-1.
+type: application
+version: 0.1.0
+dependencies:
+  - name: keycloakx
+    version: 7.2.2
+    repository: https://codecentric.github.io/helm-charts
+  - name: postgres
+    version: 0.19.10
+    repository: oci://registry-1.docker.io/cloudpirates
