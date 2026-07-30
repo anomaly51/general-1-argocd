@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-org/your-gitops-repo.git
+    repoURL: https://github.com/anomaly51/general-1-argocd.git
     targetRevision: main
     path: cluster
   destination:

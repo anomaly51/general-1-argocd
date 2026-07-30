@@ -6,7 +6,7 @@ metadata:
 spec:
   description: Generic project for applications managed by this GitOps repository.
   sourceRepos:
-    - https://github.com/your-org/your-gitops-repo.git
+    - https://github.com/anomaly51/general-1-argocd.git
   destinations:
     - server: https://kubernetes.default.svc
       namespace: "*"
