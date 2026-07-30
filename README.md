@@ -25,6 +25,20 @@ order, but generated Applications reconcile independently. The demo's real
 dependency gate is its PVC: it remains pending until `nfs-client` and the NFS
 provisioner are ready.
 
+## Shared storage
+
+`nfs-client` is a cluster-wide, opt-in StorageClass backed by
+`192.168.1.13:/export/test`. Applications create namespaced PVCs and Kubernetes
+creates the matching PVs automatically. Do not create PVs per application by
+hand.
+
+The default StorageClass remains `local-path`: use it for disposable,
+node-local data. Select `nfs-client` explicitly when data must be shared across
+nodes with `ReadWriteMany` or retained after a PVC is removed.
+
+See [docs/storage.md](docs/storage.md) for a copy-paste PVC example, mounting
+instructions, lifecycle behavior, and NFS limitations.
+
 ## Add a component
 
 1. Add a Helm chart under `infrastructure/<name>/` or `apps/<name>/`.
@@ -53,6 +67,6 @@ helm lint --strict apps/dependency-demo
 kubectl kustomize cluster
 ```
 
-The demo is disposable. Removing its chart from `main` prunes the generated
-Application and its PVC; the current NFS StorageClass then deletes the
-corresponding test data.
+The demo workload is disposable. Removing its chart from `main` prunes the
+generated Application and PVC, but the NFS PV and its data remain available
+for manual recovery or cleanup.
