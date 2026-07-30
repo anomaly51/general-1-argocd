@@ -3,3 +3,5 @@ kind: Kustomization
 
 resources:
   - project.yaml
+  - applications/nfs-provisioner.yaml
+  - applications/dependency-demo.yaml

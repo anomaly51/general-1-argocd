@@ -7,6 +7,7 @@ spec:
   description: Generic project for applications managed by this GitOps repository.
   sourceRepos:
     - https://github.com/anomaly51/general-1-argocd.git
+    - https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
   destinations:
     - server: https://kubernetes.default.svc
       namespace: "*"
