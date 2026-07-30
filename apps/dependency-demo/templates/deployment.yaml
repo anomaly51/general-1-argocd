@@ -13,6 +13,8 @@ spec:
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
+      annotations:
+        checksum/content: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum | quote }}
       labels:
         app.kubernetes.io/name: dependency-demo
         app.kubernetes.io/instance: {{ .Release.Name }}

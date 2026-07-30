@@ -6,3 +6,10 @@ nfs-subdir-external-provisioner:
     name: nfs-client
     defaultClass: false
     archiveOnDelete: false
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
