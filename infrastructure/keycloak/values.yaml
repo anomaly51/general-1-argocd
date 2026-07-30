@@ -3,7 +3,6 @@ keycloakx:
   replicas: 1
   args:
     - start
-    - --import-realm
   extraEnv: |
     - name: KC_BOOTSTRAP_ADMIN_USERNAME
       value: admin
@@ -16,14 +15,6 @@ keycloakx:
       value: http://keycloak-http.keycloak
     - name: KC_HOSTNAME_STRICT
       value: "true"
-  extraVolumes: |
-    - name: realm
-      configMap:
-        name: keycloak-realm
-  extraVolumeMounts: |
-    - name: realm
-      mountPath: /opt/keycloak/data/import
-      readOnly: true
   database:
     vendor: postgres
     hostname: keycloak-postgres
