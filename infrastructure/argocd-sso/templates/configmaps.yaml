@@ -16,7 +16,7 @@ data:
     clientID: {{ .Values.keycloak.clientID }}
     enablePKCEAuthentication: true
     refreshTokenThreshold: 2m
-    requestedScopes: ["openid", "profile", "email", "groups", "offline_access"]
+    requestedScopes: ["openid", "groups"]
 ---
 apiVersion: v1
 kind: ConfigMap

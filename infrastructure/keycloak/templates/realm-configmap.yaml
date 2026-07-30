@@ -73,12 +73,6 @@ data:
             "post.logout.redirect.uris": "https://192.168.1.172:30443/applications"
           },
           "defaultClientScopes": [
-            "web-origins",
-            "acr",
-            "profile",
-            "roles",
-            "basic",
-            "email",
             "groups"
           ]
         },
@@ -98,12 +92,6 @@ data:
             "http://localhost:8200"
           ],
           "defaultClientScopes": [
-            "web-origins",
-            "acr",
-            "profile",
-            "roles",
-            "basic",
-            "email",
             "groups"
           ]
         }
