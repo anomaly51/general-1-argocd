@@ -6,7 +6,7 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  project: default
+  project: gitops-apps
   source:
     repoURL: https://github.com/anomaly51/general-1-argocd.git
     targetRevision: main
