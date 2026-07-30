@@ -75,7 +75,7 @@ data:
           ],
           "attributes": {
             "pkce.code.challenge.method": "S256",
-            "post.logout.redirect.uris": "https://argocd-server.argocd/applications"
+            "post.logout.redirect.uris": "https://argocd-server.argocd/applications##https://192.168.1.172:30443/applications"
           },
           "defaultClientScopes": [
             "groups"
