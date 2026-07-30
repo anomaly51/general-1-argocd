@@ -74,6 +74,9 @@ data:
           },
           "defaultClientScopes": [
             "groups"
+          ],
+          "optionalClientScopes": [
+            "offline_access"
           ]
         },
         {
