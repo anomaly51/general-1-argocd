@@ -1,0 +1,8 @@
+nfs-subdir-external-provisioner:
+  nfs:
+    server: 192.168.1.13
+    path: /export/test
+  storageClass:
+    name: nfs-client
+    defaultClass: false
+    archiveOnDelete: false

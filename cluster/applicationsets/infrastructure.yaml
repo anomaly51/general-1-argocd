@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: infrastructure-apps
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+  generators:
+    - git:
+        repoURL: https://github.com/anomaly51/general-1-argocd.git
+        revision: main
+        files:
+          - path: infrastructure/*/Chart.yaml
+  template:
+    metadata:
+      name: "{{ .name }}"
+      namespace: argocd
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+      annotations:
+        argocd.argoproj.io/sync-wave: "10"
+    spec:
+      project: gitops-apps
+      source:
+        repoURL: https://github.com/anomaly51/general-1-argocd.git
+        targetRevision: main
+        path: "{{ .path.path }}"
+        helm:
+          releaseName: '{{ if eq .name "nfs-provisioner" }}nfs-subdir-external-provisioner{{ else }}{{ .name }}{{ end }}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{ if eq .name "nfs-provisioner" }}nfs-system{{ else }}{{ .name }}{{ end }}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - SkipDryRunOnMissingResource=true
