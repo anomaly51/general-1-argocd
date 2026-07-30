@@ -22,6 +22,7 @@ spec:
       finalizers:
         - resources-finalizer.argocd.argoproj.io
       annotations:
+        argocd.argoproj.io/compare-options: ServerSideDiff=true
         argocd.argoproj.io/sync-wave: "10"
     spec:
       project: gitops-apps
