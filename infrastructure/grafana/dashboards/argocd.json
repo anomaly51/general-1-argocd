@@ -479,7 +479,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 14,
         "x": 0,
         "y": 4
       },
@@ -566,8 +566,8 @@
               "project": "Project",
               "health_status": "Health",
               "sync_status": "Sync",
-              "autosync_enabled": "AutoSync",
-              "dest_namespace": "Destination namespace",
+              "autosync_enabled": "Auto sync",
+              "dest_namespace": "Namespace",
               "dest_server": "Destination cluster",
               "repo": "Repository",
               "namespace": "Control namespace"
@@ -587,8 +587,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 12,
+        "w": 5,
+        "x": 14,
         "y": 4
       },
       "fieldConfig": {
@@ -746,8 +746,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 18,
+        "w": 5,
+        "x": 19,
         "y": 4
       },
       "fieldConfig": {
