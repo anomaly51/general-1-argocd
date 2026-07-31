@@ -472,7 +472,7 @@
       "id": 7,
       "type": "table",
       "title": "Application inventory",
-      "description": "One row per current Application with destination, health, sync and policy labels.",
+      "description": "Current Applications: status first, without repeated cluster and repository details.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -546,10 +546,20 @@
               "instance": true,
               "job": true,
               "exported_namespace": true,
-              "Value": true
+              "Value": true,
+              "dest_server": true,
+              "namespace": true,
+              "project": true,
+              "repo": true
             },
             "includeByName": {},
-            "indexByName": {},
+            "indexByName": {
+              "name": 0,
+              "health_status": 1,
+              "sync_status": 2,
+              "dest_namespace": 3,
+              "autosync_enabled": 4
+            },
             "renameByName": {
               "Value": "Value",
               "name": "Application",
