@@ -22,6 +22,9 @@ spec:
           - name: pve-exporter
             namespace: monitoring
             releaseName: pve-exporter
+          - name: sealed-secrets
+            namespace: kube-system
+            releaseName: sealed-secrets
   template:
     metadata:
       name: "{{ .name }}"
