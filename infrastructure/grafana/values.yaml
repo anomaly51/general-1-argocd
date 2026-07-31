@@ -40,17 +40,17 @@ grafana:
     dashboardproviders.yaml:
       apiVersion: 1
       providers:
-        - name: General-1
+        - name: general-1
           orgId: 1
           folder: General-1
           type: file
           disableDeletion: true
           allowUiUpdates: false
           options:
-            path: /var/lib/grafana/dashboards/General-1
+            path: /var/lib/grafana/dashboards/general-1
 
   dashboards:
-    General-1:
+    general-1:
       argo-cd:
         gnetId: 19974
         revision: 1
