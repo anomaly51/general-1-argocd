@@ -4,18 +4,15 @@ metadata:
   name: gitops-apps
   namespace: argocd
 spec:
-  description: NFS provisioner managed by the General-1 GitOps repository.
+  description: Unrestricted applications for the General-1 learning cluster.
   sourceRepos:
-    - https://github.com/anomaly51/general-1-argocd.git
+    - "*"
   destinations:
-    - namespace: nfs-system
-      server: https://kubernetes.default.svc
+    - namespace: "*"
+      server: "*"
   clusterResourceWhitelist:
-    - group: ""
-      kind: Namespace
-    - group: rbac.authorization.k8s.io
-      kind: ClusterRole
-    - group: rbac.authorization.k8s.io
-      kind: ClusterRoleBinding
-    - group: storage.k8s.io
-      kind: StorageClass
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
