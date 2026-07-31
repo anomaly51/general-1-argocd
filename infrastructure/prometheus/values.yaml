@@ -93,13 +93,6 @@ prometheus:
             - argocd-notifications-controller-metrics.argocd.svc.cluster.local:9001
           labels:
             namespace: argocd
-    argocd-dex:
-      static_configs:
-        - targets:
-            - argocd-dex-server.argocd.svc.cluster.local:5558
-          labels:
-            namespace: argocd
-
     proxmox:
       metrics_path: /pve
       params:

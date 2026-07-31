@@ -16,6 +16,16 @@ grafana:
   testFramework:
     enabled: false
 
+  rbac:
+    create: false
+
+  grafana.ini:
+    analytics:
+      check_for_updates: false
+      reporting_enabled: false
+    plugins:
+      preinstall_disabled: true
+
   resources:
     requests:
       cpu: 50m
