@@ -13,6 +13,15 @@ spec:
           - name: nfs-provisioner
             namespace: nfs-system
             releaseName: nfs-subdir-external-provisioner
+          - name: prometheus
+            namespace: monitoring
+            releaseName: prometheus
+          - name: grafana
+            namespace: monitoring
+            releaseName: grafana
+          - name: pve-exporter
+            namespace: monitoring
+            releaseName: pve-exporter
   template:
     metadata:
       name: "{{ .name }}"

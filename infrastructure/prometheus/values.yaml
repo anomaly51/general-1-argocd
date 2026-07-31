@@ -1,0 +1,127 @@
+prometheus:
+  alertmanager:
+    enabled: false
+  kube-state-metrics:
+    enabled: false
+  prometheus-node-exporter:
+    enabled: false
+  prometheus-pushgateway:
+    enabled: false
+
+  rbac:
+    create: false
+
+  server:
+    global:
+      scrape_interval: 30s
+      evaluation_interval: 30s
+    retention: 7d
+    retentionSize: 4GB
+    persistentVolume:
+      storageClass: local-path
+      size: 5Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  configmapReload:
+    prometheus:
+      resources:
+        requests:
+          cpu: 5m
+          memory: 16Mi
+        limits:
+          cpu: 50m
+          memory: 32Mi
+
+  scrapeConfigs:
+    prometheus:
+      enabled: true
+      static_configs:
+        - targets:
+            - localhost:9090
+    kubernetes-api-servers:
+      enabled: false
+    kubernetes-nodes:
+      enabled: false
+    kubernetes-nodes-cadvisor:
+      enabled: false
+    kubernetes-service-endpoints:
+      enabled: false
+    kubernetes-service-endpoints-slow:
+      enabled: false
+    prometheus-pushgateway:
+      enabled: false
+    kubernetes-services:
+      enabled: false
+    kubernetes-pods:
+      enabled: false
+    kubernetes-pods-slow:
+      enabled: false
+
+    argocd-controller:
+      static_configs:
+        - targets:
+            - argocd-metrics.argocd.svc.cluster.local:8082
+          labels:
+            namespace: argocd
+    argocd-server:
+      static_configs:
+        - targets:
+            - argocd-server-metrics.argocd.svc.cluster.local:8083
+          labels:
+            namespace: argocd
+    argocd-repo-server:
+      static_configs:
+        - targets:
+            - argocd-repo-server.argocd.svc.cluster.local:8084
+          labels:
+            namespace: argocd
+    argocd-applicationset:
+      static_configs:
+        - targets:
+            - argocd-applicationset-controller.argocd.svc.cluster.local:8080
+          labels:
+            namespace: argocd
+    argocd-notifications:
+      static_configs:
+        - targets:
+            - argocd-notifications-controller-metrics.argocd.svc.cluster.local:9001
+          labels:
+            namespace: argocd
+    argocd-dex:
+      static_configs:
+        - targets:
+            - argocd-dex-server.argocd.svc.cluster.local:5558
+          labels:
+            namespace: argocd
+
+    proxmox:
+      metrics_path: /pve
+      params:
+        module:
+          - default
+        cluster:
+          - "1"
+        node:
+          - "1"
+      static_configs:
+        - targets:
+            - 192.168.1.35
+      relabel_configs:
+        - source_labels:
+            - __address__
+          target_label: __param_target
+        - source_labels:
+            - __param_target
+          target_label: instance
+        - target_label: __address__
+          replacement: pve-exporter.monitoring.svc.cluster.local:9221
+    pve-exporter:
+      static_configs:
+        - targets:
+            - pve-exporter.monitoring.svc.cluster.local:9221

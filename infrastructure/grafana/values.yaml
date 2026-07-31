@@ -1,0 +1,69 @@
+grafana:
+  replicas: 1
+
+  useStatefulSet: false
+  persistence:
+    enabled: false
+
+  service:
+    type: ClusterIP
+
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+
+  testFramework:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          uid: prometheus
+          type: prometheus
+          access: proxy
+          url: http://prometheus-server.monitoring.svc.cluster.local
+          isDefault: true
+          editable: false
+
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: General-1
+          orgId: 1
+          folder: General-1
+          type: file
+          disableDeletion: true
+          allowUiUpdates: false
+          options:
+            path: /var/lib/grafana/dashboards/General-1
+
+  dashboards:
+    General-1:
+      argo-cd:
+        gnetId: 19974
+        revision: 1
+        datasource:
+          - name: datasource
+            value: prometheus
+          - name: DS_PROMETHEUS
+            value: prometheus
+      proxmox:
+        gnetId: 10347
+        revision: 5
+        datasource:
+          - name: datasource
+            value: prometheus
+          - name: DS_PROMETHEUS
+            value: prometheus

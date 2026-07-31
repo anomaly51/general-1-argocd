@@ -1,0 +1,39 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/prometheus-pve/prometheus-pve-exporter
+  tag: 3.9.0
+  pullPolicy: IfNotPresent
+
+existingSecret: pve-exporter
+
+args:
+  - --collector.pve-api-metrics
+  - --collector.target-metrics
+
+service:
+  type: ClusterIP
+  port: 9221
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 101
+  runAsGroup: 101
+  fsGroup: 101
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
