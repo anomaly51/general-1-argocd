@@ -1,9 +1,0 @@
-dependencies:
-- name: keycloakx
-  repository: https://codecentric.github.io/helm-charts
-  version: 7.2.2
-- name: postgres
-  repository: oci://registry-1.docker.io/cloudpirates
-  version: 0.19.10
-digest: sha256:7ee98ef9a6c253a055e4d2ed2d8eea1947858f138e0319f172c2e93506d8afd2
-generated: "2026-07-30T23:49:28.343546+03:00"

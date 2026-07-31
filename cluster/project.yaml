@@ -4,17 +4,11 @@ metadata:
   name: gitops-apps
   namespace: argocd
 spec:
-  description: Infrastructure services managed by the General-1 GitOps repository.
+  description: NFS provisioner managed by the General-1 GitOps repository.
   sourceRepos:
     - https://github.com/anomaly51/general-1-argocd.git
   destinations:
-    - namespace: argocd
-      server: https://kubernetes.default.svc
-    - namespace: keycloak
-      server: https://kubernetes.default.svc
     - namespace: nfs-system
-      server: https://kubernetes.default.svc
-    - namespace: vault
       server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: ""
@@ -25,19 +19,3 @@ spec:
       kind: ClusterRoleBinding
     - group: storage.k8s.io
       kind: StorageClass
-  roles:
-    - name: viewer
-      description: Read applications and pod logs in General-1.
-      groups:
-        - argocd-general-1-viewers
-      policies:
-        - p, proj:gitops-apps:viewer, applications, get, gitops-apps/*, allow
-        - p, proj:gitops-apps:viewer, logs, get, gitops-apps/*, allow
-    - name: operator
-      description: Read and sync applications in General-1 without changing their definitions.
-      groups:
-        - argocd-general-1-operators
-      policies:
-        - p, proj:gitops-apps:operator, applications, get, gitops-apps/*, allow
-        - p, proj:gitops-apps:operator, applications, sync, gitops-apps/*, allow
-        - p, proj:gitops-apps:operator, logs, get, gitops-apps/*, allow

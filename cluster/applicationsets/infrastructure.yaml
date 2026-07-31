@@ -10,18 +10,9 @@ spec:
   generators:
     - list:
         elements:
-          - name: argocd-sso
-            namespace: argocd
-            releaseName: argocd-sso
-          - name: keycloak
-            namespace: keycloak
-            releaseName: keycloak
           - name: nfs-provisioner
             namespace: nfs-system
             releaseName: nfs-subdir-external-provisioner
-          - name: vault
-            namespace: vault
-            releaseName: vault
   template:
     metadata:
       name: "{{ .name }}"

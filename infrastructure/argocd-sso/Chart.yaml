@@ -1,5 +1,0 @@
-apiVersion: v2
-name: argocd-sso
-description: Keycloak OIDC and group-based RBAC for Argo CD.
-type: application
-version: 0.1.0
