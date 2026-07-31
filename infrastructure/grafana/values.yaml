@@ -56,24 +56,9 @@ grafana:
           type: file
           disableDeletion: true
           allowUiUpdates: false
+          updateIntervalSeconds: 30
           options:
             path: /var/lib/grafana/dashboards/general-1
 
-  dashboards:
-    general-1:
-      argo-cd:
-        gnetId: 19974
-        revision: 1
-        datasource:
-          - name: datasource
-            value: prometheus
-          - name: DS_PROMETHEUS
-            value: prometheus
-      proxmox:
-        gnetId: 10347
-        revision: 5
-        datasource:
-          - name: datasource
-            value: prometheus
-          - name: DS_PROMETHEUS
-            value: prometheus
+  dashboardsConfigMaps:
+    general-1: grafana-dashboards

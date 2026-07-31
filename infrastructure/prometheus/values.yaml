@@ -101,10 +101,32 @@ prometheus:
         cluster:
           - "1"
         node:
+          - "0"
+      static_configs:
+        - targets:
+            - 192.168.1.35
+      relabel_configs:
+        - source_labels:
+            - __address__
+          target_label: __param_target
+        - source_labels:
+            - __param_target
+          target_label: instance
+        - target_label: __address__
+          replacement: pve-exporter.monitoring.svc.cluster.local:9221
+    proxmox-nodes:
+      metrics_path: /pve
+      params:
+        module:
+          - default
+        cluster:
+          - "0"
+        node:
           - "1"
       static_configs:
         - targets:
             - 192.168.1.35
+            - 192.168.1.36
       relabel_configs:
         - source_labels:
             - __address__

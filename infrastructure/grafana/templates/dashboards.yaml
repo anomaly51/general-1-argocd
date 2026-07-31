@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  argocd.json: |-
+{{ .Files.Get "dashboards/argocd.json" | indent 4 }}
+  proxmox.json: |-
+{{ .Files.Get "dashboards/proxmox.json" | indent 4 }}
