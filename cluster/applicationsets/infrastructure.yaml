@@ -11,8 +11,8 @@ spec:
     - git:
         repoURL: https://github.com/anomaly51/general-1-argocd.git
         revision: main
-        files:
-          - path: infrastructure/*/app.yaml
+        directories:
+          - path: infrastructure/*/*
   template:
     metadata:
       name: "{{ .path.basenameNormalized }}"
@@ -28,10 +28,12 @@ spec:
         targetRevision: main
         path: "{{ .path.path }}"
         helm:
-          releaseName: '{{ dig "releaseName" .path.basename . }}'
+          # Keep the existing NFS release name because the upstream chart uses
+          # it in immutable selectors and in the StorageClass provisioner ID.
+          releaseName: '{{ if eq .path.basename "nfs-provisioner" }}nfs-subdir-external-provisioner{{ else }}{{ .path.basename }}{{ end }}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: "{{ .namespace }}"
+        namespace: '{{ index .path.segments 1 }}'
       syncPolicy:
         automated:
           prune: true
