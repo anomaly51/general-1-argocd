@@ -8,26 +8,14 @@ spec:
   goTemplateOptions:
     - missingkey=error
   generators:
-    - list:
-        elements:
-          - name: nfs-provisioner
-            namespace: nfs-system
-            releaseName: nfs-subdir-external-provisioner
-          - name: prometheus
-            namespace: monitoring
-            releaseName: prometheus
-          - name: grafana
-            namespace: monitoring
-            releaseName: grafana
-          - name: pve-exporter
-            namespace: monitoring
-            releaseName: pve-exporter
-          - name: sealed-secrets
-            namespace: kube-system
-            releaseName: sealed-secrets
+    - git:
+        repoURL: https://github.com/anomaly51/general-1-argocd.git
+        revision: main
+        files:
+          - path: infrastructure/*/app.yaml
   template:
     metadata:
-      name: "{{ .name }}"
+      name: "{{ .path.basenameNormalized }}"
       namespace: argocd
       finalizers:
         - resources-finalizer.argocd.argoproj.io
@@ -38,9 +26,9 @@ spec:
       source:
         repoURL: https://github.com/anomaly51/general-1-argocd.git
         targetRevision: main
-        path: "infrastructure/{{ .name }}"
+        path: "{{ .path.path }}"
         helm:
-          releaseName: "{{ .releaseName }}"
+          releaseName: '{{ dig "releaseName" .path.basename . }}'
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{ .namespace }}"
