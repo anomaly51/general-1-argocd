@@ -40,3 +40,6 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
+          # cert-manager ships large CRDs that should not be stored in the
+          # client-side apply annotation.
+          - 'ServerSideApply={{ if eq .path.basename "cert-manager" }}true{{ else }}false{{ end }}'
