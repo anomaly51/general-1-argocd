@@ -1,0 +1,73 @@
+vault:
+  global:
+    tlsDisable: true
+
+  injector:
+    enabled: false
+
+  csi:
+    enabled: false
+
+  server:
+    enabled: true
+    logLevel: info
+    logFormat: json
+
+    authDelegator:
+      enabled: true
+
+    resources:
+      requests:
+        cpu: 25m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+    dataStorage:
+      enabled: true
+      size: 2Gi
+      storageClass: local-path
+      accessMode: ReadWriteOnce
+
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+
+    standalone:
+      enabled: false
+
+    ha:
+      enabled: true
+      replicas: 1
+      disruptionBudget:
+        enabled: false
+      raft:
+        enabled: true
+        setNodeId: true
+        config: |
+          ui = true
+          disable_mlock = true
+
+          listener "tcp" {
+            tls_disable = 1
+            address = "[::]:8200"
+            cluster_address = "[::]:8201"
+          }
+
+          storage "raft" {
+            path = "/vault/data"
+          }
+
+          service_registration "kubernetes" {}
+
+    serviceAccount:
+      create: true
+      name: vault
+      createSecret: false
+      serviceDiscovery:
+        enabled: true
+
+  ui:
+    enabled: true
+    serviceType: ClusterIP

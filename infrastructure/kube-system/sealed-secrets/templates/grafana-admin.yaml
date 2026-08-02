@@ -12,6 +12,7 @@ spec:
     metadata:
       annotations:
         sealedsecrets.bitnami.com/managed: "true"
+        sealedsecrets.bitnami.com/skip-set-owner-references: "true"
       name: grafana-admin
       namespace: monitoring
     type: Opaque

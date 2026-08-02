@@ -40,3 +40,6 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
+          # Vault Secrets Operator ships large CRDs; use server-side apply so
+          # they do not exceed the client-side last-applied annotation limit.
+          - 'ServerSideApply={{ if eq .path.basename "vault-secrets-operator" }}true{{ else }}false{{ end }}'

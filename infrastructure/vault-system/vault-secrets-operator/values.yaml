@@ -1,0 +1,32 @@
+vault-secrets-operator:
+  controller:
+    replicas: 1
+    manager:
+      globalTransformationOptions:
+        excludeRaw: true
+      clientCache:
+        persistenceModel: none
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+    kubeRbacProxy:
+      resources:
+        requests:
+          cpu: 5m
+          memory: 32Mi
+        limits:
+          cpu: 50m
+          memory: 64Mi
+
+  defaultVaultConnection:
+    enabled: false
+
+  defaultAuthMethod:
+    enabled: false
+
+  csi:
+    enabled: false
