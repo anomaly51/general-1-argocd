@@ -3,7 +3,7 @@ cert-manager:
 
   crds:
     enabled: true
-    keep: true
+    keep: false
 
   global:
     leaderElection:
