@@ -1,0 +1,5 @@
+apiVersion: v2
+name: sealed-secrets-cleanup
+description: One-shot cleanup of orphaned Sealed Secrets resources.
+type: application
+version: 0.1.0
