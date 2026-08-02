@@ -29,11 +29,18 @@ kubectl --kubeconfig ~/.kube/configs/general-1-k3s.yaml \
   -n vault-system port-forward service/vault 8200:8200
 ```
 
-Retrieve the unseal key only when it is needed:
+After a Vault pod restart, unseal it without printing the key:
 
 ```sh
-security find-generic-password -w -s general-1-vault-unseal-key
+VAULT_UNSEAL_KEY="$(security find-generic-password -w \
+  -s general-1-vault-unseal-key)"
+kubectl --kubeconfig ~/.kube/configs/general-1-k3s.yaml \
+  -n vault-system exec vault-0 -- \
+  vault operator unseal "$VAULT_UNSEAL_KEY" >/dev/null
+unset VAULT_UNSEAL_KEY
 ```
 
 Raft snapshots must be copied outside the Kubernetes cluster. The initial
-bootstrap snapshot is stored outside this public repository with mode `0600`.
+bootstrap snapshot is stored at
+`~/.local/share/general-1-vault/backups/vault-bootstrap-0376e20.snap` with mode
+`0600`.
