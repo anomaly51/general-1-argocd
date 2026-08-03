@@ -2,5 +2,5 @@ apiVersion: v2
 name: pve-exporter
 description: Minimal Prometheus Proxmox VE exporter chart.
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "3.9.0"

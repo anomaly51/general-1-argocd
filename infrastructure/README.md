@@ -20,5 +20,11 @@ come from the application directory.
 To add an application, add its Helm chart under the target namespace. Do not
 edit the ApplicationSet and do not add a per-application Argo CD metadata file.
 
+Workload-specific resources belong to the chart that consumes them. For
+example, a `VaultStaticSecret` should live in the workload chart alongside the
+Helm values that reference its destination Secret. Shared namespace plumbing,
+such as `VaultConnection` and `VaultAuth`, may live in a separate namespace
+chart.
+
 Application directory names must be valid Kubernetes names and unique across
 all namespace directories because they become Argo CD Application names.

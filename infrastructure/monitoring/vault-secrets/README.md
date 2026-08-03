@@ -1,13 +1,18 @@
-# Monitoring secrets
+# Monitoring Vault access
 
-Vault Secrets Operator authenticates with the `vso-monitoring` ServiceAccount
-and synchronizes these Vault KV v2 paths into Kubernetes Secrets:
+This chart owns the shared Vault access plumbing for the `monitoring` namespace:
 
-| Vault path | Kubernetes Secret |
-| --- | --- |
-| `kv/monitoring/grafana-admin` | `monitoring/grafana-admin` |
-| `kv/monitoring/pve-exporter` | `monitoring/pve-exporter` |
+- `ServiceAccount/vso-monitoring`
+- `VaultConnection/vault`
+- `VaultAuth/monitoring`
 
-The Vault policy is read-only and limited to these two paths. Workloads keep
-their existing Secret names, so no application-specific configuration changes
-are required.
+Workload-specific `VaultStaticSecret` resources live with their consuming
+applications:
+
+| Vault path | Owning chart | Kubernetes Secret |
+| --- | --- | --- |
+| `kv/monitoring/grafana-admin` | `monitoring/grafana` | `monitoring/grafana-admin` |
+| `kv/monitoring/pve-exporter` | `monitoring/pve-exporter` | `monitoring/pve-exporter` |
+
+This keeps the Vault path, destination Secret, and rollout target in the same
+GitOps unit as the workload that consumes them.
