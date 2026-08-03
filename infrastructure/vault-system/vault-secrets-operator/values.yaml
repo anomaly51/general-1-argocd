@@ -23,7 +23,9 @@ vault-secrets-operator:
           memory: 64Mi
 
   defaultVaultConnection:
-    enabled: false
+    enabled: true
+    address: http://vault.vault-system.svc.cluster.local:8200
+    skipTLSVerify: false
 
   defaultAuthMethod:
     enabled: false
