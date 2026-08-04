@@ -15,6 +15,7 @@ stateful drift reconciliation.
 
 | Application | Namespace | ServiceAccount | Vault role/policy | Allowed KV v2 path |
 | --- | --- | --- | --- | --- |
+| Vault demo | `apps` | `vso-vault-demo` | `apps-vault-demo` | `kv/apps/vault-demo` |
 | Grafana | `monitoring` | `vso-grafana` | `monitoring-grafana` | `kv/monitoring/grafana-admin` |
 | PVE exporter | `monitoring` | `vso-pve-exporter` | `monitoring-pve-exporter` | `kv/monitoring/pve-exporter` |
 
@@ -27,6 +28,15 @@ Run these commands from the repository root with `VAULT_ADDR` and a temporary
 administrator `VAULT_TOKEN` set in the environment:
 
 ```sh
+vault policy write apps-vault-demo \
+  vault-config/policies/apps-vault-demo.hcl
+vault write auth/kubernetes/role/apps-vault-demo \
+  bound_service_account_names=vso-vault-demo \
+  bound_service_account_namespaces=apps \
+  policies=apps-vault-demo \
+  audience=vault \
+  ttl=1h
+
 vault policy write monitoring-grafana \
   vault-config/policies/monitoring-grafana.hcl
 vault write auth/kubernetes/role/monitoring-grafana \
@@ -45,6 +55,16 @@ vault write auth/kubernetes/role/monitoring-pve-exporter \
   audience=vault \
   ttl=1h
 ```
+
+The teaching application also needs an intentionally non-sensitive value:
+
+```sh
+vault kv put kv/apps/vault-demo \
+  message='Hello from Vault -> VSO -> Kubernetes -> vault-demo'
+```
+
+Do not put a real password at this demo path: the application deliberately
+serves `message` over HTTP inside the cluster.
 
 Keep Vault's standard `default` policy attached. VSO uses its safe
 `auth/token/renew-self` capability while managing short-lived client tokens.

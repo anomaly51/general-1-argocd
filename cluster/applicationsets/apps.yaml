@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+  generators:
+    - git:
+        repoURL: https://github.com/anomaly51/general-1-argocd.git
+        revision: main
+        directories:
+          - path: apps/*
+  template:
+    metadata:
+      name: "apps-{{ .path.basenameNormalized }}"
+      namespace: argocd
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+      annotations:
+        argocd.argoproj.io/compare-options: ServerSideDiff=true
+    spec:
+      project: gitops-apps
+      source:
+        repoURL: https://github.com/anomaly51/general-1-argocd.git
+        targetRevision: main
+        path: "{{ .path.path }}"
+        helm:
+          releaseName: "{{ .path.basename }}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: apps
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - SkipDryRunOnMissingResource=true
