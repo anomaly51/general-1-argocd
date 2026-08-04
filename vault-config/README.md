@@ -16,6 +16,7 @@ stateful drift reconciliation.
 | Application | Namespace | ServiceAccount | Vault role/policy | Allowed KV v2 path |
 | --- | --- | --- | --- | --- |
 | Vault demo | `apps` | `vso-vault-demo` | `apps-vault-demo` | `kv/apps/vault-demo` |
+| Authentik | `authentik` | `vso-authentik` | `authentik` | `kv/authentik/authentik` |
 | Grafana | `monitoring` | `vso-grafana` | `monitoring-grafana` | `kv/monitoring/grafana-admin` |
 | PVE exporter | `monitoring` | `vso-pve-exporter` | `monitoring-pve-exporter` | `kv/monitoring/pve-exporter` |
 
@@ -34,6 +35,15 @@ vault write auth/kubernetes/role/apps-vault-demo \
   bound_service_account_names=vso-vault-demo \
   bound_service_account_namespaces=apps \
   policies=apps-vault-demo \
+  audience=vault \
+  ttl=1h
+
+vault policy write authentik \
+  vault-config/policies/authentik.hcl
+vault write auth/kubernetes/role/authentik \
+  bound_service_account_names=vso-authentik \
+  bound_service_account_namespaces=authentik \
+  policies=authentik \
   audience=vault \
   ttl=1h
 
