@@ -26,6 +26,14 @@ spec:
             - --config
             - /etc/cloudflared/config/config.yaml
             - run
+            - --token
+            - $(TUNNEL_TOKEN)
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tunnel-token
+                  key: token
           ports:
             - name: metrics
               containerPort: 2000
@@ -51,13 +59,7 @@ spec:
             - name: config
               mountPath: /etc/cloudflared/config
               readOnly: true
-            - name: credentials
-              mountPath: /etc/cloudflared/creds
-              readOnly: true
       volumes:
         - name: config
           configMap:
             name: cloudflared-config
-        - name: credentials
-          secret:
-            secretName: tunnel-credentials

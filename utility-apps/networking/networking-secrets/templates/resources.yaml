@@ -40,7 +40,7 @@ spec:
 apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultStaticSecret
 metadata:
-  name: tunnel-credentials
+  name: tunnel-token
 spec:
   vaultAuthRef: networking
   mount: kv
@@ -49,13 +49,10 @@ spec:
   refreshAfter: 1m
   destination:
     create: true
-    name: tunnel-credentials
+    name: tunnel-token
     transformation:
-      excludes:
-        - .*
-      templates:
-        credentials.json:
-          text: '{{ `{{- get .Secrets "credentials" -}}` }}'
+      includes:
+        - ^token$
   rolloutRestartTargets:
     - kind: Deployment
       name: cloudflared

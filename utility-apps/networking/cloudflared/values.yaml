@@ -5,7 +5,7 @@ image:
   tag: 2026.5.0
 
 tunnel:
-  id: bfaa4824-dabf-4534-8b2a-0cfa730ec2f1
+  id: 4a29ced3-c1b8-4e6f-885b-8b2caaec2149
 
 origin: https://traefik.kube-system.svc.cluster.local:443
 
