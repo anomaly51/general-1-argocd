@@ -1,0 +1,9 @@
+apiVersion: v2
+name: authentik
+description: Minimal Authentik deployment for general-1.
+type: application
+version: 0.1.0
+dependencies:
+  - name: authentik
+    version: 2026.5.6
+    repository: https://charts.goauthentik.io
