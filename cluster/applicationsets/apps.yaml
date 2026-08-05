@@ -34,11 +34,9 @@ spec:
         namespace: apps
       syncPolicy:
         managedNamespaceMetadata:
-          labels:
-            secrets.hashicorp.com/vault-access: enabled
+          labels: {}
         automated:
           prune: true
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
-          - SkipDryRunOnMissingResource=true

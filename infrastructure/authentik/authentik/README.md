@@ -4,9 +4,10 @@ This wrapper deploys the official Authentik chart with one server, one worker,
 and one persistent PostgreSQL instance. Argo CD discovers this directory
 automatically through the infrastructure ApplicationSet.
 
-Vault Secrets Operator reads `kv/authentik/authentik` and creates the
-`authentik-secrets` Kubernetes Secret used by Authentik and PostgreSQL. Secret
-values are not stored in Git.
+The wrapper renders the ordinary Kubernetes Secret `authentik-credentials`
+from the base64-encoded values in `values.yaml`. Authentik and PostgreSQL both
+consume that Secret. Base64 is not encryption, so repository access also grants
+access to these credentials.
 
 Access the cluster-internal service locally:
 
@@ -25,4 +26,4 @@ security find-generic-password -w \
 ```
 
 `AUTHENTIK_BOOTSTRAP_PASSWORD` is consumed only during the first startup.
-Changing that Vault value later does not change the existing user's password.
+Changing its value in Git later does not change the existing user's password.

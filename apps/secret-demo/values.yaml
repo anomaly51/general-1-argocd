@@ -1,0 +1,4 @@
+secret:
+  name: secret-demo
+  data:
+    message: "SGVsbG8gZnJvbSBLdWJlcm5ldGVzIFNlY3JldA=="

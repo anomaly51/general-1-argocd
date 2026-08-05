@@ -9,7 +9,7 @@ grafana:
     type: ClusterIP
 
   admin:
-    existingSecret: grafana-admin
+    existingSecret: grafana-admin-credentials
     userKey: admin-user
     passwordKey: admin-password
 
@@ -63,11 +63,8 @@ grafana:
   dashboardsConfigMaps:
     general-1: grafana-dashboards
 
-vaultSecrets:
-  enabled: true
-  secrets:
-    - name: grafana-admin
-      authName: grafana
-      rolloutRestartTargets:
-        - kind: Deployment
-          name: grafana
+secret:
+  name: grafana-admin-credentials
+  data:
+    admin-password: "VjlFWVFRb3dDRGZMbk1wS1hBVl9mcDV4ZEJaZWlETW0="
+    admin-user: "YWRtaW4="

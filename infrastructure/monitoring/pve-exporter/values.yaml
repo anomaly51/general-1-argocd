@@ -5,7 +5,7 @@ image:
   tag: 3.9.0
   pullPolicy: IfNotPresent
 
-existingSecret: pve-exporter
+existingSecret: pve-exporter-credentials
 
 args:
   - --collector.pve-api-metrics
@@ -38,10 +38,10 @@ containerSecurityContext:
     drop:
       - ALL
 
-vaultSecrets:
-  enabled: true
-  secrets:
-    - name: pve-exporter
-      rolloutRestartTargets:
-        - kind: Deployment
-          name: pve-exporter
+secret:
+  name: pve-exporter-credentials
+  data:
+    PVE_TOKEN_NAME: "Z2VuZXJhbC0x"
+    PVE_TOKEN_VALUE: "NzhhZmYwOWUtYzk1Zi00YjU0LTg3OWQtNDBhZGVmYTRmYjE5"
+    PVE_USER: "cHJvbWV0aGV1c0BwdmU="
+    PVE_VERIFY_SSL: "ZmFsc2U="

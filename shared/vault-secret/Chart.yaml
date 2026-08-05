@@ -1,5 +1,0 @@
-apiVersion: v2
-name: vault-secret
-description: Reusable Vault Secrets Operator resources for one workload.
-type: application
-version: 0.1.0

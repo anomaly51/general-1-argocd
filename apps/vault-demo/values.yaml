@@ -1,5 +1,0 @@
-vaultSecrets:
-  enabled: true
-  secrets:
-    - name: vault-demo
-      refreshAfter: 10s

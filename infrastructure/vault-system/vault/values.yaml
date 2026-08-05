@@ -47,7 +47,7 @@ vault:
       accessMode: ReadWriteOnce
 
     persistentVolumeClaimRetentionPolicy:
-      whenDeleted: Retain
+      whenDeleted: Delete
       whenScaled: Retain
 
     standalone:

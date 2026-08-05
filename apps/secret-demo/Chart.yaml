@@ -1,0 +1,6 @@
+apiVersion: v2
+name: secret-demo
+description: Small teaching example for a native Kubernetes Secret.
+type: application
+version: 0.1.0
+appVersion: "1.37.0"

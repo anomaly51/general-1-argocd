@@ -1,6 +1,0 @@
-dependencies:
-- name: vault-secret
-  repository: file://../../shared/vault-secret
-  version: 0.1.0
-digest: sha256:689879e8a8c142e58c824e6b91a028e43ecc76a13fc982664413894145c625bc
-generated: "2026-08-05T04:10:18.947349+03:00"
