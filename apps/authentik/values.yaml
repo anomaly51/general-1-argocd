@@ -1,0 +1,29 @@
+authentik:
+  authentik:
+    existingSecret:
+      secretName: authentik
+
+  server:
+    replicas: 1
+    ingress:
+      enabled: false
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 768Mi
+
+  worker:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 768Mi
+
+  postgresql:
+    enabled: false
