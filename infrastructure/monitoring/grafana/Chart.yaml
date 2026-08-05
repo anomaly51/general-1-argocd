@@ -2,8 +2,13 @@ apiVersion: v2
 name: grafana
 description: Pinned Grafana Community chart wrapper.
 type: application
-version: 0.1.4
+version: 0.1.5
 dependencies:
   - name: grafana
     version: 12.10.1
     repository: https://grafana-community.github.io/helm-charts
+  - name: vso-app
+    alias: vaultSecrets
+    version: 0.1.0
+    repository: file://../../../charts/vso-app
+    condition: vaultSecrets.enabled

@@ -1,0 +1,64 @@
+{{- if .Values.enabled -}}
+{{- $root := . -}}
+{{- range $binding := .Values.bindings -}}
+{{- $path := required "vaultSecrets.bindings[].path is required" $binding.path -}}
+{{- $pathParts := splitList "/" $path -}}
+{{- if ne (len $pathParts) 2 -}}
+{{- fail (printf "Vault path %q must be <namespace>/<secret-name>" $path) -}}
+{{- end -}}
+{{- $secretName := index $pathParts 1 -}}
+{{- $syncWaves := default (dict) $binding.syncWaves -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ required "vaultSecrets.bindings[].serviceAccountName is required" $binding.serviceAccountName | quote }}
+  annotations:
+    vault.hashicorp.com/alias-metadata-secret_name: {{ $secretName | quote }}
+    {{- with $syncWaves.serviceAccount }}
+    argocd.argoproj.io/sync-wave: {{ . | quote }}
+    {{- end }}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: {{ required "vaultSecrets.bindings[].authName is required" $binding.authName | quote }}
+  {{- with $syncWaves.vaultAuth }}
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ . | quote }}
+  {{- end }}
+spec:
+  vaultAuthGlobalRef:
+    allowDefault: true
+    namespace: {{ $root.Values.authGlobalNamespace | quote }}
+  kubernetes:
+    role: {{ required "vaultSecrets.bindings[].role is required" $binding.role | quote }}
+    serviceAccount: {{ $binding.serviceAccountName | quote }}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: {{ required "vaultSecrets.bindings[].name is required" $binding.name | quote }}
+  {{- with $syncWaves.vaultStaticSecret }}
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ . | quote }}
+  {{- end }}
+spec:
+  vaultAuthRef: {{ $binding.authName | quote }}
+  mount: {{ default "kv" $binding.mount | quote }}
+  type: {{ default "kv-v2" $binding.type | quote }}
+  path: {{ $path | quote }}
+  refreshAfter: {{ default "60s" $binding.refreshAfter | quote }}
+  hmacSecretData: true
+  destination:
+    name: {{ $binding.name | quote }}
+    create: true
+    overwrite: true
+    transformation:
+      excludeRaw: true
+  {{- with $binding.rolloutRestartTargets }}
+  rolloutRestartTargets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+{{- end -}}
+{{- end -}}

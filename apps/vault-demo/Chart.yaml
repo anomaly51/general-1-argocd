@@ -2,5 +2,11 @@ apiVersion: v2
 name: vault-demo
 description: Small teaching example for Vault Secrets Operator.
 type: application
-version: 0.2.0
+version: 0.2.1
 appVersion: "1.37.0"
+dependencies:
+  - name: vso-app
+    alias: vaultSecrets
+    version: 0.1.0
+    repository: file://../../charts/vso-app
+    condition: vaultSecrets.enabled

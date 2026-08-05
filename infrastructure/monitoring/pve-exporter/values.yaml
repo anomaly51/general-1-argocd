@@ -37,3 +37,20 @@ containerSecurityContext:
   capabilities:
     drop:
       - ALL
+
+vaultSecrets:
+  enabled: true
+  authGlobalNamespace: vault-system
+  bindings:
+    - name: pve-exporter
+      authName: pve-exporter
+      serviceAccountName: vso-pve-exporter
+      role: monitoring-pve-exporter
+      path: monitoring/pve-exporter
+      refreshAfter: 60s
+      syncWaves:
+        serviceAccount: "-1"
+        vaultAuth: "-1"
+      rolloutRestartTargets:
+        - kind: Deployment
+          name: pve-exporter

@@ -1,4 +1,6 @@
-**/charts/
+# Packaged Helm dependencies are reproducible from Chart.lock. The source
+# charts in the repository root remain tracked.
+**/charts/*.tgz
 
 # Terraform/OpenTofu runtime files. Provider locks are intentionally tracked.
 **/.terraform/

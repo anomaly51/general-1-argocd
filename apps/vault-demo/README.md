@@ -17,16 +17,18 @@ vault kv put kv/apps/vault-demo message='Hello from Vault'
 
 ## Как значение доходит до приложения
 
-Весь Kubernetes-код находится в одном файле
-[`templates/demo.yaml`](templates/demo.yaml) и читается сверху вниз:
+Приложение объявляет связь с Vault коротким блоком в
+[`values.yaml`](values.yaml). Общий chart
+[`../../charts/vso-app`](../../charts/vso-app) превращает его в три ресурса:
 
 1. `ServiceAccount/vso-vault-demo` — identity для входа в Vault.
 2. `VaultAuth/vault-demo` — VSO входит в Vault через role
    `apps-vault-demo`.
 3. `VaultStaticSecret/vault-demo` — VSO читает `kv/apps/vault-demo` и создаёт
    обычный Kubernetes `Secret/vault-demo`.
-4. `Deployment/vault-demo` берёт из него ключ `message`, монтирует его как
-   `/www/index.html`, а BusyBox `httpd` показывает этот файл.
+Сам [`Deployment/vault-demo`](templates/deployment.yaml) берёт из Secret ключ
+`message`, монтирует его как `/www/index.html`, а BusyBox `httpd` показывает
+этот файл.
 
 ```text
 vault kv put
@@ -38,9 +40,11 @@ Kubernetes: Secret/vault-demo
 Pod: /www/index.html
 ```
 
-Vault role уже настроена отдельно и разрешает этой ServiceAccount читать
-только данный путь. Её policy находится в
-[`../../vault-config/policies/apps-vault-demo.hcl`](../../vault-config/policies/apps-vault-demo.hcl).
+Vault role описана в
+[`../../terraform/vault/workloads.tf`](../../terraform/vault/workloads.tf).
+Одна общая templated policy вычисляет разрешённый path из namespace и
+annotation ServiceAccount. Поэтому `vso-vault-demo` может читать только
+`kv/apps/vault-demo`; отдельного policy-файла на приложение больше нет.
 
 ## Посмотреть результат
 
