@@ -41,6 +41,7 @@ vault:
         config: |
           ui = false
           disable_mlock = true
+          enable_unauthenticated_access = ["generate-root"]
 
           listener "tcp" {
             tls_disable = 1
