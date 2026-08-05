@@ -1,9 +1,6 @@
 grafana:
   fullnameOverride: grafana
 
-  annotations:
-    argocd.argoproj.io/sync-options: ServerSideApply=false
-
   image:
     registry: docker.io
     repository: grafana/grafana
