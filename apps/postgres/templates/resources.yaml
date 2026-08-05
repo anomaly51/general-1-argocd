@@ -72,6 +72,11 @@ spec:
           text: '{{ `{{- get .Secrets "password" -}}` }}'
         AUTHENTIK_POSTGRESQL__PORT:
           text: "5432"
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: authentik-server
+    - kind: Deployment
+      name: authentik-worker
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
