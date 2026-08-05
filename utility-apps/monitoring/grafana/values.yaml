@@ -1,0 +1,130 @@
+grafana:
+  fullnameOverride: grafana
+
+  image:
+    registry: docker.io
+    repository: grafana/grafana
+    tag: "13.1.1"
+    pullPolicy: IfNotPresent
+
+  env:
+    GF_SECURITY_ADMIN_USER: "admin"
+    GF_SECURITY_ADMIN_PASSWORD: "V9EYQQowCDfLnMpKXAV_fp5xdBZeiDMm"
+
+  replicas: 1
+  revisionHistoryLimit: 10
+
+  rbac:
+    create: true
+    namespaced: true
+    useExistingRole: grafana-dashboards
+
+  serviceAccount:
+    create: true
+    name: grafana
+    automountServiceAccountToken: true
+
+  automountServiceAccountToken: true
+
+  extraObjects:
+    - apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: grafana-dashboards
+        namespace: "{{ .Release.Namespace }}"
+      rules:
+        - apiGroups:
+            - ""
+          resources:
+            - configmaps
+          verbs:
+            - get
+            - list
+            - watch
+
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+    portName: service
+
+  persistence:
+    enabled: false
+
+  initChownData:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 250m
+      memory: 512Mi
+
+  securityContext:
+    fsGroup: 472
+    runAsGroup: 472
+    runAsNonRoot: true
+    runAsUser: 472
+
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    privileged: false
+    seccompProfile:
+      type: RuntimeDefault
+
+  sidecar:
+    image:
+      registry: quay.io
+      repository: kiwigrid/k8s-sidecar
+      tag: 2.10.1
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      folder: /var/lib/grafana/dashboards
+      watchMethod: WATCH
+      resource: configmap
+      provider:
+        name: dashboards
+        orgid: 1
+        folder: ""
+        type: file
+        disableDelete: false
+        allowUiUpdates: false
+        foldersFromFilesStructure: true
+
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - access: proxy
+          editable: false
+          isDefault: true
+          name: Prometheus
+          type: prometheus
+          uid: prometheus
+          url: http://prometheus-server.monitoring.svc.cluster.local
+
+  grafana.ini:
+    analytics:
+      check_for_updates: false
+      reporting_enabled: false
+    log:
+      mode: console
+    paths:
+      data: /var/lib/grafana/
+      logs: /var/log/grafana
+      plugins: /var/lib/grafana/plugins
+      provisioning: /etc/grafana/provisioning
+    plugins:
+      preinstall_disabled: true
+    server:
+      domain: "''"
+    unified_storage:
+      index_path: /var/lib/grafana-search/bleve

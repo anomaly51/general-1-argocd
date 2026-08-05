@@ -1,6 +1,10 @@
 apiVersion: v2
 name: grafana
-description: Grafana runtime with dashboard discovery.
+description: Grafana configured through the upstream Helm chart.
 type: application
-version: 0.5.0
+version: 0.6.0
 appVersion: "13.1.1"
+dependencies:
+  - name: grafana
+    version: 12.10.3
+    repository: https://grafana-community.github.io/helm-charts
