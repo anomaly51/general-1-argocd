@@ -1,6 +1,6 @@
 apiVersion: v2
 name: grafana
-description: Grafana runtime with admin credentials embedded in the Deployment template.
+description: Grafana runtime with dashboard discovery.
 type: application
-version: 0.4.0
+version: 0.5.0
 appVersion: "13.1.1"
