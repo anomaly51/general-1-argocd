@@ -10,6 +10,9 @@ vault:
 
   server:
     logFormat: json
+    updateStrategyType: RollingUpdate
+    annotations:
+      general-1.api-api-api.com/config-revision: "1"
 
     resources:
       requests:
