@@ -1,0 +1,16 @@
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuthGlobal
+metadata:
+  name: default
+  namespace: vault-system
+spec:
+  # This object only shares connection/auth defaults. Access is still enforced
+  # by a dedicated Vault role and ServiceAccount for every workload.
+  allowedNamespaces:
+    - "*"
+  defaultAuthMethod: kubernetes
+  kubernetes:
+    mount: kubernetes
+    audiences:
+      - vault
+    tokenExpirationSeconds: 600

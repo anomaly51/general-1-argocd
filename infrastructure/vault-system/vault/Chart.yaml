@@ -2,7 +2,7 @@ apiVersion: v2
 name: vault
 description: Persistent single-node HashiCorp Vault for General-1.
 type: application
-version: 0.1.0
+version: 0.1.1
 dependencies:
   - name: vault
     version: 0.34.0

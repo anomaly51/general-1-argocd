@@ -3,6 +3,8 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: vso-vault-demo
+  annotations:
+    vault.hashicorp.com/alias-metadata-secret_name: vault-demo
 ---
 # 2. Как войти в Vault. Адрес Vault берётся из глобального
 #    VaultConnection/default, созданного chart-ом VSO.
