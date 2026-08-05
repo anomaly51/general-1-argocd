@@ -20,7 +20,9 @@ spec:
       finalizers:
         - resources-finalizer.argocd.argoproj.io
       annotations:
-        argocd.argoproj.io/compare-options: ServerSideDiff=true
+        # Grafana is temporarily kept on legacy diff while its Deployment
+        # migrates admin env fields from valueFrom to direct value entries.
+        argocd.argoproj.io/compare-options: '{{ if eq .path.basename "grafana" }}ServerSideDiff=false{{ else }}ServerSideDiff=true{{ end }}'
     spec:
       project: gitops-apps
       source:
