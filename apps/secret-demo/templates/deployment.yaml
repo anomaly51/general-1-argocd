@@ -17,18 +17,19 @@ spec:
       containers:
         - name: app
           image: busybox:1.37.0
-          command: ["httpd"]
-          args: ["-f", "-p", "8080", "-h", "/www"]
+          command: ["sh", "-c"]
+          args:
+            - |
+              printf '%s' "$MESSAGE" > /www/index.html
+              exec httpd -f -p 8080 -h /www
+          env:
+            - name: MESSAGE
+              value: "Hello from Kubernetes Secret"
           ports:
             - containerPort: 8080
           volumeMounts:
-            - name: secret
+            - name: content
               mountPath: /www
-              readOnly: true
       volumes:
-        - name: secret
-          secret:
-            secretName: secret-demo
-            items:
-              - key: message
-                path: index.html
+        - name: content
+          emptyDir: {}

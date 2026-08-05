@@ -12,22 +12,14 @@ apps/<app>                       ordinary workloads in namespace apps
 Adding a directory under `infrastructure/<namespace>/` or `apps/` is enough for
 the corresponding ApplicationSet to create an Argo CD Application.
 
-## Adding a Kubernetes Secret
+## Direct application values (temporary)
 
-Keep an ordinary Secret next to the workload that consumes it:
+Credentials currently live as plain strings directly in workload templates and
+are rendered as literal container environment variables. Credential data is not
+passed through `values.yaml`; the repository does not create Kubernetes
+`Secret` resources or use a shared secret chart.
 
-```text
-infrastructure/monitoring/influxdb/
-├── templates/
-│   └── secret.yaml
-├── Chart.yaml
-└── values.yaml
-```
-
-Store base64-encoded values under `secret.data` in `values.yaml`, render
-them as a core Kubernetes `Secret` from `templates/secret.yaml`, and point
-the workload at that Secret. The examples in Grafana, Authentik, PVE exporter,
-and `apps/secret-demo` all use this pattern.
-
-Base64 is only an encoding and does not protect the value. Anyone who can read
-the Git repository can decode every committed Secret.
+This is a temporary and intentionally insecure setup: repository access grants
+immediate access to every committed credential. Add new credentials only to the
+consuming workload template's `env` entries until external secret management is
+restored.

@@ -1,13 +1,15 @@
 # Authentik
 
-This wrapper deploys the official Authentik chart with one server, one worker,
-and one persistent PostgreSQL instance. Argo CD discovers this directory
-automatically through the infrastructure ApplicationSet.
+This chart deploys one Authentik server, one worker, and one persistent
+PostgreSQL instance. Argo CD discovers this directory automatically through the
+infrastructure ApplicationSet.
 
-The wrapper renders the ordinary Kubernetes Secret `authentik-credentials`
-from the base64-encoded values in `values.yaml`. Authentik and PostgreSQL both
-consume that Secret. Base64 is not encryption, so repository access also grants
-access to these credentials.
+Credentials are temporarily embedded as plain strings directly in
+`templates/workloads.yaml` and `templates/database.yaml`. They render as
+literal container environment values; there is no `values.yaml` indirection and
+no Kubernetes Secret.
+
+Repository access grants immediate access to every credential in this chart.
 
 Access the cluster-internal service locally:
 
@@ -26,4 +28,6 @@ security find-generic-password -w \
 ```
 
 `AUTHENTIK_BOOTSTRAP_PASSWORD` is consumed only during the first startup.
-Changing its value in Git later does not change the existing user's password.
+Changing it later does not change the existing user's password. Likewise,
+changing the PostgreSQL value in Git does not rotate the password stored in an
+existing database; both sides must be migrated together.

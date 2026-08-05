@@ -26,9 +26,15 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             {{- toYaml .Values.args | nindent 12 }}
-          envFrom:
-            - secretRef:
-                name: {{ required "existingSecret must name the PVE credentials Secret" .Values.existingSecret | quote }}
+          env:
+            - name: PVE_TOKEN_NAME
+              value: "general-1"
+            - name: PVE_TOKEN_VALUE
+              value: "78aff09e-c95f-4b54-879d-40adefa4fb19"
+            - name: PVE_USER
+              value: "prometheus@pve"
+            - name: PVE_VERIFY_SSL
+              value: "false"
           ports:
             - name: http
               containerPort: 9221
