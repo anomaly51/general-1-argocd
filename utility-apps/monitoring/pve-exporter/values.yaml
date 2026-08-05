@@ -1,37 +1,55 @@
-replicaCount: 1
+prometheus-pve-exporter:
+  nameOverride: pve-exporter
+  fullnameOverride: pve-exporter
 
-image:
-  repository: ghcr.io/prometheus-pve/prometheus-pve-exporter
-  tag: 3.9.0
-  pullPolicy: IfNotPresent
+  image:
+    registry: ghcr.io
+    repository: prometheus-pve/prometheus-pve-exporter
+    tag: "3.9.0"
+    pullPolicy: IfNotPresent
 
-args:
-  - --collector.pve-api-metrics
-  - --collector.target-metrics
+  replicaCount: 1
+  revisionHistoryLimit: 10
 
-service:
-  type: ClusterIP
-  port: 9221
+  serviceAccount:
+    create: true
+    name: pve-exporter
 
-resources:
-  requests:
-    cpu: 10m
-    memory: 32Mi
-  limits:
-    cpu: 100m
-    memory: 128Mi
+  args:
+    - --collector.pve-api-metrics
+    - --collector.target-metrics
 
-podSecurityContext:
-  runAsNonRoot: true
-  runAsUser: 101
-  runAsGroup: 101
-  fsGroup: 101
-  seccompProfile:
-    type: RuntimeDefault
+  env:
+    pveAuthType: token
+    pveUser: "prometheus@pve"
+    pveTokenName: "general-1"
+    pveTokenValue: "78aff09e-c95f-4b54-879d-40adefa4fb19"
+    pveExistingSecretName: ""
+    pveVerifySsl: false
 
-containerSecurityContext:
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  capabilities:
-    drop:
-      - ALL
+  service:
+    type: ClusterIP
+    port: 9221
+
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsGroup: 101
+    runAsNonRoot: true
+    runAsUser: 101
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
+
+  serviceMonitor:
+    enabled: false
