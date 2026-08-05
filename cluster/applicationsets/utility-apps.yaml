@@ -13,12 +13,12 @@ spec:
         revision: main
         directories:
           - path: utility-apps/*/*
-  syncPolicy:
-    preserveResourcesOnDeletion: true
   template:
     metadata:
       name: "{{ .path.basenameNormalized }}"
       namespace: argocd
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
       annotations:
         argocd.argoproj.io/compare-options: ServerSideDiff=true
     spec:
