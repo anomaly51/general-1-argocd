@@ -46,7 +46,7 @@ VAULT_TOKEN="$(security find-generic-password -w \
 export VAULT_TOKEN
 
 vault policy write gitops-vault-configurer - <<'EOF'
-path "sys/auth/kubernetes" {
+path "sys/mounts/auth/kubernetes" {
   capabilities = ["read"]
 }
 path "sys/policies/acl/kubernetes-workload-kv-read" {

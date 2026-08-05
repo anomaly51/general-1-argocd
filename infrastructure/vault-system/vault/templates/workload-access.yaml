@@ -25,7 +25,7 @@ data:
     )"
     trap 'vault token revoke -self >/dev/null 2>&1 || true' EXIT HUP INT TERM
 
-    auth_accessor="$(vault read -field=accessor "sys/auth/${AUTH_MOUNT}")"
+    auth_accessor="$(vault read -field=accessor "sys/mounts/auth/${AUTH_MOUNT}")"
     sed \
       -e "s|AUTH_ACCESSOR|${auth_accessor}|g" \
       -e "s|KV_MOUNT|${KV_MOUNT}|g" \
