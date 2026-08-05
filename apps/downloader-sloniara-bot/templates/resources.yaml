@@ -68,6 +68,28 @@ spec:
 apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultStaticSecret
 metadata:
+  name: downloader-sloniara-bot-cookies
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: downloader-sloniara-bot
+  mount: kv
+  type: kv-v2
+  path: apps/downloader-sloniara-bot
+  refreshAfter: 1h
+  destination:
+    create: true
+    name: downloader-sloniara-bot-cookies
+    transformation:
+      includes:
+        - ^(INSTAGRAM_COOKIES_B64|TIKTOK_COOKIES_B64)$
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: downloader-sloniara-bot
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
   name: downloader-sloniara-bot-registry
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
@@ -136,6 +158,34 @@ spec:
           volumeMounts:
             - name: session
               mountPath: /session
+        - name: seed-cookies
+          image: busybox:1.36
+          command:
+            - sh
+            - -ec
+            - |
+              printf '%s' "$INSTAGRAM_COOKIES_B64" | base64 -d > /cookies/instagram.txt
+              printf '%s' "$TIKTOK_COOKIES_B64" | base64 -d > /cookies/tiktok.txt
+              chmod 600 /cookies/*.txt
+          env:
+            - name: INSTAGRAM_COOKIES_B64
+              valueFrom:
+                secretKeyRef:
+                  name: downloader-sloniara-bot-cookies
+                  key: INSTAGRAM_COOKIES_B64
+            - name: TIKTOK_COOKIES_B64
+              valueFrom:
+                secretKeyRef:
+                  name: downloader-sloniara-bot-cookies
+                  key: TIKTOK_COOKIES_B64
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: cookies
+              mountPath: /cookies
       containers:
         - name: bot
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -155,6 +205,12 @@ spec:
               value: /app/logs/proxy_bot_downloader.log
             - name: SEND_CONTENT_TIMEOUT
               value: "180"
+            - name: GALLERY_DL_TIMEOUT
+              value: "240"
+            - name: INSTAGRAM_COOKIES_PATH
+              value: /app/secrets/instagram.txt
+            - name: TIKTOK_COOKIES_PATH
+              value: /app/secrets/tiktok.txt
           envFrom:
             - secretRef:
                 name: downloader-sloniara-bot-env
@@ -174,6 +230,9 @@ spec:
               mountPath: /app/downloads
             - name: content
               mountPath: /app/content
+            - name: cookies
+              mountPath: /app/secrets
+              readOnly: true
       volumes:
         - name: session
           emptyDir: {}
@@ -182,4 +241,6 @@ spec:
         - name: downloads
           emptyDir: {}
         - name: content
+          emptyDir: {}
+        - name: cookies
           emptyDir: {}
