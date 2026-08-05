@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - vault-system-namespace.yaml
+  - vault-crd-cleanup.yaml
   - project.yaml
   - applicationsets/apps.yaml
   - applicationsets/infrastructure.yaml

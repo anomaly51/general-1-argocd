@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-crd-cleanup
+  namespace: argocd
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vault-crd-cleanup
+rules:
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+      - list
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vault-crd-cleanup
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vault-crd-cleanup
+subjects:
+  - kind: ServiceAccount
+    name: vault-crd-cleanup
+    namespace: argocd
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-crd-cleanup
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      serviceAccountName: vault-crd-cleanup
+      restartPolicy: Never
+      containers:
+        - name: kubectl
+          image: registry.k8s.io/kubectl:v1.35.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - kubectl
+          args:
+            - delete
+            - customresourcedefinitions.apiextensions.k8s.io
+            - csisecrets.secrets.hashicorp.com
+            - hcpauths.secrets.hashicorp.com
+            - hcpvaultsecretsapps.secrets.hashicorp.com
+            - secrettransformations.secrets.hashicorp.com
+            - vaultauthglobals.secrets.hashicorp.com
+            - vaultauths.secrets.hashicorp.com
+            - vaultconnections.secrets.hashicorp.com
+            - vaultdynamicsecrets.secrets.hashicorp.com
+            - vaultpkisecrets.secrets.hashicorp.com
+            - vaultstaticsecrets.secrets.hashicorp.com
+            - --ignore-not-found=true
+            - --wait=true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
