@@ -1,0 +1,11 @@
+image:
+  repository: ghcr.io/anomaly51/downloader-sloniara-bot
+  tag: sha-ed9a77c2ed1557886cb071944d062769b010c456
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 2Gi
