@@ -17,12 +17,21 @@ data:
     set -eu
     umask 077
 
-    export VAULT_TOKEN="$(
+    login_attempt=0
+    until VAULT_TOKEN="$(
       vault write -field=token \
         "auth/${AUTH_MOUNT}/login" \
         role="${CONFIGURER_ROLE}" \
         jwt=@/var/run/secrets/vault/token
-    )"
+    )"; do
+      login_attempt=$((login_attempt + 1))
+      if [ "${login_attempt}" -ge 20 ]; then
+        echo "Vault login failed after ${login_attempt} attempts." >&2
+        exit 1
+      fi
+      sleep 3
+    done
+    export VAULT_TOKEN
     trap 'vault token revoke -self >/dev/null 2>&1 || true' EXIT HUP INT TERM
 
     auth_accessor="$(vault read -field=accessor "sys/mounts/auth/${AUTH_MOUNT}")"
