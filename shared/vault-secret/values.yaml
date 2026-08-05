@@ -1,0 +1,3 @@
+enabled: false
+authGlobalNamespace: vault-system
+secrets: []

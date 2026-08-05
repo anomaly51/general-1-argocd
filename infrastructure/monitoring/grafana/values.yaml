@@ -62,3 +62,12 @@ grafana:
 
   dashboardsConfigMaps:
     general-1: grafana-dashboards
+
+vaultSecrets:
+  enabled: true
+  secrets:
+    - name: grafana-admin
+      authName: grafana
+      rolloutRestartTargets:
+        - kind: Deployment
+          name: grafana

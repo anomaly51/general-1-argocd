@@ -1,58 +1,48 @@
-# Vault demo: откуда берётся secret
+# Vault demo: от значения до Pod
 
-Здесь нет скрытой магии. Значение впервые попадает в Vault только в момент
-выполнения этой команды администратором:
+Секретное значение не хранится в Git. Администратор один раз записывает его в
+Vault:
 
 ```sh
 vault kv put kv/apps/vault-demo message='Hello from Vault'
 ```
 
-Эта команда **не выполняется Argo CD** и значение не хранится в Git. Она
-создаёт KV v2 secret по пути `kv/apps/vault-demo` с ключом `message`.
+В Git для интеграции остался только этот блок в [`values.yaml`](values.yaml):
 
-Адрес Vault также не спрятан в demo: глобальный `VaultConnection/default`
-создаётся настройкой `defaultVaultConnection` в
-[`../../infrastructure/vault-system/vault-secrets-operator/values.yaml`](../../infrastructure/vault-system/vault-secrets-operator/values.yaml)
-и указывает на `http://vault.vault-system.svc.cluster.local:8200`.
-
-## Как значение доходит до приложения
-
-Весь Kubernetes-код находится в одном файле
-[`templates/demo.yaml`](templates/demo.yaml) и читается сверху вниз:
-
-1. `ServiceAccount/vso-vault-demo` — identity для входа в Vault.
-2. `VaultAuth/vault-demo` — VSO входит в Vault через role
-   `apps-vault-demo`.
-3. `VaultStaticSecret/vault-demo` — VSO читает `kv/apps/vault-demo` и создаёт
-   обычный Kubernetes `Secret/vault-demo`.
-4. `Deployment/vault-demo` берёт из него ключ `message`, монтирует его как
-   `/www/index.html`, а BusyBox `httpd` показывает этот файл.
-
-```text
-vault kv put
-     ↓
-Vault: kv/apps/vault-demo
-     ↓  VaultStaticSecret
-Kubernetes: Secret/vault-demo
-     ↓  Secret volume
-Pod: /www/index.html
+```yaml
+vaultSecrets:
+  enabled: true
+  secrets:
+    - name: vault-demo
+      refreshAfter: 10s
 ```
 
-Vault role уже настроена отдельно и разрешает этой ServiceAccount читать
-только данный путь. Её policy находится в
-[`../../vault-config/policies/apps-vault-demo.hcl`](../../vault-config/policies/apps-vault-demo.hcl).
+Общий chart
+[`shared/vault-secret`](../../shared/vault-secret/README.md) вычисляет namespace
+из Argo CD destination и создаёт три Kubernetes-ресурса:
 
-## Посмотреть результат
+1. `ServiceAccount/vault-demo` — Kubernetes identity.
+2. `VaultAuth/vault-demo` — вход через общую role `kubernetes-workloads`.
+3. `VaultStaticSecret/vault-demo` — копирование
+   `kv/apps/vault-demo` в `Secret/vault-demo`.
+
+[`Deployment`](templates/deployment.yaml) знает только об обычном Kubernetes
+Secret. Ключ `message` монтируется как файл `/www/index.html`:
+
+```text
+Vault kv/apps/vault-demo
+          ↓ VSO
+Kubernetes Secret/vault-demo
+          ↓ volume
+Pod /www/index.html
+```
+
+Посмотреть результат:
 
 ```sh
 kubectl --kubeconfig ~/.kube/configs/general-1-k3s.yaml \
   -n apps port-forward deployment/vault-demo 8080:8080
 ```
 
-Открой <http://127.0.0.1:8080/>.
-
-Измени значение той же командой `vault kv put`. VSO проверяет Vault каждые
-10 секунд, затем Kubernetes обновляет файл в Pod.
-
-Это учебное приложение намеренно показывает значение по HTTP. Настоящие
-пароли так показывать нельзя.
+Открой <http://127.0.0.1:8080/>. Это учебное приложение специально показывает
+значение по HTTP; настоящие пароли так использовать нельзя.

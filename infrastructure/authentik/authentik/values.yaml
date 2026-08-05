@@ -21,3 +21,14 @@ authentik:
   # Cluster-wide permissions are only needed for managed outposts.
   serviceAccount:
     create: false
+
+vaultSecrets:
+  enabled: true
+  secrets:
+    - name: authentik
+      destinationName: authentik-secrets
+      rolloutRestartTargets:
+        - kind: Deployment
+          name: authentik-server
+        - kind: Deployment
+          name: authentik-worker

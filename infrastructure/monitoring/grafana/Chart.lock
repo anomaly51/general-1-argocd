@@ -2,5 +2,8 @@ dependencies:
 - name: grafana
   repository: https://grafana-community.github.io/helm-charts
   version: 12.10.1
-digest: sha256:32476f3d0d978784c84a875a43b6a8facb3c791d5cfb805305881ce35f019ace
-generated: "2026-07-31T15:53:21.188174+03:00"
+- name: vault-secret
+  repository: file://../../../shared/vault-secret
+  version: 0.1.0
+digest: sha256:997ff495cf9b6fcc157abd5e6e4d2e69217e4d531e1fb0d4648e9135b65001e9
+generated: "2026-08-05T04:10:18.051963+03:00"

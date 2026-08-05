@@ -1,0 +1,53 @@
+{{- if .Values.enabled -}}
+{{- $root := . -}}
+{{- range $secret := .Values.secrets -}}
+{{- $identity := required "vaultSecrets.secrets[].name is required" $secret.name -}}
+{{- $authName := default $identity $secret.authName -}}
+{{- $destinationName := default $identity $secret.destinationName -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $identity | quote }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+automountServiceAccountToken: false
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: {{ $authName | quote }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  vaultAuthGlobalRef:
+    allowDefault: true
+    namespace: {{ $root.Values.authGlobalNamespace | quote }}
+  kubernetes:
+    serviceAccount: {{ $identity | quote }}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: {{ $destinationName | quote }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: {{ $authName | quote }}
+  mount: kv
+  type: kv-v2
+  path: {{ printf "%s/%s" $root.Release.Namespace $identity | quote }}
+  refreshAfter: {{ default "60s" $secret.refreshAfter | quote }}
+  hmacSecretData: true
+  destination:
+    name: {{ $destinationName | quote }}
+    create: true
+    overwrite: true
+    transformation:
+      excludeRaw: true
+  {{- with $secret.rolloutRestartTargets }}
+  rolloutRestartTargets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+{{- end -}}
+{{- end -}}

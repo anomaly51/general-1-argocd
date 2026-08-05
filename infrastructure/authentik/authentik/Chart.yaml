@@ -2,8 +2,12 @@ apiVersion: v2
 name: authentik
 description: Pinned authentik chart wrapper.
 type: application
-version: 0.1.0
+version: 0.2.0
 dependencies:
   - name: authentik
     version: 2026.5.6
     repository: https://charts.goauthentik.io
+  - name: vault-secret
+    alias: vaultSecrets
+    version: 0.1.0
+    repository: file://../../../shared/vault-secret

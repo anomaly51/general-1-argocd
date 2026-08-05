@@ -2,5 +2,10 @@ apiVersion: v2
 name: pve-exporter
 description: Minimal Prometheus Proxmox VE exporter chart.
 type: application
-version: 0.1.4
+version: 0.2.0
 appVersion: "3.9.0"
+dependencies:
+  - name: vault-secret
+    alias: vaultSecrets
+    version: 0.1.0
+    repository: file://../../../shared/vault-secret
