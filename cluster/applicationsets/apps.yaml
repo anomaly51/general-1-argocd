@@ -28,7 +28,7 @@ spec:
         targetRevision: main
         path: "{{ .path.path }}"
         helm:
-          releaseName: "{{ .path.basename }}"
+          releaseName: "{{ .path.basenameNormalized }}"
       destination:
         server: https://kubernetes.default.svc
         namespace: apps

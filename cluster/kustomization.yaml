@@ -4,4 +4,4 @@ kind: Kustomization
 resources:
   - project.yaml
   - applicationsets/apps.yaml
-  - applicationsets/infrastructure.yaml
+  - applicationsets/utility-apps.yaml

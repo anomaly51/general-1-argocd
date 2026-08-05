@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: infrastructure-apps
+  name: utility-apps
   namespace: argocd
 spec:
   goTemplate: true
@@ -28,9 +28,7 @@ spec:
         targetRevision: main
         path: "{{ .path.path }}"
         helm:
-          # Keep the existing NFS release name because the upstream chart uses
-          # it in immutable selectors and in the StorageClass provisioner ID.
-          releaseName: '{{ if eq .path.basename "nfs-provisioner" }}nfs-subdir-external-provisioner{{ else }}{{ .path.basename }}{{ end }}'
+          releaseName: "{{ .path.basenameNormalized }}"
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{ index .path.segments 1 }}'
