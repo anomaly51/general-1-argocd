@@ -12,7 +12,7 @@ spec:
         repoURL: https://github.com/anomaly51/general-1-argocd.git
         revision: main
         directories:
-          - path: infrastructure/*/*
+          - path: utility-apps/*/*
   template:
     metadata:
       name: "{{ .path.basenameNormalized }}"

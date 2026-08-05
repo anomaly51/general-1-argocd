@@ -2,7 +2,7 @@
 
 This chart deploys one Authentik server, one worker, and one persistent
 PostgreSQL instance. Argo CD discovers this directory automatically through the
-infrastructure ApplicationSet.
+utility-apps ApplicationSet.
 
 Credentials are temporarily embedded as plain strings directly in
 `templates/workloads.yaml` and `templates/database.yaml`. They render as

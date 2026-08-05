@@ -1,6 +1,0 @@
-apiVersion: v2
-name: secret-demo
-description: Small teaching example for a value passed directly to an application.
-type: application
-version: 0.2.0
-appVersion: "1.37.0"
