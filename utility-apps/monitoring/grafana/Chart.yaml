@@ -2,7 +2,7 @@ apiVersion: v2
 name: grafana
 description: Grafana configured through the upstream Helm chart.
 type: application
-version: 0.6.0
+version: 0.7.0
 appVersion: "13.1.1"
 dependencies:
   - name: grafana

@@ -22,9 +22,7 @@ prometheus-pve-exporter:
   env:
     pveAuthType: token
     pveUser: "prometheus@pve"
-    pveTokenName: "general-1"
-    pveTokenValue: "78aff09e-c95f-4b54-879d-40adefa4fb19"
-    pveExistingSecretName: ""
+    pveExistingSecretName: pve-credentials
     pveVerifySsl: false
 
   service:

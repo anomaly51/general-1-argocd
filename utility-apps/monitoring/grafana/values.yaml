@@ -7,9 +7,10 @@ grafana:
     tag: "13.1.1"
     pullPolicy: IfNotPresent
 
-  env:
-    GF_SECURITY_ADMIN_USER: "admin"
-    GF_SECURITY_ADMIN_PASSWORD: "V9EYQQowCDfLnMpKXAV_fp5xdBZeiDMm"
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
 
   replicas: 1
   revisionHistoryLimit: 10
