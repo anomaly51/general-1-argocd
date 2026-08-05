@@ -35,6 +35,9 @@ spec:
         server: https://kubernetes.default.svc
         namespace: '{{ index .path.segments 1 }}'
       syncPolicy:
+        managedNamespaceMetadata:
+          labels:
+            secrets.hashicorp.com/vault-access: enabled
         automated:
           prune: true
           selfHeal: true

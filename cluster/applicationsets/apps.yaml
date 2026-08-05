@@ -33,6 +33,9 @@ spec:
         server: https://kubernetes.default.svc
         namespace: apps
       syncPolicy:
+        managedNamespaceMetadata:
+          labels:
+            secrets.hashicorp.com/vault-access: enabled
         automated:
           prune: true
           selfHeal: true

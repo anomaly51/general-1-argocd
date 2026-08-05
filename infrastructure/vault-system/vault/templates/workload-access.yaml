@@ -1,0 +1,155 @@
+{{- if .Values.workloadAccess.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-configurer
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-workload-access
+data:
+  policy.hcl: |
+{{ .Files.Get "files/workload-kv-read.hcl" | indent 4 }}
+  reconcile.sh: |
+    #!/bin/sh
+    set -eu
+    umask 077
+
+    export VAULT_TOKEN="$(
+      vault write -field=token \
+        "auth/${AUTH_MOUNT}/login" \
+        role="${CONFIGURER_ROLE}" \
+        jwt=@/var/run/secrets/vault/token
+    )"
+    trap 'vault token revoke -self >/dev/null 2>&1 || true' EXIT HUP INT TERM
+
+    auth_accessor="$(vault read -field=accessor "sys/auth/${AUTH_MOUNT}")"
+    sed \
+      -e "s|AUTH_ACCESSOR|${auth_accessor}|g" \
+      -e "s|KV_MOUNT|${KV_MOUNT}|g" \
+      /config/policy.hcl > /tmp/policy.hcl
+
+    vault policy write "${WORKLOAD_POLICY}" /tmp/policy.hcl >/dev/null
+    vault write "auth/${AUTH_MOUNT}/role/${WORKLOAD_ROLE}" \
+      bound_service_account_names="*" \
+      bound_service_account_namespace_selector="${NAMESPACE_SELECTOR}" \
+      token_policies="${WORKLOAD_POLICY}" \
+      audience="${AUDIENCE}" \
+      token_ttl="${WORKLOAD_TOKEN_TTL}" \
+      token_max_ttl="${WORKLOAD_TOKEN_TTL}" \
+      token_type="service" >/dev/null
+
+    echo "Vault workload access is reconciled."
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-workload-access
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vault-workload-access
+    spec:
+      serviceAccountName: vault-configurer
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: configure
+          image: "{{ .Values.workloadAccess.image.repository }}:{{ .Values.workloadAccess.image.tag }}"
+          imagePullPolicy: {{ .Values.workloadAccess.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - /config/reconcile.sh
+          env:
+            - name: VAULT_ADDR
+              value: {{ .Values.workloadAccess.address | quote }}
+            - name: AUTH_MOUNT
+              value: {{ .Values.workloadAccess.authMount | quote }}
+            - name: CONFIGURER_ROLE
+              value: {{ .Values.workloadAccess.configurerRole | quote }}
+            - name: WORKLOAD_ROLE
+              value: {{ .Values.workloadAccess.workloadRole | quote }}
+            - name: WORKLOAD_POLICY
+              value: {{ .Values.workloadAccess.workloadPolicy | quote }}
+            - name: KV_MOUNT
+              value: {{ .Values.workloadAccess.kvMount | quote }}
+            - name: AUDIENCE
+              value: {{ .Values.workloadAccess.audience | quote }}
+            - name: NAMESPACE_SELECTOR
+              value: {{ .Values.workloadAccess.namespaceSelector | quote }}
+            - name: WORKLOAD_TOKEN_TTL
+              value: {{ .Values.workloadAccess.workloadTokenTTL | quote }}
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: token
+              mountPath: /var/run/secrets/vault
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: vault-workload-access
+            defaultMode: 0555
+        - name: token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  audience: {{ .Values.workloadAccess.audience | quote }}
+                  expirationSeconds: 600
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vault-namespace-reader
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vault-namespace-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vault-namespace-reader
+subjects:
+  - kind: ServiceAccount
+    name: vault
+    namespace: vault-system
+{{- end }}

@@ -1,3 +1,19 @@
+workloadAccess:
+  enabled: true
+  address: http://vault.vault-system.svc.cluster.local:8200
+  image:
+    repository: hashicorp/vault
+    tag: 2.0.3
+    pullPolicy: IfNotPresent
+  authMount: kubernetes
+  configurerRole: gitops-vault-configurer
+  workloadRole: kubernetes-workloads
+  workloadPolicy: kubernetes-workload-kv-read
+  kvMount: kv
+  audience: vault
+  namespaceSelector: '{"matchLabels":{"secrets.hashicorp.com/vault-access":"enabled"}}'
+  workloadTokenTTL: 1h
+
 vault:
   global:
     tlsDisable: true

@@ -14,6 +14,60 @@ expanded into a multi-node Raft cluster.
 - Vault uses Shamir sealing. A restarted Vault pod must be unsealed by an
   operator until an external KMS-based auto-unseal mechanism is configured.
 
+## GitOps-managed workload access
+
+This chart owns one Argo CD `PostSync` Job. The Job authenticates with a
+short-lived projected Kubernetes token and reconciles two shared Vault objects:
+
+- policy `kubernetes-workload-kv-read`;
+- Kubernetes auth role `kubernetes-workloads`.
+
+The policy derives the only readable KV v2 path from trusted Kubernetes
+identity metadata:
+
+```text
+kv/<service-account-namespace>/<service-account-name>
+```
+
+Namespaces must carry the label
+`secrets.hashicorp.com/vault-access=enabled`; both ApplicationSets apply it to
+their destination namespaces. This lets a new workload be onboarded entirely
+through its own GitOps chart without adding another policy or role here.
+
+Vault cannot securely grant the reconciler its own initial privileges. After
+initialization, the following trust anchor is created once by an administrator;
+it is not an application onboarding step. The root token stays in macOS
+Keychain and is never stored in Git or a Kubernetes Secret:
+
+```sh
+export VAULT_ADDR=http://127.0.0.1:8200
+VAULT_TOKEN="$(security find-generic-password -w \
+  -s general-1-vault-root-token)"
+export VAULT_TOKEN
+
+vault policy write gitops-vault-configurer - <<'EOF'
+path "sys/auth/kubernetes" {
+  capabilities = ["read"]
+}
+path "sys/policies/acl/kubernetes-workload-kv-read" {
+  capabilities = ["create", "read", "update"]
+}
+path "auth/kubernetes/role/kubernetes-workloads" {
+  capabilities = ["create", "read", "update"]
+}
+EOF
+
+vault write auth/kubernetes/role/gitops-vault-configurer \
+  bound_service_account_names=vault-configurer \
+  bound_service_account_namespaces=vault-system \
+  token_policies=gitops-vault-configurer \
+  audience=vault \
+  token_ttl=5m \
+  token_max_ttl=5m
+
+unset VAULT_TOKEN
+```
+
 ## Operations
 
 Bootstrap credentials are never committed to Git. On the workstation they are
