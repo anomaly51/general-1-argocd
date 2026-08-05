@@ -1,9 +1,0 @@
-apiVersion: v2
-name: vault-secrets-operator
-description: HashiCorp Vault Secrets Operator for General-1.
-type: application
-version: 0.2.0
-dependencies:
-  - name: vault-secrets-operator
-    version: 1.5.0
-    repository: https://helm.releases.hashicorp.com

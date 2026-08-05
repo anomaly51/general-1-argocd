@@ -33,8 +33,6 @@ spec:
         server: https://kubernetes.default.svc
         namespace: apps
       syncPolicy:
-        managedNamespaceMetadata:
-          labels: {}
         automated:
           prune: true
           selfHeal: true
