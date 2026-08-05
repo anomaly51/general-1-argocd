@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-secrets
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: networking
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: networking
+    serviceAccount: vault-secrets
+    audiences:
+      - vault
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: cloudflare-api-token
+spec:
+  vaultAuthRef: networking
+  mount: kv
+  type: kv-v2
+  path: networking/cloudflare
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: cloudflare-api-token
+    transformation:
+      includes:
+        - ^api-token$
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: external-dns
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: tunnel-credentials
+spec:
+  vaultAuthRef: networking
+  mount: kv
+  type: kv-v2
+  path: networking/cloudflared
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: tunnel-credentials
+    transformation:
+      excludes:
+        - .*
+      templates:
+        credentials.json:
+          text: '{{ `{{- get .Secrets "credentials" -}}` }}'
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: cloudflared

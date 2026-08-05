@@ -1,0 +1,64 @@
+{{- range .Values.routes }}
+{{- if not (hasSuffix (printf ".%s" $.Values.domain) .hostname) }}
+{{- fail (printf "hostname %s is outside managed domain %s" .hostname $.Values.domain) }}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ $.Values.issuer }}
+    external-dns.alpha.kubernetes.io/hostname: {{ .hostname }}
+    external-dns.alpha.kubernetes.io/target: {{ $.Values.tunnelTarget }}
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - {{ .hostname }}
+      secretName: {{ .name }}-tls
+  rules:
+    - host: {{ .hostname }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .service.name }}
+                port:
+                  number: {{ .service.port }}
+{{- if eq .service.scheme "https" }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+spec:
+  insecureSkipVerify: {{ .service.insecureSkipVerify | default false }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`{{ .hostname }}`)
+      priority: 1000
+      services:
+        - name: {{ .service.name }}
+          port: {{ .service.port }}
+          scheme: https
+          serversTransport: {{ .name }}
+  tls:
+    secretName: {{ .name }}-tls
+{{- end }}
+{{- end }}

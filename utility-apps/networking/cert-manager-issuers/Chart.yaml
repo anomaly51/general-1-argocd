@@ -1,0 +1,5 @@
+apiVersion: v2
+name: cert-manager-issuers
+description: Let's Encrypt issuer backed by the Vault-synchronized Cloudflare token.
+type: application
+version: 0.1.0

@@ -1,0 +1,18 @@
+replicaCount: 2
+
+image:
+  repository: cloudflare/cloudflared
+  tag: 2026.5.0
+
+tunnel:
+  id: bfaa4824-dabf-4534-8b2a-0cfa730ec2f1
+
+origin: https://traefik.kube-system.svc.cluster.local:443
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi

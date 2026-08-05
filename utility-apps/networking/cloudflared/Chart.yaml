@@ -1,0 +1,5 @@
+apiVersion: v2
+name: cloudflared
+description: Highly available Cloudflare Tunnel connector for Traefik.
+type: application
+version: 0.1.0
