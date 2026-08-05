@@ -20,7 +20,7 @@ spec:
       finalizers:
         - resources-finalizer.argocd.argoproj.io
       annotations:
-        argocd.argoproj.io/compare-options: ServerSideDiff=true
+        argocd.argoproj.io/compare-options: '{{ if eq .path.basenameNormalized "grafana" }}ServerSideDiff=false{{ else }}ServerSideDiff=true{{ end }}'
     spec:
       project: gitops-apps
       source:
