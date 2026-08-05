@@ -1,0 +1,13 @@
+apiVersion: v2
+name: vault
+description: Minimal Vault server and secrets operator.
+type: application
+version: 0.1.0
+appVersion: "2.0.3"
+dependencies:
+  - name: vault
+    version: 0.34.0
+    repository: https://helm.releases.hashicorp.com
+  - name: vault-secrets-operator
+    version: 1.5.0
+    repository: https://helm.releases.hashicorp.com

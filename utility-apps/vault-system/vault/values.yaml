@@ -1,0 +1,88 @@
+vault:
+  global:
+    tlsDisable: true
+
+  injector:
+    enabled: false
+
+  csi:
+    enabled: false
+
+  server:
+    logFormat: json
+
+    resources:
+      requests:
+        cpu: 25m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+    dataStorage:
+      size: 2Gi
+      storageClass: local-path
+
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+
+    standalone:
+      enabled: false
+
+    ha:
+      enabled: true
+      replicas: 1
+      disruptionBudget:
+        enabled: false
+      raft:
+        enabled: true
+        setNodeId: true
+        config: |
+          ui = false
+          disable_mlock = true
+
+          listener "tcp" {
+            tls_disable = 1
+            address = "[::]:8200"
+            cluster_address = "[::]:8201"
+          }
+
+          storage "raft" {
+            path = "/vault/data"
+          }
+
+          service_registration "kubernetes" {}
+
+  ui:
+    enabled: false
+
+vault-secrets-operator:
+  controller:
+    manager:
+      globalTransformationOptions:
+        excludeRaw: true
+      clientCache:
+        persistenceModel: none
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+    kubeRbacProxy:
+      resources:
+        requests:
+          cpu: 5m
+          memory: 32Mi
+        limits:
+          cpu: 50m
+          memory: 64Mi
+
+  defaultVaultConnection:
+    enabled: true
+    address: http://vault.vault-system.svc.cluster.local:8200
+
+  csi:
+    enabled: false
