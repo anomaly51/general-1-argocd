@@ -2,8 +2,5 @@ dependencies:
 - name: grafana
   repository: https://grafana-community.github.io/helm-charts
   version: 12.10.1
-- name: vso-app
-  repository: file://../../../charts/vso-app
-  version: 0.1.0
-digest: sha256:fc4f4c03da1a67d51de5ced4a6a1271f342d5ba540ee0dbe7aabf7f6aed1b3a3
-generated: "2026-08-05T03:26:07.444263+03:00"
+digest: sha256:32476f3d0d978784c84a875a43b6a8facb3c791d5cfb805305881ce35f019ace
+generated: "2026-07-31T15:53:21.188174+03:00"

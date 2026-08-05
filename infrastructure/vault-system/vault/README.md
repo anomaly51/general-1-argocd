@@ -4,11 +4,6 @@ This chart deploys a persistent, single-node Vault server backed by integrated
 Raft storage. It is intentionally small enough for General-1 and can later be
 expanded into a multi-node Raft cluster.
 
-The Helm chart owns only the server and Kubernetes integration resources.
-Vault auth configuration, workload roles, and policies are reconciled by the
-[Terraform control plane](../../../terraform/vault/README.md). Secret values
-remain in Vault and are never stored in Git or Terraform state.
-
 ## Security boundary
 
 - Vault is not running in development mode.

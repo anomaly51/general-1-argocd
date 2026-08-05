@@ -1,5 +1,0 @@
-apiVersion: v2
-name: vso-app
-description: Reusable per-workload Vault Secrets Operator resources.
-type: application
-version: 0.1.0

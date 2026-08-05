@@ -62,20 +62,3 @@ grafana:
 
   dashboardsConfigMaps:
     general-1: grafana-dashboards
-
-vaultSecrets:
-  enabled: true
-  authGlobalNamespace: vault-system
-  bindings:
-    - name: grafana-admin
-      authName: grafana
-      serviceAccountName: vso-grafana
-      role: monitoring-grafana
-      path: monitoring/grafana-admin
-      refreshAfter: 60s
-      syncWaves:
-        serviceAccount: "-1"
-        vaultAuth: "-1"
-      rolloutRestartTargets:
-        - kind: Deployment
-          name: grafana

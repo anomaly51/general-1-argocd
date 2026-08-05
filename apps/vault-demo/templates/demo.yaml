@@ -1,0 +1,73 @@
+# 1. Это Kubernetes-identity, через которую VSO войдёт в Vault.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vso-vault-demo
+  annotations:
+    vault.hashicorp.com/alias-metadata-secret_name: vault-demo
+---
+# 2. Как войти в Vault. Адрес Vault берётся из глобального
+#    VaultConnection/default, созданного chart-ом VSO.
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: vault-demo
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: apps-vault-demo
+    serviceAccount: vso-vault-demo
+    audiences:
+      - vault
+---
+# 3. Что скопировать: Vault kv/apps/vault-demo -> Secret/vault-demo.
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: vault-demo
+spec:
+  vaultAuthRef: vault-demo
+  mount: kv
+  type: kv-v2
+  path: apps/vault-demo
+  refreshAfter: 10s
+  destination:
+    name: vault-demo
+    create: true
+---
+# 4. Обычное приложение. Ключ message становится файлом /www/index.html.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault-demo
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vault-demo
+      app.kubernetes.io/instance: vault-demo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vault-demo
+        app.kubernetes.io/instance: vault-demo
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: app
+          image: busybox:1.37.0
+          command: ["httpd"]
+          args: ["-f", "-p", "8080", "-h", "/www"]
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: secret
+              mountPath: /www
+              readOnly: true
+      volumes:
+        - name: secret
+          secret:
+            secretName: vault-demo
+            items:
+              - key: message
+                path: index.html

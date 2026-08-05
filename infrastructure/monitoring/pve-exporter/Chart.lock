@@ -1,6 +1,0 @@
-dependencies:
-- name: vso-app
-  repository: file://../../../charts/vso-app
-  version: 0.1.0
-digest: sha256:2f5ea86980cb83f95ad12e161f268a4939d5d38e9e106051408c54fc3da13589
-generated: "2026-08-05T03:26:15.965643+03:00"
