@@ -1,9 +1,1 @@
 **/charts/
-
-# Terraform/OpenTofu runtime files. Provider locks are intentionally tracked.
-**/.terraform/
-**/*.tfstate
-**/*.tfstate.*
-**/*.tfplan
-**/crash.log
-**/crash.*.log
