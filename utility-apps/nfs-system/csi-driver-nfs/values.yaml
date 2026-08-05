@@ -16,14 +16,3 @@ csi-driver-nfs:
       reclaimPolicy: Retain
       volumeBindingMode: Immediate
       allowVolumeExpansion: true
-
-    - name: nfs-csi-smoke
-      parameters:
-        server: 192.168.1.9
-        share: /export/test
-        subDir: "codex-smoke/${pv.metadata.name}"
-        mountPermissions: "0777"
-        onDelete: delete
-      reclaimPolicy: Delete
-      volumeBindingMode: Immediate
-      allowVolumeExpansion: false
