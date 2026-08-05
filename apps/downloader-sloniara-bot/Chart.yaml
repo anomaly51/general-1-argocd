@@ -3,4 +3,4 @@ name: downloader-sloniara-bot
 description: Telegram media downloader bot.
 type: application
 version: 0.1.0
-appVersion: "b6613ac4"
+appVersion: "e0bb85d0"
