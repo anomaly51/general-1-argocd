@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-secrets
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: apps
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: apps
+    serviceAccount: vault-secrets
+    audiences:
+      - vault
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: postgres-app
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: apps
+  mount: kv
+  type: kv-v2
+  path: apps/authentik
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: postgres-app
+    type: kubernetes.io/basic-auth
+    transformation:
+      includes:
+        - ^(username|password)$
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: authentik
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: apps
+  mount: kv
+  type: kv-v2
+  path: apps/authentik
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: authentik
+    transformation:
+      excludes:
+        - .*
+      templates:
+        AUTHENTIK_SECRET_KEY:
+          text: '{{ `{{- get .Secrets "secret_key" -}}` }}'
+        AUTHENTIK_POSTGRESQL__HOST:
+          text: postgres-rw.apps.svc.cluster.local
+        AUTHENTIK_POSTGRESQL__NAME:
+          text: authentik
+        AUTHENTIK_POSTGRESQL__USER:
+          text: '{{ `{{- get .Secrets "username" -}}` }}'
+        AUTHENTIK_POSTGRESQL__PASSWORD:
+          text: '{{ `{{- get .Secrets "password" -}}` }}'
+        AUTHENTIK_POSTGRESQL__PORT:
+          text: "5432"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.4-minimal-trixie
+  bootstrap:
+    initdb:
+      database: authentik
+      owner: authentik
+      encoding: UTF8
+      secret:
+        name: postgres-app
+  storage:
+    storageClass: local-path
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

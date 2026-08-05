@@ -1,0 +1,6 @@
+apiVersion: v2
+name: postgres
+description: Minimal PostgreSQL cluster for applications.
+type: application
+version: 0.1.0
+appVersion: "18.4"
