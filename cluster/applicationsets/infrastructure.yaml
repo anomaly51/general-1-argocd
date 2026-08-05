@@ -12,6 +12,8 @@ spec:
         repoURL: https://github.com/anomaly51/general-1-argocd.git
         revision: main
         directories:
+          - path: infrastructure/vault-system/*
+            exclude: true
           - path: infrastructure/*/*
   template:
     metadata:
