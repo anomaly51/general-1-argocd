@@ -4,6 +4,8 @@ metadata:
   name: utility-apps
   namespace: argocd
 spec:
+  syncPolicy:
+    preserveResourcesOnDeletion: true
   goTemplate: true
   goTemplateOptions:
     - missingkey=error
@@ -17,8 +19,6 @@ spec:
     metadata:
       name: "{{ .path.basenameNormalized }}"
       namespace: argocd
-      finalizers:
-        - resources-finalizer.argocd.argoproj.io
       annotations:
         argocd.argoproj.io/compare-options: ServerSideDiff=true
     spec:
@@ -34,7 +34,6 @@ spec:
         namespace: '{{ index .path.segments 1 }}'
       syncPolicy:
         automated:
-          prune: true
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
