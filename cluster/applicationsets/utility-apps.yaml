@@ -15,7 +15,7 @@ spec:
           - path: utility-apps/*/*
   template:
     metadata:
-      name: "{{ .path.basenameNormalized }}"
+      name: '{{ if eq .path.basenameNormalized "secrets" }}{{ index .path.segments 1 }}-{{ end }}{{ .path.basenameNormalized }}'
       namespace: argocd
       finalizers:
         - resources-finalizer.argocd.argoproj.io
