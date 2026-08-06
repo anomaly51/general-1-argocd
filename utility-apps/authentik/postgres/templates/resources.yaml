@@ -8,14 +8,14 @@ metadata:
 apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultAuth
 metadata:
-  name: apps
+  name: authentik
   annotations:
     argocd.argoproj.io/sync-wave: "-2"
 spec:
   method: kubernetes
   mount: kubernetes
   kubernetes:
-    role: apps
+    role: authentik
     serviceAccount: vault-secrets
     audiences:
       - vault
@@ -28,10 +28,10 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 spec:
-  vaultAuthRef: apps
+  vaultAuthRef: authentik
   mount: kv
   type: kv-v2
-  path: apps/authentik
+  path: authentik/authentik
   refreshAfter: 1m
   destination:
     create: true
@@ -48,10 +48,10 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 spec:
-  vaultAuthRef: apps
+  vaultAuthRef: authentik
   mount: kv
   type: kv-v2
-  path: apps/authentik
+  path: authentik/authentik
   refreshAfter: 1m
   destination:
     create: true
@@ -63,7 +63,7 @@ spec:
         AUTHENTIK_SECRET_KEY:
           text: '{{ `{{- get .Secrets "secret_key" -}}` }}'
         AUTHENTIK_POSTGRESQL__HOST:
-          text: postgres-rw.apps.svc.cluster.local
+          text: postgres-rw.authentik.svc.cluster.local
         AUTHENTIK_POSTGRESQL__NAME:
           text: authentik
         AUTHENTIK_POSTGRESQL__USER:
