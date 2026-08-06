@@ -17,7 +17,7 @@ spec:
           - path: utility-apps/*/*
   template:
     metadata:
-      name: '{{ if eq .path.basenameNormalized "secrets" }}{{ index .path.segments 1 }}-{{ end }}{{ .path.basenameNormalized }}'
+      name: '{{ index .path.segments 1 }}-{{ .path.basenameNormalized }}'
       namespace: argocd
       annotations:
         argocd.argoproj.io/compare-options: ServerSideDiff=true
