@@ -18,3 +18,10 @@ routes:
       name: grafana
       port: 80
       scheme: http
+  - name: nginx
+    namespace: apps
+    hostname: nginx.api-api-api.com
+    service:
+      name: nginx
+      port: 80
+      scheme: http
