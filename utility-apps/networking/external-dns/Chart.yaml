@@ -1,6 +1,6 @@
 apiVersion: v2
 name: external-dns
-description: Cloudflare DNS records generated from Kubernetes Ingress resources.
+description: Cloudflare DNS records generated from Kubernetes routing resources.
 type: application
 version: 0.1.0
 dependencies:

@@ -1,0 +1,31 @@
+{{- range .Values.routes }}
+{{- if eq .service.scheme "https" }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .service.certificateSecretName }}
+  namespace: {{ .namespace }}
+spec:
+  secretName: {{ .service.certificateSecretName }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ $.Values.issuer }}
+  dnsNames:
+    - {{ .hostname }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: {{ .service.name }}
+  namespace: {{ .namespace }}
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: {{ .service.name }}
+  validation:
+    wellKnownCACertificates: System
+    hostname: {{ .hostname }}
+{{- end }}
+{{- end }}

@@ -9,6 +9,7 @@ external-dns:
           key: api-token
   sources:
     - ingress
+    - gateway-httproute
   domainFilters:
     - api-api-api.com
   policy: sync

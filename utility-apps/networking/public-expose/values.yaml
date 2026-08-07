@@ -2,6 +2,13 @@ domain: api-api-api.com
 tunnelTarget: 4a29ced3-c1b8-4e6f-885b-8b2caaec2149.cfargotunnel.com
 issuer: letsencrypt-production
 
+gateway:
+  name: public
+  namespace: networking
+  className: traefik
+  listenerPort: 8443
+  tlsSecretName: public-expose-tls
+
 routes:
   - name: argocd
     namespace: argocd
@@ -10,7 +17,7 @@ routes:
       name: argocd-server
       port: 443
       scheme: https
-      insecureSkipVerify: true
+      certificateSecretName: argocd-server-tls
   - name: grafana
     namespace: monitoring
     hostname: grafana.api-api-api.com

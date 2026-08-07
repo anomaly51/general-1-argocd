@@ -39,7 +39,7 @@ metadata:
   name: {{ .name }}
   namespace: {{ .namespace }}
 spec:
-  insecureSkipVerify: {{ .service.insecureSkipVerify | default false }}
+  insecureSkipVerify: true
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute

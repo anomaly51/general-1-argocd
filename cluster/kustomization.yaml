@@ -3,5 +3,6 @@ kind: Kustomization
 
 resources:
   - project.yaml
+  - traefik-config.yaml
   - applicationsets/apps.yaml
   - applicationsets/utility-apps.yaml
