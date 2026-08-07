@@ -1,3 +1,6 @@
+route:
+  hostname: grafana.api-api-api.com
+
 grafana:
   fullnameOverride: grafana
 

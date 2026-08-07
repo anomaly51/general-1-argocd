@@ -1,0 +1,48 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.backend.certificateSecretName }}
+spec:
+  secretName: {{ .Values.backend.certificateSecretName }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ .Values.issuer }}
+  dnsNames:
+    - {{ .Values.hostname }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: {{ .Values.backend.serviceName }}
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: {{ .Values.backend.serviceName }}
+  validation:
+    wellKnownCACertificates: System
+    hostname: {{ .Values.hostname }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: argocd
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: public
+      namespace: networking
+      sectionName: https
+  hostnames:
+    - {{ .Values.hostname }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ .Values.backend.serviceName }}
+          port: {{ .Values.backend.servicePort }}

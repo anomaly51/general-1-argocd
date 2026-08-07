@@ -1,0 +1,74 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.gateway.tlsSecretName }}
+spec:
+  secretName: {{ .Values.gateway.tlsSecretName }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ .Values.issuer }}
+  dnsNames:
+    - {{ printf "*.%s" .Values.domain | quote }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.gateway.name }}
+  annotations:
+    external-dns.alpha.kubernetes.io/target: {{ .Values.tunnelTarget }}
+spec:
+  gatewayClassName: {{ .Values.gateway.className }}
+  listeners:
+    - name: http
+      hostname: {{ printf "*.%s" .Values.domain | quote }}
+      protocol: HTTP
+      port: {{ .Values.gateway.httpPort }}
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              {{ .Values.allowedRouteNamespaces.label }}: {{ .Values.allowedRouteNamespaces.value | quote }}
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute
+    - name: https
+      hostname: {{ printf "*.%s" .Values.domain | quote }}
+      protocol: HTTPS
+      port: {{ .Values.gateway.httpsPort }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: {{ .Values.gateway.tlsSecretName }}
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              {{ .Values.allowedRouteNamespaces.label }}: {{ .Values.allowedRouteNamespaces.value | quote }}
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: https-redirect
+  annotations:
+    external-dns.alpha.kubernetes.io/controller: ignore
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.gateway.name }}
+      sectionName: http
+  hostnames:
+    - {{ printf "*.%s" .Values.domain | quote }}
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301

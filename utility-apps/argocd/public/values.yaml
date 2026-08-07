@@ -1,0 +1,6 @@
+hostname: argocd.api-api-api.com
+issuer: letsencrypt-production
+backend:
+  serviceName: argocd-server
+  servicePort: 443
+  certificateSecretName: argocd-server-tls

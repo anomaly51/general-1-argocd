@@ -1,5 +1,5 @@
 apiVersion: v2
 name: public-expose
-description: Gateway API hostname-to-Service exposure through Traefik and Cloudflare.
+description: Deprecated placeholder retained during the Gateway ownership migration.
 type: application
 version: 0.1.0
