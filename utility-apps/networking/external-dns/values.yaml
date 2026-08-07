@@ -9,16 +9,16 @@ external-dns:
           key: api-token
   sources:
     - gateway-httproute
+    - crd
   domainFilters:
     - api-api-api.com
-  excludeDomains:
-    - internal.api-api-api.com
   policy: sync
   registry: txt
   txtOwnerId: general-1-k3s
   interval: 1m
   extraArgs:
     - --cloudflare-proxied
+    - --gateway-name=public
   resources:
     requests:
       cpu: 10m
