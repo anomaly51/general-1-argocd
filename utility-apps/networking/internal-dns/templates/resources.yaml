@@ -22,7 +22,7 @@ data:
     $ORIGIN internal.api-api-api.com.
     $TTL 30
     @  IN SOA ns.internal.api-api-api.com. hostmaster.api-api-api.com. (
-           1 3600 600 604800 30
+           2026080701 3600 600 604800 30
        )
        IN NS ns.internal.api-api-api.com.
     ns IN A 192.168.1.2
