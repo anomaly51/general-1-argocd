@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - route-namespaces.yaml
+  - metallb-namespace.yaml
   - project.yaml
   - traefik-config.yaml
   - applicationsets/apps.yaml

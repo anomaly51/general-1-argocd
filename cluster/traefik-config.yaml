@@ -16,3 +16,8 @@ spec:
       enabled: false
     gatewayClass:
       enabled: true
+    service:
+      annotations:
+        metallb.io/address-pool: lan
+      spec:
+        loadBalancerIP: 192.168.1.3
