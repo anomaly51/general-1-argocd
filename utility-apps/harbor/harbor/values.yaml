@@ -1,0 +1,123 @@
+route:
+  hostname: harbor.api-api-api.com
+
+harbor:
+  expose:
+    type: clusterIP
+    tls:
+      enabled: false
+
+  externalURL: https://harbor.api-api-api.com
+
+  existingSecretAdminPassword: harbor-credentials
+  existingSecretAdminPasswordKey: HARBOR_ADMIN_PASSWORD
+  existingSecretSecretKey: harbor-credentials
+
+  updateStrategy:
+    type: Recreate
+
+  persistence:
+    enabled: true
+    resourcePolicy: keep
+    persistentVolumeClaim:
+      registry:
+        storageClass: local-path
+        accessMode: ReadWriteOnce
+        size: 5Gi
+      redis:
+        storageClass: local-path
+        accessMode: ReadWriteOnce
+        size: 1Gi
+
+  trivy:
+    enabled: false
+
+  metrics:
+    enabled: false
+
+  nginx:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+  portal:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+  core:
+    existingSecret: harbor-credentials
+    existingXsrfSecret: harbor-credentials
+    existingXsrfSecretKey: CSRF_KEY
+    secretName: harbor-token
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  jobservice:
+    existingSecret: harbor-credentials
+    existingSecretKey: JOBSERVICE_SECRET
+    jobLoggers:
+      - stdout
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  registry:
+    existingSecret: harbor-credentials
+    existingSecretKey: REGISTRY_HTTP_SECRET
+    credentials:
+      existingSecret: harbor-credentials
+    registry:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+    controller:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 250m
+          memory: 128Mi
+
+  database:
+    type: external
+    external:
+      host: postgres-rw.harbor.svc.cluster.local
+      port: "5432"
+      username: harbor
+      coreDatabase: registry
+      existingSecret: harbor-database-app
+      sslmode: require
+
+  redis:
+    type: internal
+    internal:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 250m
+          memory: 128Mi

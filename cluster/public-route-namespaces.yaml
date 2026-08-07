@@ -19,6 +19,15 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
+  name: harbor
+  labels:
+    gateway.api-api-api.com/public: "true"
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
   name: monitoring
   labels:
     gateway.api-api-api.com/public: "true"
