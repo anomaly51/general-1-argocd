@@ -1,5 +1,0 @@
-apiVersion: v2
-name: public-expose
-description: Deprecated placeholder retained during the Gateway ownership migration.
-type: application
-version: 0.1.0
