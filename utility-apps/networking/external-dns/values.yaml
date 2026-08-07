@@ -11,6 +11,8 @@ external-dns:
     - gateway-httproute
   domainFilters:
     - api-api-api.com
+  excludeDomains:
+    - internal.api-api-api.com
   policy: sync
   registry: txt
   txtOwnerId: general-1-k3s

@@ -1,5 +1,5 @@
 route:
-  hostname: harbor.api-api-api.com
+  hostname: harbor.internal.api-api-api.com
 
 harbor:
   expose:
@@ -7,7 +7,7 @@ harbor:
     tls:
       enabled: false
 
-  externalURL: https://harbor.api-api-api.com
+  externalURL: https://harbor.internal.api-api-api.com
 
   existingSecretAdminPassword: harbor-credentials
   existingSecretAdminPasswordKey: HARBOR_ADMIN_PASSWORD

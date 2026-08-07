@@ -1,4 +1,4 @@
-hostname: argocd.api-api-api.com
+hostname: argocd.internal.api-api-api.com
 issuer: letsencrypt-production
 backend:
   serviceName: argocd-server

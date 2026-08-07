@@ -28,7 +28,7 @@ spec:
           from: Selector
           selector:
             matchLabels:
-              {{ .Values.allowedRouteNamespaces.label }}: {{ .Values.allowedRouteNamespaces.value | quote }}
+              {{ .Values.allowedRouteNamespaces.public.label }}: {{ .Values.allowedRouteNamespaces.public.value | quote }}
         kinds:
           - group: gateway.networking.k8s.io
             kind: HTTPRoute
@@ -47,7 +47,7 @@ spec:
           from: Selector
           selector:
             matchLabels:
-              {{ .Values.allowedRouteNamespaces.label }}: {{ .Values.allowedRouteNamespaces.value | quote }}
+              {{ .Values.allowedRouteNamespaces.public.label }}: {{ .Values.allowedRouteNamespaces.public.value | quote }}
         kinds:
           - group: gateway.networking.k8s.io
             kind: HTTPRoute
@@ -66,6 +66,79 @@ spec:
       sectionName: http
   hostnames:
     - {{ printf "*.%s" .Values.domain | quote }}
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.internalGateway.tlsSecretName }}
+spec:
+  secretName: {{ .Values.internalGateway.tlsSecretName }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ .Values.issuer }}
+  dnsNames:
+    - {{ printf "*.%s" .Values.internalDomain | quote }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.internalGateway.name }}
+spec:
+  gatewayClassName: {{ .Values.internalGateway.className }}
+  listeners:
+    - name: http
+      hostname: {{ printf "*.%s" .Values.internalDomain | quote }}
+      protocol: HTTP
+      port: {{ .Values.internalGateway.httpPort }}
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              {{ .Values.allowedRouteNamespaces.internal.label }}: {{ .Values.allowedRouteNamespaces.internal.value | quote }}
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute
+    - name: https
+      hostname: {{ printf "*.%s" .Values.internalDomain | quote }}
+      protocol: HTTPS
+      port: {{ .Values.internalGateway.httpsPort }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: {{ .Values.internalGateway.tlsSecretName }}
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              {{ .Values.allowedRouteNamespaces.internal.label }}: {{ .Values.allowedRouteNamespaces.internal.value | quote }}
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: internal-https-redirect
+  annotations:
+    external-dns.alpha.kubernetes.io/controller: ignore
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.internalGateway.name }}
+      sectionName: http
+  hostnames:
+    - {{ printf "*.%s" .Values.internalDomain | quote }}
   rules:
     - filters:
         - type: RequestRedirect

@@ -1,4 +1,5 @@
 domain: api-api-api.com
+internalDomain: internal.api-api-api.com
 tunnelTarget: 4a29ced3-c1b8-4e6f-885b-8b2caaec2149.cfargotunnel.com
 issuer: letsencrypt-production
 
@@ -9,6 +10,17 @@ gateway:
   httpsPort: 8443
   tlsSecretName: public-gateway-tls
 
+internalGateway:
+  name: internal
+  className: traefik
+  httpPort: 8000
+  httpsPort: 8443
+  tlsSecretName: internal-gateway-tls
+
 allowedRouteNamespaces:
-  label: gateway.api-api-api.com/public
-  value: "true"
+  public:
+    label: gateway.api-api-api.com/public
+    value: "true"
+  internal:
+    label: gateway.api-api-api.com/internal
+    value: "true"

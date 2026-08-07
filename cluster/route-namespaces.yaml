@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps
+  labels:
+    gateway.api-api-api.com/public: "true"
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    gateway.api-api-api.com/internal: "true"
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: authentik
+  labels:
+    gateway.api-api-api.com/internal: "true"
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: database-system
+  labels:
+    gateway.api-api-api.com/internal: "true"
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: harbor
+  labels:
+    gateway.api-api-api.com/internal: "true"
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    gateway.api-api-api.com/internal: "true"
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: networking
+  labels:
+    gateway.api-api-api.com/internal: "true"
+    gateway.api-api-api.com/public: "true"
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nfs-system
+  labels:
+    gateway.api-api-api.com/internal: "true"
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vault-system
+  labels:
+    gateway.api-api-api.com/internal: "true"
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
