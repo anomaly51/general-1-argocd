@@ -1,5 +1,5 @@
 apiVersion: v2
 name: public-expose
-description: Minimal hostname-to-Service exposure through Traefik and Cloudflare.
+description: Gateway API hostname-to-Service exposure through Traefik and Cloudflare.
 type: application
 version: 0.1.0
