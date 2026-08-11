@@ -1,0 +1,36 @@
+app:
+  name: test
+  resourceName: test
+
+  image:
+    repository: traefik/whoami
+    tag: v1.11.0
+
+  ports:
+    - name: http
+      containerPort: 80
+
+  service:
+    port: 80
+    targetPort: http
+
+  httpRoute:
+    enabled: true
+    host: test.api-api-api.com
+
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 32Mi
