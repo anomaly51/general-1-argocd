@@ -1,7 +1,7 @@
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/job-application-crm-api
-    tag: sha-eb04acbc88dc
+    tag: sha-ae78029ee474
     pullPolicy: IfNotPresent
   frontend:
     repository: harbor.internal.api-api-api.com/applications/job-application-crm-frontend

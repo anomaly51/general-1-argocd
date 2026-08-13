@@ -3,7 +3,7 @@ replicas: 1
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/shisha-guid-backend
-    tag: sha-5808869d85e2
+    tag: sha-d787aa48972e
     pullPolicy: IfNotPresent
   postgres:
     repository: docker.io/library/postgres
