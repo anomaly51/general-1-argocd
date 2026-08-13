@@ -3,7 +3,7 @@ replicas: 1
 image:
   repository: harbor.internal.api-api-api.com/applications/weatherbot-for-tg51
   # Replaced with an immutable sha-* tag after the first image is published.
-  tag: sha-a09fb9324165
+  tag: sha-794b28f45c9a
   pullPolicy: IfNotPresent
 
 resources:
