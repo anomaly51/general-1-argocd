@@ -1,5 +1,0 @@
-apiVersion: v2
-name: telegram-bot-storage-cleanup
-description: One-shot cleanup of retained telegram-bot PostgreSQL storage.
-type: application
-version: 0.1.0
