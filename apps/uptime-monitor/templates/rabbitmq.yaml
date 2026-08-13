@@ -34,7 +34,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: uptime-monitor-rabbitmq-permissions-v1
+  name: uptime-monitor-rabbitmq-permissions-v2
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
@@ -74,8 +74,8 @@ spec:
               memory: 32Mi
           securityContext:
             runAsNonRoot: true
-            runAsUser: 999
-            runAsGroup: 999
+            runAsUser: 100
+            runAsGroup: 101
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -134,8 +134,8 @@ spec:
               memory: 32Mi
           securityContext:
             runAsNonRoot: true
-            runAsUser: 999
-            runAsGroup: 999
+            runAsUser: 100
+            runAsGroup: 101
             allowPrivilegeEscalation: false
             capabilities:
               drop:
