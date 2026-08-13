@@ -119,6 +119,13 @@ spec:
     spec:
       serviceAccountName: telegram-bot
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       terminationGracePeriodSeconds: 60
       securityContext:
         runAsNonRoot: true
@@ -167,8 +174,8 @@ spec:
                 - /bin/sh
                 - -ec
                 - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
-            failureThreshold: 30
-            periodSeconds: 2
+            failureThreshold: 120
+            periodSeconds: 5
           readinessProbe:
             exec:
               command:
@@ -225,6 +232,13 @@ spec:
     spec:
       serviceAccountName: telegram-bot
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       imagePullSecrets:
         - name: telegram-bot-registry
       terminationGracePeriodSeconds: 30

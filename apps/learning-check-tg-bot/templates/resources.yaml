@@ -122,6 +122,13 @@ spec:
     spec:
       serviceAccountName: learning-check-tg-bot
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       imagePullSecrets:
         - name: learning-check-tg-bot-registry
       terminationGracePeriodSeconds: 30

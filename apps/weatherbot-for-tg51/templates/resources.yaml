@@ -114,6 +114,13 @@ spec:
     spec:
       serviceAccountName: weatherbot-for-tg51
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       imagePullSecrets:
         - name: weatherbot-for-tg51-registry
       terminationGracePeriodSeconds: 30

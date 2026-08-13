@@ -15,6 +15,13 @@ spec:
     spec:
       serviceAccountName: uptime-monitor
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       imagePullSecrets:
         - name: uptime-monitor-registry
       terminationGracePeriodSeconds: 30
@@ -114,6 +121,13 @@ spec:
     spec:
       serviceAccountName: uptime-monitor
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       imagePullSecrets:
         - name: uptime-monitor-registry
       terminationGracePeriodSeconds: 60
@@ -213,6 +227,13 @@ spec:
     spec:
       serviceAccountName: uptime-monitor
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       imagePullSecrets:
         - name: uptime-monitor-registry
       terminationGracePeriodSeconds: 60
@@ -312,6 +333,13 @@ spec:
     spec:
       serviceAccountName: uptime-monitor
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       imagePullSecrets:
         - name: uptime-monitor-registry
       terminationGracePeriodSeconds: 60
@@ -409,6 +437,13 @@ spec:
     spec:
       serviceAccountName: uptime-monitor
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       imagePullSecrets:
         - name: uptime-monitor-registry
       securityContext:

@@ -17,6 +17,13 @@ spec:
     spec:
       serviceAccountName: online-shop-fastapi
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       imagePullSecrets:
         - name: online-shop-fastapi-registry
       terminationGracePeriodSeconds: 30
@@ -122,6 +129,13 @@ spec:
     spec:
       serviceAccountName: online-shop-fastapi
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       imagePullSecrets:
         - name: online-shop-fastapi-registry
       securityContext:
@@ -161,3 +175,8 @@ spec:
             capabilities:
               drop:
                 - ALL
+              add:
+                - CHOWN
+                - NET_BIND_SERVICE
+                - SETGID
+                - SETUID

@@ -42,6 +42,13 @@ spec:
     spec:
       serviceAccountName: online-shop-fastapi
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       securityContext:
         fsGroup: 999
         fsGroupChangePolicy: OnRootMismatch
@@ -78,7 +85,7 @@ spec:
                 - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 30
+            failureThreshold: 120
           readinessProbe:
             exec:
               command:
