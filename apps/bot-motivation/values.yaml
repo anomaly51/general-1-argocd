@@ -26,6 +26,12 @@ persistence:
   storageClassName: nfs-csi
   size: 1Gi
 
+migration:
+  enabled: true
+  source:
+    server: 192.168.1.13
+    path: /export/test/bot-motivation-bot-motivation-data-pvc-02294b5d-1a36-4a5b-bf72-d0959a8afeb6
+
 rapidApi:
   provider: scraptik
   host: scraptik.p.rapidapi.com
