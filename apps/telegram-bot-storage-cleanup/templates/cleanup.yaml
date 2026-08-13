@@ -1,0 +1,180 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: telegram-bot-storage-cleanup
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: telegram-bot-storage-cleanup
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumes
+    resourceNames:
+      - pvc-495a90ba-52d2-4ced-b0a3-49c1095f3034
+    verbs:
+      - get
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: telegram-bot-storage-cleanup
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: telegram-bot-storage-cleanup
+subjects:
+  - kind: ServiceAccount
+    name: telegram-bot-storage-cleanup
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: telegram-bot-storage-cleanup-v1
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: telegram-bot-storage-cleanup
+    spec:
+      serviceAccountName: telegram-bot-storage-cleanup
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      terminationGracePeriodSeconds: 30
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: erase-nfs-directory
+          image: docker.io/library/busybox:1.37.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              target=/nfs-apps/postgresql-data-telegram-bot-postgresql-0
+              expected=/nfs-apps/postgresql-data-telegram-bot-postgresql-0
+              test "$target" = "$expected"
+              test -d /nfs-apps
+
+              if [ -L "$target" ]; then
+                echo "refusing to remove symlink: $target" >&2
+                exit 1
+              fi
+
+              if [ -e "$target" ]; then
+                rm -rf -- "$target"
+                echo "removed $target"
+              else
+                echo "$target already absent"
+              fi
+
+              test ! -e "$target"
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              cpu: 25m
+              memory: 32Mi
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: nfs-export
+              mountPath: /nfs-apps
+              subPath: apps
+      containers:
+        - name: delete-persistentvolume
+          image: registry.k8s.io/kubectl:v1.35.4
+          imagePullPolicy: IfNotPresent
+          command:
+            - kubectl
+          args:
+            - delete
+            - persistentvolume
+            - pvc-495a90ba-52d2-4ced-b0a3-49c1095f3034
+            - --ignore-not-found=true
+            - --wait=false
+          env:
+            - name: HOME
+              value: /tmp
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: kube-api-access
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+      volumes:
+        - name: nfs-export
+          nfs:
+            server: 192.168.1.9
+            path: /export/test
+            readOnly: false
+        - name: tmp
+          emptyDir:
+            sizeLimit: 8Mi
+        - name: kube-api-access
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: 600
+                  path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace

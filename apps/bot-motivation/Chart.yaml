@@ -1,0 +1,6 @@
+apiVersion: v2
+name: bot-motivation
+description: Telegram motivation bot with an embedded web application and persistent SQLite data.
+type: application
+version: 0.1.0
+appVersion: "2b54a1ae7a59"

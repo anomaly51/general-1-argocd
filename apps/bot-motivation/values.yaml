@@ -1,0 +1,40 @@
+replicas: 0
+
+image:
+  repository: harbor.internal.api-api-api.com/applications/bot-motivation
+  tag: sha-2b54a1ae7a59
+  pullPolicy: IfNotPresent
+
+registry:
+  server: harbor.internal.api-api-api.com
+  vaultPath: apps/registry
+
+vault:
+  mount: kv
+  authMount: kubernetes
+  role: bot-motivation
+  path: apps/bot-motivation
+  refreshAfter: 1m
+
+route:
+  gatewayName: public
+  gatewayNamespace: networking
+  gatewaySectionName: https
+  hostname: pets-void-general1.api-api-api.com
+
+persistence:
+  storageClassName: nfs-csi
+  size: 1Gi
+
+rapidApi:
+  provider: scraptik
+  host: scraptik.p.rapidapi.com
+  url: https://scraptik.p.rapidapi.com
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
