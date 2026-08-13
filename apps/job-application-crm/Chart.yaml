@@ -1,0 +1,6 @@
+apiVersion: v2
+name: job-application-crm
+description: Job Application CRM API, frontend, and durable PostgreSQL database.
+type: application
+version: 0.1.0
+appVersion: "eb04acbc88dc"

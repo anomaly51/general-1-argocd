@@ -1,0 +1,6 @@
+apiVersion: v2
+name: learning-check-tg-bot
+description: Telegram learning check bot backed by Google Sheets.
+type: application
+version: 0.1.0
+appVersion: "db0ced6c8836"

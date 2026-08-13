@@ -1,0 +1,158 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: weatherbot-for-tg51
+  labels:
+    app.kubernetes.io/name: weatherbot-for-tg51
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: weatherbot-for-tg51
+  labels:
+    app.kubernetes.io/name: weatherbot-for-tg51
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: weatherbot-for-tg51
+    serviceAccount: weatherbot-for-tg51
+    audiences:
+      - vault
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: weatherbot-for-tg51-env
+  labels:
+    app.kubernetes.io/name: weatherbot-for-tg51
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: weatherbot-for-tg51
+  mount: kv
+  type: kv-v2
+  path: apps/weatherbot-for-tg51
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: weatherbot-for-tg51-env
+    transformation:
+      includes:
+        - ^(BOT_TOKEN|ADMIN_ID)$
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: weatherbot-for-tg51
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: weatherbot-for-tg51-registry
+  labels:
+    app.kubernetes.io/name: weatherbot-for-tg51
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: weatherbot-for-tg51
+  mount: kv
+  type: kv-v2
+  path: apps/registry
+  refreshAfter: 1h
+  destination:
+    create: true
+    name: weatherbot-for-tg51-registry
+    type: kubernetes.io/dockerconfigjson
+    transformation:
+      excludes:
+        - .*
+      templates:
+        .dockerconfigjson:
+          text: |
+            {"auths":{"harbor.internal.api-api-api.com":{"username":"{{ `{{ get .Secrets "username" }}` }}","password":"{{ `{{ get .Secrets "password" }}` }}"}}}
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: weatherbot-for-tg51
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weatherbot-for-tg51-data
+  labels:
+    app.kubernetes.io/name: weatherbot-for-tg51
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  storageClassName: {{ .Values.persistence.storageClassName }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weatherbot-for-tg51
+  labels:
+    app.kubernetes.io/name: weatherbot-for-tg51
+spec:
+  replicas: {{ .Values.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: weatherbot-for-tg51
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: weatherbot-for-tg51
+    spec:
+      serviceAccountName: weatherbot-for-tg51
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: weatherbot-for-tg51-registry
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bot
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+          envFrom:
+            - secretRef:
+                name: weatherbot-for-tg51-env
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: logs
+              mountPath: /app/logs
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: weatherbot-for-tg51-data
+        - name: logs
+          emptyDir:
+            sizeLimit: 256Mi

@@ -1,0 +1,95 @@
+images:
+  api:
+    repository: harbor.internal.api-api-api.com/applications/uptime-monitor-api
+    tag: sha-ea2c079c282a
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: harbor.internal.api-api-api.com/applications/uptime-monitor-frontend
+    tag: sha-ea2c079c282a
+    pullPolicy: IfNotPresent
+  postgres:
+    repository: docker.io/library/postgres
+    tag: 16-alpine
+    pullPolicy: IfNotPresent
+  rabbitmq:
+    repository: docker.io/library/rabbitmq
+    tag: 3-management-alpine
+    pullPolicy: IfNotPresent
+
+registry:
+  server: harbor.internal.api-api-api.com
+  vaultPath: apps/registry
+
+vault:
+  mount: kv
+  authMount: kubernetes
+  role: uptime-monitor
+  # Must include the application environment plus POSTGRES_PASSWORD,
+  # RABBITMQ_USERNAME, RABBITMQ_PASSWORD, DATABASE_URL (using
+  # uptime-monitor-postgres:5432), and RABBITMQ_URL (using
+  # uptime-monitor-rabbitmq:5672).
+  envPath: apps/uptime-monitor
+  refreshAfter: 1m
+
+routes:
+  gatewayName: public
+  gatewayNamespace: networking
+  gatewaySectionName: https
+  frontendHostname: uptime-general1.api-api-api.com
+  apiHostname: uptime-api-general1.api-api-api.com
+
+storage:
+  className: nfs-csi
+  postgresSize: 5Gi
+  rabbitmqSize: 2Gi
+
+resources:
+  api:
+    requests:
+      cpu: 25m
+      memory: 96Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  worker:
+    requests:
+      cpu: 25m
+      memory: 96Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  scheduler:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 150m
+      memory: 192Mi
+  bot:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 150m
+      memory: 192Mi
+  frontend:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  postgres:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 384Mi
+  rabbitmq:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 384Mi

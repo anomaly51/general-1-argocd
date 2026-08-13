@@ -1,0 +1,15 @@
+replicas: 1
+
+image:
+  repository: harbor.internal.api-api-api.com/applications/learning-check-tg-bot
+  # Replaced with an immutable sha-* tag after the first image is published.
+  tag: sha-db0ced6c8836
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi

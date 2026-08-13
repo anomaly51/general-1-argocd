@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: shisha-guid-frontend
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: shisha-guid-frontend
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  method: kubernetes
+  mount: {{ .Values.vault.authMount }}
+  kubernetes:
+    role: {{ .Values.vault.role }}
+    serviceAccount: shisha-guid-frontend
+    audiences:
+      - vault
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: shisha-guid-frontend-env
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: shisha-guid-frontend
+  mount: {{ .Values.vault.mount }}
+  type: kv-v2
+  path: {{ .Values.vault.envPath }}
+  refreshAfter: {{ .Values.vault.refreshAfter }}
+  destination:
+    create: true
+    name: shisha-guid-frontend-env
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: shisha-guid-frontend
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: shisha-guid-frontend-registry
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: shisha-guid-frontend
+  mount: {{ .Values.vault.mount }}
+  type: kv-v2
+  path: {{ .Values.registry.vaultPath }}
+  refreshAfter: 1h
+  destination:
+    create: true
+    name: shisha-guid-frontend-registry
+    type: kubernetes.io/dockerconfigjson
+    transformation:
+      excludes:
+        - .*
+      templates:
+        .dockerconfigjson:
+          text: |
+            {"auths":{"{{ .Values.registry.server }}":{"username":"{{ `{{ get .Secrets "username" }}` }}","password":"{{ `{{ get .Secrets "password" }}` }}"}}}
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: shisha-guid-frontend

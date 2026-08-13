@@ -1,0 +1,281 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: telegram-bot
+  labels:
+    app.kubernetes.io/name: telegram-bot
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: telegram-bot
+  labels:
+    app.kubernetes.io/name: telegram-bot
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: telegram-bot
+    serviceAccount: telegram-bot
+    audiences:
+      - vault
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: telegram-bot-env
+  labels:
+    app.kubernetes.io/name: telegram-bot
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: telegram-bot
+  mount: kv
+  type: kv-v2
+  path: apps/telegram-bot
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: telegram-bot-env
+    transformation:
+      includes:
+        - ^(BOT_TOKEN|DB_USER|DB_PASS|DB_NAME)$
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: telegram-bot
+    - kind: StatefulSet
+      name: telegram-bot-postgresql
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: telegram-bot-registry
+  labels:
+    app.kubernetes.io/name: telegram-bot
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: telegram-bot
+  mount: kv
+  type: kv-v2
+  path: apps/registry
+  refreshAfter: 1h
+  destination:
+    create: true
+    name: telegram-bot-registry
+    type: kubernetes.io/dockerconfigjson
+    transformation:
+      excludes:
+        - .*
+      templates:
+        .dockerconfigjson:
+          text: |
+            {"auths":{"harbor.internal.api-api-api.com":{"username":"{{ `{{ get .Secrets "username" }}` }}","password":"{{ `{{ get .Secrets "password" }}` }}"}}}
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: telegram-bot
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: telegram-bot-postgresql
+  labels:
+    app.kubernetes.io/name: telegram-bot
+    app.kubernetes.io/component: postgresql
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: telegram-bot
+    app.kubernetes.io/component: postgresql
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: telegram-bot-postgresql
+  labels:
+    app.kubernetes.io/name: telegram-bot
+    app.kubernetes.io/component: postgresql
+spec:
+  serviceName: telegram-bot-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: telegram-bot
+      app.kubernetes.io/component: postgresql
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: telegram-bot
+        app.kubernetes.io/component: postgresql
+    spec:
+      serviceAccountName: telegram-bot
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgresql
+          image: "{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+          ports:
+            - name: postgresql
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: telegram-bot-env
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: telegram-bot-env
+                  key: DB_PASS
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: telegram-bot-env
+                  key: DB_NAME
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          resources:
+            {{- toYaml .Values.postgresql.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          startupProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ec
+                - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ec
+                - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ec
+                - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            periodSeconds: 10
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: postgresql-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgresql-data
+        labels:
+          app.kubernetes.io/name: telegram-bot
+          app.kubernetes.io/component: postgresql
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: {{ .Values.postgresql.persistence.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.postgresql.persistence.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telegram-bot
+  labels:
+    app.kubernetes.io/name: telegram-bot
+    app.kubernetes.io/component: bot
+spec:
+  replicas: {{ .Values.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: telegram-bot
+      app.kubernetes.io/component: bot
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: telegram-bot
+        app.kubernetes.io/component: bot
+    spec:
+      serviceAccountName: telegram-bot
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: telegram-bot-registry
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: wait-for-postgresql
+          image: "{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+            - until pg_isready -h telegram-bot-postgresql -p 5432; do sleep 2; done
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      containers:
+        - name: bot
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: DB_HOST
+              value: telegram-bot-postgresql
+            - name: DB_PORT
+              value: "5432"
+          envFrom:
+            - secretRef:
+                name: telegram-bot-env
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL

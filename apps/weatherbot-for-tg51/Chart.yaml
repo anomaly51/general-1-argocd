@@ -1,0 +1,6 @@
+apiVersion: v2
+name: weatherbot-for-tg51
+description: Telegram weather bot with persistent SQLite state.
+type: application
+version: 0.1.0
+appVersion: "a09fb9324165"

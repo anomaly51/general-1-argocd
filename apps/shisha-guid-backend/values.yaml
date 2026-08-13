@@ -1,0 +1,84 @@
+replicas: 1
+
+images:
+  api:
+    repository: harbor.internal.api-api-api.com/applications/shisha-guid-backend
+    tag: sha-5808869d85e2
+    pullPolicy: IfNotPresent
+  postgres:
+    repository: docker.io/library/postgres
+    tag: 16-alpine
+    pullPolicy: IfNotPresent
+  minio:
+    repository: quay.io/minio/minio
+    tag: RELEASE.2025-04-22T22-12-26Z
+    pullPolicy: IfNotPresent
+  wait:
+    repository: docker.io/library/busybox
+    tag: 1.36.1
+    pullPolicy: IfNotPresent
+
+registry:
+  server: harbor.internal.api-api-api.com
+  vaultPath: apps/registry
+
+vault:
+  mount: kv
+  authMount: kubernetes
+  role: shisha-guid-backend
+  # The Vault secret must supply DATABASE_URL, POSTGRES_USER,
+  # POSTGRES_PASSWORD, POSTGRES_DB, MINIO_ACCESS_KEY, MINIO_SECRET_KEY,
+  # and the application authentication/provider settings.
+  envPath: apps/shisha-guid-backend
+  refreshAfter: 1m
+
+route:
+  gatewayName: public
+  gatewayNamespace: networking
+  gatewaySectionName: https
+  hostname: shisha-api-general1.api-api-api.com
+
+service:
+  port: 80
+  containerPort: 8000
+
+config:
+  apiPublicUrl: https://shisha-api-general1.api-api-api.com
+  minioEndpoint: shisha-guid-backend-minio:9000
+  minioBucket: shisha-guid
+  maxUploadBytes: "5242880"
+
+storage:
+  className: nfs-csi
+  postgresSize: 5Gi
+  minioSize: 10Gi
+
+resources:
+  api:
+    requests:
+      cpu: 25m
+      memory: 96Mi
+    limits:
+      cpu: 250m
+      memory: 320Mi
+  postgres:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 384Mi
+  minio:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 384Mi
+  wait:
+    requests:
+      cpu: 5m
+      memory: 8Mi
+    limits:
+      cpu: 25m
+      memory: 32Mi

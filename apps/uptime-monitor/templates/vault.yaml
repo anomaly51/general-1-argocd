@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: uptime-monitor
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: uptime-monitor
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  method: kubernetes
+  mount: {{ .Values.vault.authMount }}
+  kubernetes:
+    role: {{ .Values.vault.role }}
+    serviceAccount: uptime-monitor
+    audiences:
+      - vault
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: uptime-monitor-env
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: uptime-monitor
+  mount: {{ .Values.vault.mount }}
+  type: kv-v2
+  path: {{ .Values.vault.envPath }}
+  refreshAfter: {{ .Values.vault.refreshAfter }}
+  destination:
+    create: true
+    name: uptime-monitor-env
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: uptime-monitor-api
+    - kind: Deployment
+      name: uptime-monitor-worker
+    - kind: Deployment
+      name: uptime-monitor-scheduler
+    - kind: Deployment
+      name: uptime-monitor-bot
+    - kind: StatefulSet
+      name: uptime-monitor-postgres
+    - kind: StatefulSet
+      name: uptime-monitor-rabbitmq
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: uptime-monitor-registry
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: uptime-monitor
+  mount: {{ .Values.vault.mount }}
+  type: kv-v2
+  path: {{ .Values.registry.vaultPath }}
+  refreshAfter: 1h
+  destination:
+    create: true
+    name: uptime-monitor-registry
+    type: kubernetes.io/dockerconfigjson
+    transformation:
+      excludes:
+        - .*
+      templates:
+        .dockerconfigjson:
+          text: |
+            {"auths":{"{{ .Values.registry.server }}":{"username":"{{ `{{ get .Secrets "username" }}` }}","password":"{{ `{{ get .Secrets "password" }}` }}"}}}
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: uptime-monitor-api
+    - kind: Deployment
+      name: uptime-monitor-worker
+    - kind: Deployment
+      name: uptime-monitor-scheduler
+    - kind: Deployment
+      name: uptime-monitor-bot
+    - kind: Deployment
+      name: uptime-monitor-frontend

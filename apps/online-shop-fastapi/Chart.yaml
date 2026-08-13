@@ -1,0 +1,6 @@
+apiVersion: v2
+name: online-shop-fastapi
+description: Online Shop API, frontend, PostgreSQL, and durable uploads.
+type: application
+version: 0.1.0
+appVersion: "26a13af3f939"

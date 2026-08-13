@@ -1,0 +1,39 @@
+replicas: 1
+
+image:
+  repository: harbor.internal.api-api-api.com/applications/shisha-guid-frontend
+  tag: sha-758c3dcb78c8
+  pullPolicy: IfNotPresent
+
+registry:
+  server: harbor.internal.api-api-api.com
+  vaultPath: apps/registry
+
+vault:
+  mount: kv
+  authMount: kubernetes
+  role: shisha-guid-frontend
+  envPath: apps/shisha-guid-frontend
+  refreshAfter: 1m
+
+route:
+  gatewayName: public
+  gatewayNamespace: networking
+  gatewaySectionName: https
+  hostname: shisha-general1.api-api-api.com
+
+service:
+  port: 80
+  containerPort: 80
+
+config:
+  publicSiteUrl: https://shisha-general1.api-api-api.com
+  ssrApiUrl: http://shisha-guid-backend/api/v1
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 48Mi
+  limits:
+    cpu: 150m
+    memory: 192Mi

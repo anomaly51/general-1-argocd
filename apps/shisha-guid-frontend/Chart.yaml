@@ -1,0 +1,6 @@
+apiVersion: v2
+name: shisha-guid-frontend
+description: Shisha Guide server-rendered frontend for the General-1 cluster.
+type: application
+version: 0.1.0
+appVersion: "758c3dcb78c8"

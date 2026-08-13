@@ -1,0 +1,20 @@
+replicas: 1
+
+image:
+  repository: harbor.internal.api-api-api.com/applications/weatherbot-for-tg51
+  # Replaced with an immutable sha-* tag after the first image is published.
+  tag: sha-a09fb9324165
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+persistence:
+  storageClassName: nfs-csi
+  accessMode: ReadWriteOnce
+  size: 1Gi

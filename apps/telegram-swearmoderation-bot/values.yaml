@@ -1,0 +1,31 @@
+replicas: 1
+
+image:
+  repository: harbor.internal.api-api-api.com/applications/telegram-swearmoderation-bot
+  # Replaced with an immutable sha-* tag after the first image is published.
+  tag: sha-e9324365a465
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 96Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+postgresql:
+  image:
+    repository: postgres
+    tag: 16.4-bookworm
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  persistence:
+    storageClassName: nfs-csi
+    size: 2Gi

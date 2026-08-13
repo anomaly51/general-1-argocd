@@ -1,0 +1,67 @@
+images:
+  api:
+    repository: harbor.internal.api-api-api.com/applications/job-application-crm-api
+    tag: sha-eb04acbc88dc
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: harbor.internal.api-api-api.com/applications/job-application-crm-frontend
+    tag: sha-eb04acbc88dc
+    pullPolicy: IfNotPresent
+  postgres:
+    repository: docker.io/library/postgres
+    tag: 16-alpine
+    pullPolicy: IfNotPresent
+
+registry:
+  server: harbor.internal.api-api-api.com
+  vaultPath: apps/registry
+
+vault:
+  mount: kv
+  authMount: kubernetes
+  role: job-application-crm
+  # Must include the application environment plus POSTGRES_PASSWORD and
+  # DATABASE_URL; the URL must address job-application-crm-postgres:5432.
+  envPath: apps/job-application-crm
+  refreshAfter: 1m
+
+routes:
+  gatewayName: public
+  gatewayNamespace: networking
+  gatewaySectionName: https
+  frontendHostname: job-crm-general1.api-api-api.com
+  apiHostname: job-crm-api-general1.api-api-api.com
+
+storage:
+  className: nfs-csi
+  postgresSize: 5Gi
+
+resources:
+  api:
+    requests:
+      cpu: 25m
+      memory: 96Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  migration:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 150m
+      memory: 192Mi
+  frontend:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  postgres:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 384Mi

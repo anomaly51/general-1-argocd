@@ -1,0 +1,6 @@
+apiVersion: v2
+name: shisha-guid-backend
+description: Shisha Guide API with durable PostgreSQL and MinIO services.
+type: application
+version: 0.1.0
+appVersion: "5808869d85e2"

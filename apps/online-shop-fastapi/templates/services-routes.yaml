@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: online-shop-fastapi-backend
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: online-shop-fastapi-backend
+  ports:
+    - name: http
+      port: {{ .Values.services.backend.port }}
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: online-shop-fastapi-frontend
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: online-shop-fastapi-frontend
+  ports:
+    - name: http
+      port: {{ .Values.services.frontend.port }}
+      targetPort: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: online-shop-fastapi-backend
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.routes.gatewayName }}
+      namespace: {{ .Values.routes.gatewayNamespace }}
+      sectionName: {{ .Values.routes.gatewaySectionName }}
+  hostnames:
+    - {{ .Values.routes.apiHostname }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: online-shop-fastapi-backend
+          port: {{ .Values.services.backend.port }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: online-shop-fastapi-frontend
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.routes.gatewayName }}
+      namespace: {{ .Values.routes.gatewayNamespace }}
+      sectionName: {{ .Values.routes.gatewaySectionName }}
+  hostnames:
+    - {{ .Values.routes.frontendHostname }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: online-shop-fastapi-frontend
+          port: {{ .Values.services.frontend.port }}

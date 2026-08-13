@@ -1,0 +1,168 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: job-application-crm-api
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: job-application-crm-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: job-application-crm-api
+    spec:
+      serviceAccountName: job-application-crm
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: job-application-crm-registry
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: migrate
+          image: "{{ .Values.images.api.repository }}:{{ .Values.images.api.tag }}"
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          command:
+            - sh
+            - -ec
+            - |
+              until python -c 'import socket; socket.create_connection(("job-application-crm-postgres", 5432), 2).close()'; do
+                sleep 2
+              done
+              alembic upgrade head
+          env:
+            - name: PROJECT_NAME
+              value: Job Application CRM
+            - name: DEBUG
+              value: "false"
+            - name: JWT_ISSUER
+              value: job-application-crm-api
+            - name: JWT_AUDIENCE
+              value: job-application-crm-client
+            - name: ACCESS_TOKEN_EXPIRE_MINUTES
+              value: "1440"
+            - name: REFRESH_TOKEN_EXPIRE_DAYS
+              value: "14"
+            - name: BACKEND_CORS_ORIGINS
+              value: '["https://{{ .Values.routes.frontendHostname }}"]'
+          envFrom:
+            - secretRef:
+                name: job-application-crm-env
+          resources:
+            {{- toYaml .Values.resources.migration | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      containers:
+        - name: api
+          image: "{{ .Values.images.api.repository }}:{{ .Values.images.api.tag }}"
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          env:
+            - name: PROJECT_NAME
+              value: Job Application CRM
+            - name: DEBUG
+              value: "false"
+            - name: JWT_ISSUER
+              value: job-application-crm-api
+            - name: JWT_AUDIENCE
+              value: job-application-crm-client
+            - name: ACCESS_TOKEN_EXPIRE_MINUTES
+              value: "1440"
+            - name: REFRESH_TOKEN_EXPIRE_DAYS
+              value: "14"
+            - name: BACKEND_CORS_ORIGINS
+              value: '["https://{{ .Values.routes.frontendHostname }}"]'
+          envFrom:
+            - secretRef:
+                name: job-application-crm-env
+          ports:
+            - name: http
+              containerPort: 8000
+          startupProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.resources.api | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: job-application-crm-frontend
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: job-application-crm-frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: job-application-crm-frontend
+    spec:
+      serviceAccountName: job-application-crm
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: job-application-crm-registry
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: frontend
+          image: "{{ .Values.images.frontend.repository }}:{{ .Values.images.frontend.tag }}"
+          imagePullPolicy: {{ .Values.images.frontend.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 3
+            timeoutSeconds: 2
+            failureThreshold: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.resources.frontend | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false

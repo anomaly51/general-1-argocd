@@ -1,0 +1,6 @@
+apiVersion: v2
+name: uptime-monitor
+description: Uptime Monitor API, workers, frontend, and durable backing services.
+type: application
+version: 0.1.0
+appVersion: "ea2c079c282a"
