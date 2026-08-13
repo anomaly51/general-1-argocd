@@ -107,6 +107,9 @@ metadata:
 spec:
   serviceName: telegram-bot-postgresql
   replicas: 1
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+    whenScaled: Retain
   selector:
     matchLabels:
       app.kubernetes.io/name: telegram-bot
