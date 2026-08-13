@@ -282,7 +282,7 @@ spec:
           command:
             - /bin/sh
             - -ec
-            - until pg_isready -h telegram-swearmoderation-bot-postgresql-v2 -p 5432; do sleep 2; done
+            - until pg_isready -h telegram-swearmoderation-bot-postgresql-v2 -p 5432 -U postgres -d postgres; do sleep 2; done
           resources:
             requests:
               cpu: 5m
