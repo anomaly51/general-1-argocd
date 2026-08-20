@@ -8,3 +8,5 @@ resources:
   - traefik-config.yaml
   - applicationsets/apps.yaml
   - applicationsets/utility-apps.yaml
+  - operators/rabbitmq-cluster-operator.yaml
+  - operators/rabbitmq-topology-operator.yaml

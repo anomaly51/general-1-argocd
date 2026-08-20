@@ -1,0 +1,6 @@
+apiVersion: v2
+name: shared
+description: Shared RabbitMQ cluster managed by the official RabbitMQ Cluster Operator.
+type: application
+version: 0.1.0
+appVersion: "4.3.4"

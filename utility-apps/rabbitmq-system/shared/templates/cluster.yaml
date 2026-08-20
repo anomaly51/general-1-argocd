@@ -1,0 +1,37 @@
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: {{ .Values.cluster.name }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    rabbitmq.com/topology-allowed-namespaces: {{ .Values.cluster.topologyAllowedNamespaces | quote }}
+spec:
+  image: {{ .Values.cluster.image }}
+  replicas: {{ .Values.cluster.replicas }}
+  secretBackend:
+    externalSecret:
+      name: shared-default-user
+  persistence:
+    storageClassName: {{ .Values.persistence.storageClassName }}
+    storage: {{ .Values.persistence.size }}
+  resources:
+    {{- toYaml .Values.resources | nindent 4 }}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/component: rabbitmq
+              app.kubernetes.io/name: {{ .Values.cluster.name }}
+          topologyKey: kubernetes.io/hostname
+  rabbitmq:
+    additionalConfig: |
+      default_queue_type = quorum
+      collect_statistics_interval = 10000
+      disk_free_limit.absolute = 256MB

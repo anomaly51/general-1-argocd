@@ -1,0 +1,30 @@
+cluster:
+  name: shared
+  image: rabbitmq:4.3.4-management
+  replicas: 3
+  topologyAllowedNamespaces: apps
+
+persistence:
+  storageClassName: local-path
+  size: 2Gi
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 384Mi
+  limits:
+    cpu: 500m
+    memory: 384Mi
+
+vault:
+  mount: kv
+  authMount: kubernetes
+  role: rabbitmq-shared
+  path: platform/rabbitmq/shared
+  refreshAfter: 1m
+
+monitoring:
+  namespace: monitoring
+
+clients:
+  namespace: apps

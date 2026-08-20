@@ -93,6 +93,13 @@ prometheus:
             - argocd-notifications-controller-metrics.argocd.svc.cluster.local:9001
           labels:
             namespace: argocd
+    rabbitmq:
+      static_configs:
+        - targets:
+            - shared.rabbitmq-system.svc.cluster.local:15692
+          labels:
+            namespace: rabbitmq-system
+            cluster: shared
     proxmox:
       metrics_path: /pve
       params:
