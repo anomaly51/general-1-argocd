@@ -15,7 +15,7 @@ spec:
     path: config/installation
     kustomize:
       images:
-        - ghcr.io/rabbitmq/messaging-topology-operator=ghcr.io/rabbitmq/messaging-topology-operator:v1.20.1
+        - rabbitmqoperator/messaging-topology-operator=ghcr.io/rabbitmq/messaging-topology-operator:1.20.1
   destination:
     server: https://kubernetes.default.svc
     namespace: rabbitmq-system
