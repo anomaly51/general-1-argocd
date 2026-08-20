@@ -26,6 +26,19 @@ spec:
             kind: Namespace
             metadata:
               name: rabbitmq-system
+        - target:
+            kind: Deployment
+            name: messaging-topology-operator
+          patch: |-
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: messaging-topology-operator
+            spec:
+              template:
+                spec:
+                  nodeSelector:
+                    node-role.kubernetes.io/control-plane: "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: rabbitmq-system
