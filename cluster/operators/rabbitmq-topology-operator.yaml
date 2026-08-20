@@ -16,6 +16,16 @@ spec:
     kustomize:
       images:
         - rabbitmqoperator/messaging-topology-operator=ghcr.io/rabbitmq/messaging-topology-operator:1.20.1
+      patches:
+        - target:
+            kind: Namespace
+            name: rabbitmq-system
+          patch: |-
+            $patch: delete
+            apiVersion: v1
+            kind: Namespace
+            metadata:
+              name: rabbitmq-system
   destination:
     server: https://kubernetes.default.svc
     namespace: rabbitmq-system
