@@ -26,6 +26,10 @@ spec:
             metadata:
               name: rabbitmq-cluster-operator
             spec:
+              strategy:
+                rollingUpdate:
+                  maxSurge: 0
+                  maxUnavailable: 1
               template:
                 spec:
                   nodeSelector:
