@@ -36,6 +36,14 @@ spec:
   destination:
     create: true
     name: uptime-monitor-env
+    labels:
+      rabbitmq.com/topology-operator: "true"
+    transformation:
+      templates:
+        username:
+          text: '{{ `{{- get .Secrets "RABBITMQ_USERNAME" -}}` }}'
+        password:
+          text: '{{ `{{- get .Secrets "RABBITMQ_PASSWORD" -}}` }}'
   rolloutRestartTargets:
     - kind: Deployment
       name: uptime-monitor-api
