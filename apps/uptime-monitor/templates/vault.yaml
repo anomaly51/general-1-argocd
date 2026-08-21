@@ -47,8 +47,6 @@ spec:
       name: uptime-monitor-bot
     - kind: StatefulSet
       name: uptime-monitor-postgres
-    - kind: StatefulSet
-      name: uptime-monitor-rabbitmq
 ---
 apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultStaticSecret

@@ -1,0 +1,15 @@
+# Retain the pre-operator broker data until the migration rollback window closes.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uptime-monitor-rabbitmq
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false,Prune=false
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.storage.className }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.legacyRabbitmqSize }}

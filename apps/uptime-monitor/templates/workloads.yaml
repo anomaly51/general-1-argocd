@@ -36,7 +36,7 @@ spec:
           command:
             - sh
             - -ec
-            - until nc -z uptime-monitor-postgres 5432 && nc -z uptime-monitor-rabbitmq 5672; do sleep 2; done
+            - until nc -z uptime-monitor-postgres 5432 && nc -z {{ .Values.rabbitmq.host }} 5672; do sleep 2; done
           resources:
             requests:
               cpu: 5m
@@ -144,7 +144,7 @@ spec:
           command:
             - sh
             - -ec
-            - until nc -z uptime-monitor-postgres 5432 && nc -z uptime-monitor-rabbitmq 5672; do sleep 2; done
+            - until nc -z uptime-monitor-postgres 5432 && nc -z {{ .Values.rabbitmq.host }} 5672; do sleep 2; done
           resources:
             requests:
               cpu: 5m
@@ -252,7 +252,7 @@ spec:
           command:
             - sh
             - -ec
-            - until nc -z uptime-monitor-postgres 5432 && nc -z uptime-monitor-rabbitmq 5672; do sleep 2; done
+            - until nc -z uptime-monitor-postgres 5432 && nc -z {{ .Values.rabbitmq.host }} 5672; do sleep 2; done
           resources:
             requests:
               cpu: 5m

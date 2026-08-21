@@ -11,10 +11,6 @@ images:
     repository: docker.io/library/postgres
     tag: 16-alpine
     pullPolicy: IfNotPresent
-  rabbitmq:
-    repository: docker.io/library/rabbitmq
-    tag: 3-management-alpine
-    pullPolicy: IfNotPresent
 
 registry:
   server: harbor.internal.api-api-api.com
@@ -27,9 +23,12 @@ vault:
   # Must include the application environment plus POSTGRES_PASSWORD,
   # RABBITMQ_USERNAME, RABBITMQ_PASSWORD, DATABASE_URL (using
   # uptime-monitor-postgres:5432), and RABBITMQ_URL (using
-  # uptime-monitor-rabbitmq:5672).
+  # shared.rabbitmq-system.svc.cluster.local:5672/uptime-monitor).
   envPath: apps/uptime-monitor
   refreshAfter: 1m
+
+rabbitmq:
+  host: shared.rabbitmq-system.svc.cluster.local
 
 routes:
   gatewayName: public
@@ -41,7 +40,7 @@ routes:
 storage:
   className: nfs-csi
   postgresSize: 5Gi
-  rabbitmqSize: 2Gi
+  legacyRabbitmqSize: 2Gi
 
 resources:
   api:
@@ -80,13 +79,6 @@ resources:
       cpu: 100m
       memory: 128Mi
   postgres:
-    requests:
-      cpu: 25m
-      memory: 128Mi
-    limits:
-      cpu: 250m
-      memory: 384Mi
-  rabbitmq:
     requests:
       cpu: 25m
       memory: 128Mi
