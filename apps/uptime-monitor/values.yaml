@@ -27,9 +27,6 @@ vault:
   envPath: apps/uptime-monitor
   refreshAfter: 1m
 
-rabbitmq:
-  host: shared.rabbitmq-system.svc.cluster.local
-
 routes:
   gatewayName: public
   gatewayNamespace: networking

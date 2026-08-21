@@ -1,29 +1,3 @@
-apiVersion: secrets.hashicorp.com/v1beta1
-kind: VaultStaticSecret
-metadata:
-  name: uptime-monitor-rabbitmq-credentials
-  annotations:
-    argocd.argoproj.io/sync-wave: "-2"
-spec:
-  vaultAuthRef: uptime-monitor
-  mount: {{ .Values.vault.mount }}
-  type: kv-v2
-  path: {{ .Values.vault.envPath }}
-  refreshAfter: {{ .Values.vault.refreshAfter }}
-  destination:
-    create: true
-    name: uptime-monitor-rabbitmq-credentials
-    labels:
-      rabbitmq.com/topology-operator: "true"
-    transformation:
-      excludes:
-        - .*
-      templates:
-        username:
-          text: '{{ `{{- get .Secrets "RABBITMQ_USERNAME" -}}` }}'
-        password:
-          text: '{{ `{{- get .Secrets "RABBITMQ_PASSWORD" -}}` }}'
----
 apiVersion: rabbitmq.com/v1beta1
 kind: Vhost
 metadata:
@@ -48,7 +22,7 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   importCredentialsSecret:
-    name: uptime-monitor-rabbitmq-credentials
+    name: uptime-monitor-env
   rabbitmqClusterReference:
     name: shared
     namespace: rabbitmq-system
@@ -68,24 +42,6 @@ spec:
     configure: ".*"
     write: ".*"
     read: ".*"
-  rabbitmqClusterReference:
-    name: shared
-    namespace: rabbitmq-system
----
-apiVersion: rabbitmq.com/v1beta1
-kind: Queue
-metadata:
-  name: uptime-monitor-checks
-  annotations:
-    argocd.argoproj.io/sync-wave: "1"
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-spec:
-  name: monitor_checks
-  vhost: uptime-monitor
-  type: quorum
-  durable: true
-  autoDelete: false
-  deletionPolicy: retain
   rabbitmqClusterReference:
     name: shared
     namespace: rabbitmq-system
