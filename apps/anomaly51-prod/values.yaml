@@ -198,10 +198,21 @@ app:
         resources:
           requests:
             cpu: 25m
-            memory: 128Mi
+            memory: 64Mi
           limits:
             cpu: 250m
             memory: 384Mi
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                    - key: node-role.kubernetes.io/control-plane
+                      operator: DoesNotExist
+                    - key: kubernetes.io/hostname
+                      operator: In
+                      values:
+                        - general-1-worker-2
     - apiVersion: v1
       kind: Service
       metadata:
@@ -1030,7 +1041,7 @@ app:
                     value: anomaly51-telegram-service:80
                 ports:
                   - name: http
-                    containerPort: 80
+                    containerPort: 8080
                 startupProbe:
                   httpGet:
                     path: /healthz
@@ -1061,11 +1072,23 @@ app:
                     memory: 64Mi
                 securityContext:
                   allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  runAsNonRoot: true
+                  runAsUser: 101
+                  runAsGroup: 101
                   capabilities:
                     drop:
                       - ALL
-                    add:
-                      - NET_BIND_SERVICE
+                volumeMounts:
+                  - name: tmp
+                    mountPath: /tmp
+                  - name: nginx-conf
+                    mountPath: /etc/nginx/conf.d
+            volumes:
+              - name: tmp
+                emptyDir: {}
+              - name: nginx-conf
+                emptyDir: {}
     - apiVersion: apps/v1
       kind: Deployment
       metadata:
@@ -1168,7 +1191,7 @@ app:
                 resources:
                   requests:
                     cpu: 25m
-                    memory: 96Mi
+                    memory: 48Mi
                   limits:
                     cpu: 250m
                     memory: 256Mi
@@ -1418,7 +1441,7 @@ app:
                 resources:
                   requests:
                     cpu: 25m
-                    memory: 96Mi
+                    memory: 48Mi
                   limits:
                     cpu: 300m
                     memory: 256Mi
