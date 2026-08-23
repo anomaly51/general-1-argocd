@@ -27,6 +27,7 @@ app:
           app.kubernetes.io/part-of: anomaly51
         annotations:
           argocd.argoproj.io/sync-wave: "-10"
+      automountServiceAccountToken: false
     - apiVersion: secrets.hashicorp.com/v1beta1
       kind: VaultAuth
       metadata:
@@ -214,133 +215,91 @@ app:
                       values:
                         - general-1-worker-2
     - apiVersion: v1
-      kind: Service
+      kind: ConfigMap
       metadata:
-        name: anomaly51-redis
+        name: anomaly51-redis-config
         labels:
           app.kubernetes.io/name: anomaly51-redis
           app.kubernetes.io/part-of: anomaly51
         annotations:
           argocd.argoproj.io/sync-wave: "-7"
-      spec:
-        type: ClusterIP
-        selector:
-          app.kubernetes.io/name: anomaly51-redis
-        ports:
-          - name: redis
-            port: 6379
-            targetPort: redis
-    - apiVersion: apps/v1
-      kind: StatefulSet
+      data:
+        redis-additional.conf: |
+          appendonly yes
+          appendfsync everysec
+          maxmemory-policy noeviction
+    # The operator owns the StatefulSet and Services. A distinct CR name avoids
+    # fighting the retired Git-owned StatefulSet while reusing its retained PVC.
+    - apiVersion: redis.redis.opstreelabs.in/v1beta2
+      kind: Redis
       metadata:
-        name: anomaly51-redis
+        name: anomaly51-redis-managed
         labels:
           app.kubernetes.io/name: anomaly51-redis
           app.kubernetes.io/part-of: anomaly51
         annotations:
-          argocd.argoproj.io/sync-wave: "-7"
+          argocd.argoproj.io/sync-wave: "-6"
+          argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
       spec:
-        serviceName: anomaly51-redis
-        # Operator cutover guard: release the retained PVC before the Redis CR mounts it.
-        replicas: 0
-        persistentVolumeClaimRetentionPolicy:
-          whenDeleted: Retain
-          whenScaled: Retain
-        selector:
-          matchLabels:
-            app.kubernetes.io/name: anomaly51-redis
-        template:
-          metadata:
-            labels:
-              app.kubernetes.io/name: anomaly51-redis
-              app.kubernetes.io/component: cache
-              app.kubernetes.io/part-of: anomaly51
-          spec:
-            serviceAccountName: anomaly51-prod
-            automountServiceAccountToken: false
-            affinity:
-              nodeAffinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms:
-                    - matchExpressions:
-                        - key: node-role.kubernetes.io/control-plane
-                          operator: DoesNotExist
-            securityContext:
-              fsGroup: 1000
-              fsGroupChangePolicy: OnRootMismatch
-              seccompProfile:
-                type: RuntimeDefault
-            containers:
-              - name: redis
-                image: docker.io/library/redis:7.4-alpine
-                imagePullPolicy: IfNotPresent
-                args:
-                  - redis-server
-                  - --appendonly
-                  - "yes"
-                  - --appendfsync
-                  - everysec
-                ports:
-                  - name: redis
-                    containerPort: 6379
-                startupProbe:
-                  exec:
-                    command:
-                      - redis-cli
-                      - ping
-                  periodSeconds: 3
-                  timeoutSeconds: 2
-                  failureThreshold: 40
-                readinessProbe:
-                  exec:
-                    command:
-                      - redis-cli
-                      - ping
-                  periodSeconds: 10
-                  timeoutSeconds: 2
-                  failureThreshold: 3
-                livenessProbe:
-                  exec:
-                    command:
-                      - redis-cli
-                      - ping
-                  periodSeconds: 20
-                  timeoutSeconds: 2
-                  failureThreshold: 5
-                resources:
-                  requests:
-                    cpu: 10m
-                    memory: 32Mi
-                  limits:
-                    cpu: 100m
-                    memory: 128Mi
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  runAsNonRoot: true
-                  runAsUser: 999
-                  runAsGroup: 1000
-                  capabilities:
-                    drop:
-                      - ALL
-                volumeMounts:
-                  - name: data
-                    mountPath: /data
-                  - name: tmp
-                    mountPath: /tmp
-            volumes:
-              - name: tmp
-                emptyDir: {}
-        volumeClaimTemplates:
-          - metadata:
-              name: data
-            spec:
-              accessModes:
-                - ReadWriteOnce
-              storageClassName: nfs-csi
-              resources:
-                requests:
-                  storage: 1Gi
+        kubernetesConfig:
+          image: quay.io/opstree/redis:v7.4.11@sha256:115d8e221b1459b9f2db7d927ed40318ffac4eb2cddb5702974bce92d32b7a51
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 10m
+              # The cluster is request-saturated; runtime remains protected by the 128Mi limit.
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          service:
+            serviceType: ClusterIP
+            additional:
+              enabled: false
+        redisConfig:
+          additionalRedisConfig: anomaly51-redis-config
+          maxMemoryPercentOfLimit: 75
+        storage:
+          # This PVC is external to the CR and remains available if the CR is removed.
+          keepAfterDelete: true
+          volumeMount:
+            volume:
+              - name: redis-data
+                persistentVolumeClaim:
+                  claimName: data-anomaly51-redis-0
+            mountPath:
+              - name: redis-data
+                mountPath: /data
+        # Required by redis-operator when persistence uses an external PVC.
+        env:
+          - name: PERSISTENCE_ENABLED
+            value: "true"
+        serviceAccountName: anomaly51-prod
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                    - key: node-role.kubernetes.io/control-plane
+                      operator: DoesNotExist
+        podSecurityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          fsGroupChangePolicy: OnRootMismatch
+          seccompProfile:
+            type: RuntimeDefault
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+              - ALL
+        terminationGracePeriodSeconds: 30
     # The frontend hostname keeps API and Socket.IO calls same-origin. The
     # catch-all web rule is last and therefore never receives backend paths.
     - apiVersion: gateway.networking.k8s.io/v1
@@ -532,6 +491,20 @@ app:
                   matchLabels:
                     app.kubernetes.io/part-of: anomaly51
           - to:
+              - podSelector:
+                  matchLabels:
+                    app: anomaly51-redis-managed
+            ports:
+              - protocol: TCP
+                port: 6379
+          - to:
+              - podSelector:
+                  matchLabels:
+                    strimzi.io/cluster: anomaly51-events
+            ports:
+              - protocol: TCP
+                port: 9092
+          - to:
               - namespaceSelector:
                   matchLabels:
                     kubernetes.io/metadata.name: kube-system
@@ -560,6 +533,32 @@ app:
             ports:
               - protocol: TCP
                 port: 443
+    - apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: anomaly51-redis-managed
+        labels:
+          app.kubernetes.io/name: anomaly51-redis
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+      spec:
+        podSelector:
+          matchLabels:
+            app: anomaly51-redis-managed
+        policyTypes:
+          - Ingress
+          - Egress
+        ingress:
+          - from:
+              - podSelector:
+                  matchLabels:
+                    app.kubernetes.io/part-of: anomaly51
+            ports:
+              - protocol: TCP
+                port: 6379
+        # Redis is a leaf service and does not initiate network connections.
+        egress: []
     - apiVersion: batch/v1
       kind: Job
       metadata:
@@ -637,55 +636,47 @@ app:
                   capabilities:
                     drop:
                       - ALL
-    - apiVersion: v1
-      kind: Service
+    # Strimzi owns the broker PodSet, Services, certificates and retained PVC.
+    - apiVersion: kafka.strimzi.io/v1
+      kind: KafkaNodePool
       metadata:
-        name: anomaly51-kafka
+        name: dual-role
         labels:
+          strimzi.io/cluster: anomaly51-events
           app.kubernetes.io/name: anomaly51-kafka
           app.kubernetes.io/part-of: anomaly51
         annotations:
           argocd.argoproj.io/sync-wave: "-7"
+          argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
       spec:
-        clusterIP: None
-        publishNotReadyAddresses: true
-        selector:
-          app.kubernetes.io/name: anomaly51-kafka
-        ports:
-          - name: broker
-            port: 9092
-            targetPort: broker
-          - name: controller
-            port: 9093
-            targetPort: controller
-    - apiVersion: apps/v1
-      kind: StatefulSet
-      metadata:
-        name: anomaly51-kafka
-        labels:
-          app.kubernetes.io/name: anomaly51-kafka
-          app.kubernetes.io/part-of: anomaly51
-        annotations:
-          argocd.argoproj.io/sync-wave: "-7"
-      spec:
-        serviceName: anomaly51-kafka
-        # Operator cutover guard: free the single-node broker resources first.
-        replicas: 0
-        persistentVolumeClaimRetentionPolicy:
-          whenDeleted: Retain
-          whenScaled: Retain
-        selector:
-          matchLabels:
-            app.kubernetes.io/name: anomaly51-kafka
+        replicas: 1
+        roles:
+          - controller
+          - broker
+        resources:
+          requests:
+            cpu: 25m
+            # The retired broker frees 128Mi; 64Mi leaves room for the operator.
+            memory: 64Mi
+          limits:
+            cpu: 300m
+            # The old broker reached 510Mi and OOM-killed at a 512Mi limit.
+            memory: 768Mi
+        jvmOptions:
+          -Xms: 128m
+          -Xmx: 256m
+          gcLoggingEnabled: false
+        storage:
+          type: jbod
+          volumes:
+            - id: 0
+              type: persistent-claim
+              class: nfs-csi
+              size: 2Gi
+              deleteClaim: false
+              kraftMetadata: shared
         template:
-          metadata:
-            labels:
-              app.kubernetes.io/name: anomaly51-kafka
-              app.kubernetes.io/component: event-broker
-              app.kubernetes.io/part-of: anomaly51
-          spec:
-            serviceAccountName: anomaly51-prod
-            automountServiceAccountToken: false
+          pod:
             affinity:
               nodeAffinity:
                 requiredDuringSchedulingIgnoredDuringExecution:
@@ -694,103 +685,39 @@ app:
                         - key: node-role.kubernetes.io/control-plane
                           operator: DoesNotExist
             securityContext:
-              fsGroup: 1000
-              fsGroupChangePolicy: OnRootMismatch
               seccompProfile:
                 type: RuntimeDefault
-            containers:
-              - name: kafka
-                image: docker.io/apache/kafka:4.3.1
-                imagePullPolicy: IfNotPresent
-                env:
-                  - name: CLUSTER_ID
-                    value: MkU3OEVBNTcwNTJENDM2Qk
-                  - name: KAFKA_NODE_ID
-                    value: "1"
-                  - name: KAFKA_PROCESS_ROLES
-                    value: broker,controller
-                  - name: KAFKA_LISTENERS
-                    value: PLAINTEXT://:9092,CONTROLLER://:9093
-                  - name: KAFKA_ADVERTISED_LISTENERS
-                    value: PLAINTEXT://anomaly51-kafka:9092
-                  - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
-                    value: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-                  - name: KAFKA_CONTROLLER_LISTENER_NAMES
-                    value: CONTROLLER
-                  - name: KAFKA_INTER_BROKER_LISTENER_NAME
-                    value: PLAINTEXT
-                  - name: KAFKA_CONTROLLER_QUORUM_VOTERS
-                    value: 1@anomaly51-kafka-0.anomaly51-kafka.apps.svc.cluster.local:9093
-                  - name: KAFKA_LOG_DIRS
-                    value: /var/lib/kafka/data
-                  - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
-                    value: "1"
-                  - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
-                    value: "1"
-                  - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
-                    value: "1"
-                  - name: KAFKA_DEFAULT_REPLICATION_FACTOR
-                    value: "1"
-                  - name: KAFKA_MIN_INSYNC_REPLICAS
-                    value: "1"
-                  - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
-                    value: "0"
-                  - name: KAFKA_NUM_PARTITIONS
-                    value: "3"
-                  - name: KAFKA_HEAP_OPTS
-                    value: -Xms128m -Xmx256m
-                ports:
-                  - name: broker
-                    containerPort: 9092
-                  - name: controller
-                    containerPort: 9093
-                startupProbe:
-                  tcpSocket:
-                    port: broker
-                  periodSeconds: 5
-                  timeoutSeconds: 2
-                  failureThreshold: 60
-                readinessProbe:
-                  tcpSocket:
-                    port: broker
-                  periodSeconds: 10
-                  timeoutSeconds: 2
-                  failureThreshold: 6
-                livenessProbe:
-                  tcpSocket:
-                    port: broker
-                  periodSeconds: 20
-                  timeoutSeconds: 2
-                  failureThreshold: 6
-                resources:
-                  requests:
-                    cpu: 25m
-                    memory: 128Mi
-                  limits:
-                    cpu: 300m
-                    memory: 512Mi
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  runAsNonRoot: true
-                  runAsUser: 1000
-                  runAsGroup: 1000
-                  capabilities:
-                    drop:
-                      - ALL
-                volumeMounts:
-                  - name: data
-                    mountPath: /var/lib/kafka/data
             terminationGracePeriodSeconds: 60
-        volumeClaimTemplates:
-          - metadata:
-              name: data
-            spec:
-              accessModes:
-                - ReadWriteOnce
-              storageClassName: nfs-csi
-              resources:
-                requests:
-                  storage: 2Gi
+    - apiVersion: kafka.strimzi.io/v1
+      kind: Kafka
+      metadata:
+        name: anomaly51-events
+        labels:
+          app.kubernetes.io/name: anomaly51-kafka
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-6"
+          argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+      spec:
+        kafka:
+          version: 4.3.1
+          metadataVersion: 4.3-IV0
+          listeners:
+            - name: plain
+              port: 9092
+              type: internal
+              tls: false
+          config:
+            auto.create.topics.enable: true
+            num.partitions: 3
+            default.replication.factor: 1
+            min.insync.replicas: 1
+            offsets.topic.num.partitions: 3
+            offsets.topic.replication.factor: 1
+            transaction.state.log.num.partitions: 1
+            transaction.state.log.replication.factor: 1
+            transaction.state.log.min.isr: 1
+            group.initial.rebalance.delay.ms: 0
     - apiVersion: rabbitmq.com/v1beta1
       kind: Vhost
       metadata:
@@ -971,7 +898,7 @@ app:
                   - name: ALLOWED_ORIGINS
                     value: https://anomaly51.api-api-api.com,https://anomaly51-api.api-api-api.com
                   - name: REDIS_URL
-                    value: redis://anomaly51-redis:6379
+                    value: redis://anomaly51-redis-managed:6379
                   - name: ENABLE_DEV_AUTH
                     value: "false"
                 envFrom:
@@ -1164,7 +1091,7 @@ app:
                   - name: ALLOWED_ORIGINS
                     value: https://anomaly51.api-api-api.com,https://anomaly51-api.api-api-api.com
                   - name: REDIS_URL
-                    value: redis://anomaly51-redis:6379
+                    value: redis://anomaly51-redis-managed:6379
                   - name: REDIS_PREFIX
                     value: anomaly51:prod:user-service
                   - name: JWT_ISSUER
@@ -1285,13 +1212,13 @@ app:
                   - name: ALLOWED_ORIGINS
                     value: https://anomaly51.api-api-api.com,https://anomaly51-api.api-api-api.com
                   - name: REDIS_URL
-                    value: redis://anomaly51-redis:6379
+                    value: redis://anomaly51-redis-managed:6379
                   - name: REDIS_REQUIRED
                     value: "true"
                   - name: BROKER_WORKERS_ENABLED
                     value: "true"
                   - name: KAFKA_BROKERS
-                    value: anomaly51-kafka:9092
+                    value: anomaly51-events-kafka-bootstrap:9092
                   - name: KAFKA_CLIENT_ID
                     value: anomaly51-casino-service
                   - name: JWT_ISSUER
@@ -1406,11 +1333,11 @@ app:
                   - name: TRUST_PROXY
                     value: "1"
                   - name: REDIS_URL
-                    value: redis://anomaly51-redis:6379
+                    value: redis://anomaly51-redis-managed:6379
                   - name: REDIS_REQUIRED
                     value: "true"
                   - name: KAFKA_BROKERS
-                    value: anomaly51-kafka:9092
+                    value: anomaly51-events-kafka-bootstrap:9092
                   - name: KAFKA_CLIENT_ID
                     value: anomaly51-telegram-service
                   - name: KAFKA_GROUP_ID
@@ -1528,11 +1455,11 @@ app:
                   - name: NODE_ENV
                     value: production
                   - name: REDIS_URL
-                    value: redis://anomaly51-redis:6379
+                    value: redis://anomaly51-redis-managed:6379
                   - name: REDIS_REQUIRED
                     value: "true"
                   - name: KAFKA_BROKERS
-                    value: anomaly51-kafka:9092
+                    value: anomaly51-events-kafka-bootstrap:9092
                   - name: BROKER_WORKERS_ENABLED
                     value: "true"
                   - name: USER_SERVICE_URL
@@ -1624,13 +1551,13 @@ app:
                   - name: ALLOWED_ORIGINS
                     value: https://anomaly51.api-api-api.com,https://anomaly51-api.api-api-api.com
                   - name: REDIS_URL
-                    value: redis://anomaly51-redis:6379
+                    value: redis://anomaly51-redis-managed:6379
                   - name: REDIS_REQUIRED
                     value: "true"
                   - name: BROKER_WORKERS_ENABLED
                     value: "true"
                   - name: KAFKA_BROKERS
-                    value: anomaly51-kafka:9092
+                    value: anomaly51-events-kafka-bootstrap:9092
                   - name: NPM_CONFIG_CACHE
                     value: /tmp/npm-cache
                 envFrom:
