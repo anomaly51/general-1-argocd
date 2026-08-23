@@ -559,6 +559,37 @@ app:
                 port: 6379
         # Redis is a leaf service and does not initiate network connections.
         egress: []
+    - apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: anomaly51-postgres
+        labels:
+          app.kubernetes.io/name: anomaly51-postgres
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+      spec:
+        podSelector:
+          matchLabels:
+            cnpg.io/cluster: anomaly51-postgres
+        policyTypes:
+          - Ingress
+        ingress:
+          - from:
+              - podSelector:
+                  matchLabels:
+                    app.kubernetes.io/part-of: anomaly51
+            ports:
+              - protocol: TCP
+                port: 5432
+          # CloudNativePG reaches the instance manager for reconciliation.
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: database-system
+            ports:
+              - protocol: TCP
+                port: 8000
     - apiVersion: batch/v1
       kind: Job
       metadata:
@@ -707,6 +738,11 @@ app:
               port: 9092
               type: internal
               tls: false
+              # The cluster is internal-only; only Anomaly 51 workloads can connect.
+              networkPolicyPeers:
+                - podSelector:
+                    matchLabels:
+                      app.kubernetes.io/part-of: anomaly51
           config:
             auto.create.topics.enable: true
             num.partitions: 3
@@ -907,7 +943,9 @@ app:
                 resources:
                   requests:
                     cpu: 10m
-                    memory: 32Mi
+                    # One-shot hook; keep the limit realistic while allowing it to
+                    # schedule on the request-saturated development cluster.
+                    memory: 16Mi
                   limits:
                     cpu: 150m
                     memory: 192Mi
@@ -977,11 +1015,11 @@ app:
                   - name: NGINX_RESOLVER
                     value: 10.43.0.10
                   - name: USER_SERVICE_UPSTREAM
-                    value: anomaly51-user-service:80
+                    value: anomaly51-user-service.apps.svc.cluster.local:80
                   - name: CASINO_SERVICE_UPSTREAM
-                    value: anomaly51-casino-service:80
+                    value: anomaly51-casino-service.apps.svc.cluster.local:80
                   - name: TELEGRAM_SERVICE_UPSTREAM
-                    value: anomaly51-telegram-service:80
+                    value: anomaly51-telegram-service.apps.svc.cluster.local:80
                 ports:
                   - name: http
                     containerPort: 8080
@@ -1478,7 +1516,9 @@ app:
                 resources:
                   requests:
                     cpu: 10m
-                    memory: 32Mi
+                    # One-shot hook; keep the limit realistic while allowing it to
+                    # schedule on the request-saturated development cluster.
+                    memory: 16Mi
                   limits:
                     cpu: 150m
                     memory: 192Mi
@@ -1566,7 +1606,9 @@ app:
                 resources:
                   requests:
                     cpu: 10m
-                    memory: 64Mi
+                    # One-shot hook; keep the limit realistic while allowing it to
+                    # schedule on the request-saturated development cluster.
+                    memory: 16Mi
                   limits:
                     cpu: 200m
                     memory: 256Mi
