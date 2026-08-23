@@ -1,0 +1,38 @@
+redis-operator:
+  replicas: 1
+  redisOperator:
+    imagePullPolicy: IfNotPresent
+    watchNamespace: ""
+    webhook: false
+    metrics:
+      enabled: false
+    env:
+      # Standardize all operator-managed standalone PVCs as data-<statefulset>-<ordinal>.
+      - name: OPERATOR_STS_PVC_TEMPLATE_NAME
+        value: data
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  rbac:
+    enabled: true
+    scope: cluster
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: "true"
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+  manager:
+    config:
+      kubeClientTimeout: 60s
+      maxConcurrentReconciles: 1
