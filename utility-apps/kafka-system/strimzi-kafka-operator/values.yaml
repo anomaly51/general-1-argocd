@@ -17,7 +17,7 @@ strimzi-kafka-operator:
       memory: 256Mi
   nodeSelector:
     # Keep the memory-constrained Kubernetes API node free for control-plane work.
-    kubernetes.io/hostname: general-1-worker-1
+    kubernetes.io/hostname: general-1-worker-3
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault

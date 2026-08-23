@@ -22,7 +22,7 @@ redis-operator:
     scope: cluster
   nodeSelector:
     # Spread platform controllers instead of stacking them on the control-plane.
-    kubernetes.io/hostname: general-1-worker-2
+    kubernetes.io/hostname: general-1-worker-1
   podSecurityContext:
     runAsNonRoot: true
     seccompProfile:
