@@ -241,7 +241,8 @@ app:
           argocd.argoproj.io/sync-wave: "-7"
       spec:
         serviceName: anomaly51-redis
-        replicas: 1
+        # Operator cutover guard: release the retained PVC before the Redis CR mounts it.
+        replicas: 0
         persistentVolumeClaimRetentionPolicy:
           whenDeleted: Retain
           whenScaled: Retain
@@ -668,7 +669,8 @@ app:
           argocd.argoproj.io/sync-wave: "-7"
       spec:
         serviceName: anomaly51-kafka
-        replicas: 1
+        # Operator cutover guard: free the single-node broker resources first.
+        replicas: 0
         persistentVolumeClaimRetentionPolicy:
           whenDeleted: Retain
           whenScaled: Retain
