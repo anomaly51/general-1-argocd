@@ -1,6 +1,6 @@
 cloudnative-pg:
   nodeSelector:
-    kubernetes.io/hostname: general-1-worker-2
+    kubernetes.io/hostname: general-1-worker-3
   resources:
     requests:
       cpu: 25m
