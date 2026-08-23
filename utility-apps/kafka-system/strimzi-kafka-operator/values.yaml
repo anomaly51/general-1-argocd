@@ -1,5 +1,8 @@
 strimzi-kafka-operator:
   replicas: 1
+  # A second non-leader stays unready, so single-replica moves must not use surge rollout.
+  deploymentStrategy:
+    type: Recreate
   watchAnyNamespace: true
   fullReconciliationIntervalMs: 300000
   operationTimeoutMs: 300000
