@@ -33,7 +33,16 @@ spec:
               template:
                 spec:
                   nodeSelector:
-                    node-role.kubernetes.io/control-plane: "true"
+                    kubernetes.io/hostname: general-1-worker-2
+                  containers:
+                    - name: operator
+                      resources:
+                        requests:
+                          cpu: 25m
+                          memory: 32Mi
+                        limits:
+                          cpu: 200m
+                          memory: 256Mi
   destination:
     server: https://kubernetes.default.svc
     namespace: rabbitmq-system
