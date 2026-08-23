@@ -16,7 +16,8 @@ strimzi-kafka-operator:
       cpu: 250m
       memory: 256Mi
   nodeSelector:
-    node-role.kubernetes.io/control-plane: "true"
+    # Keep the memory-constrained Kubernetes API node free for control-plane work.
+    kubernetes.io/hostname: general-1-worker-1
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
