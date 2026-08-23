@@ -1,6 +1,10 @@
 csi-driver-nfs:
   controller:
     enableSnapshotter: false
+    # Keep the storage control plane away from the single k3s/etcd node.
+    # This worker has enough requested-memory headroom for the 80 MiB controller.
+    nodeSelector:
+      kubernetes.io/hostname: general-1-worker-3
 
   storageClass:
     create: false
