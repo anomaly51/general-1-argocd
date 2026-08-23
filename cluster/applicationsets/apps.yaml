@@ -20,7 +20,11 @@ spec:
       finalizers:
         - resources-finalizer.argocd.argoproj.io
       annotations:
-        argocd.argoproj.io/compare-options: ServerSideDiff=true
+        # Anomaly51 contains several admission-webhook-backed CRs. On this tiny
+        # control plane, server-side dry-run comparisons can amplify a webhook
+        # restart into an application-wide comparison retry storm. Real syncs
+        # still use normal API admission and validation.
+        argocd.argoproj.io/compare-options: '{{ if eq .path.basenameNormalized "anomaly51-prod" }}ServerSideDiff=false{{ else }}ServerSideDiff=true{{ end }}'
     spec:
       project: gitops-apps
       source:
