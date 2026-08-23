@@ -36,13 +36,25 @@ harbor:
     enabled: false
 
   nginx:
+    livenessProbe:
+      initialDelaySeconds: 300
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+      successThreshold: 1
+    readinessProbe:
+      initialDelaySeconds: 1
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+      successThreshold: 1
     resources:
       requests:
-        cpu: 10m
-        memory: 32Mi
+        cpu: 50m
+        memory: 64Mi
       limits:
-        cpu: 100m
-        memory: 128Mi
+        cpu: 250m
+        memory: 256Mi
 
   portal:
     resources:
@@ -85,21 +97,45 @@ harbor:
     credentials:
       existingSecret: harbor-credentials
     registry:
+      livenessProbe:
+        initialDelaySeconds: 300
+        periodSeconds: 10
+        timeoutSeconds: 10
+        failureThreshold: 12
+        successThreshold: 1
+      readinessProbe:
+        initialDelaySeconds: 1
+        periodSeconds: 10
+        timeoutSeconds: 10
+        failureThreshold: 12
+        successThreshold: 1
       resources:
         requests:
-          cpu: 25m
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: "1"
+          memory: 512Mi
+    controller:
+      livenessProbe:
+        initialDelaySeconds: 300
+        periodSeconds: 10
+        timeoutSeconds: 10
+        failureThreshold: 12
+        successThreshold: 1
+      readinessProbe:
+        initialDelaySeconds: 1
+        periodSeconds: 10
+        timeoutSeconds: 10
+        failureThreshold: 12
+        successThreshold: 1
+      resources:
+        requests:
+          cpu: 50m
           memory: 64Mi
         limits:
           cpu: 500m
           memory: 256Mi
-    controller:
-      resources:
-        requests:
-          cpu: 10m
-          memory: 32Mi
-        limits:
-          cpu: 250m
-          memory: 128Mi
 
   database:
     type: external
