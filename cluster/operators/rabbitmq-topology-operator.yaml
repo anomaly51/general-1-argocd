@@ -35,6 +35,10 @@ spec:
             metadata:
               name: messaging-topology-operator
             spec:
+              strategy:
+                rollingUpdate:
+                  maxSurge: 0
+                  maxUnavailable: 1
               template:
                 spec:
                   nodeSelector:
