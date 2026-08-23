@@ -1,0 +1,1623 @@
+# CI changes only app.images.<service>.tag. Keep deployed tags immutable.
+app:
+  name: anomaly51
+  resourceName: anomaly51
+
+  images:
+    web:
+      repository: harbor.internal.api-api-api.com/applications/anomaly51-web
+      tag: sha-22fc863db58d
+    user:
+      repository: harbor.internal.api-api-api.com/applications/anomaly51-user-service
+      tag: sha-22fc863db58d
+    casino:
+      repository: harbor.internal.api-api-api.com/applications/anomaly51-casino-service
+      tag: sha-22fc863db58d
+    telegram:
+      repository: harbor.internal.api-api-api.com/applications/anomaly51-telegram-service
+      tag: sha-22fc863db58d
+
+  # The reusable chart deliberately treats these as structured Kubernetes
+  # resources. No workload-specific Helm templates live in this wrapper.
+  objects:
+    - apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: anomaly51-prod
+        labels:
+          app.kubernetes.io/name: anomaly51
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-10"
+
+    - apiVersion: secrets.hashicorp.com/v1beta1
+      kind: VaultAuth
+      metadata:
+        name: anomaly51-prod
+        labels:
+          app.kubernetes.io/name: anomaly51
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-9"
+      spec:
+        method: kubernetes
+        mount: kubernetes
+        kubernetes:
+          role: anomaly51-prod
+          serviceAccount: anomaly51-prod
+          audiences:
+            - vault
+          tokenExpirationSeconds: 600
+
+    # Vault kv/apps/anomaly51/prod owns DATABASE_URL, JWT_SECRET,
+    # INTERNAL_SERVICE_TOKEN, ROUND_SEED_ENCRYPTION_KEY, TELEGRAM_BOT_TOKEN,
+    # TELEGRAM_WEBHOOK_SECRET, POSTGRES_USER, POSTGRES_PASSWORD,
+    # RABBITMQ_USERNAME, RABBITMQ_PASSWORD and RABBITMQ_URL. DATABASE_URL must address
+    # anomaly51-postgres-rw:5432; RABBITMQ_URL must use vhost anomaly51.
+    - apiVersion: secrets.hashicorp.com/v1beta1
+      kind: VaultStaticSecret
+      metadata:
+        name: anomaly51-runtime
+        labels:
+          app.kubernetes.io/name: anomaly51
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-8"
+      spec:
+        vaultAuthRef: anomaly51-prod
+        mount: kv
+        type: kv-v2
+        path: apps/anomaly51/prod
+        refreshAfter: 1m
+        destination:
+          create: true
+          name: anomaly51-env
+        rolloutRestartTargets:
+          - kind: Deployment
+            name: anomaly51-user-service
+          - kind: Deployment
+            name: anomaly51-casino-service
+          - kind: Deployment
+            name: anomaly51-telegram-service
+
+    # The same Vault entry is projected to the key names CloudNativePG expects.
+    - apiVersion: secrets.hashicorp.com/v1beta1
+      kind: VaultStaticSecret
+      metadata:
+        name: anomaly51-postgres-bootstrap
+        labels:
+          app.kubernetes.io/name: anomaly51-postgres
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-8"
+      spec:
+        vaultAuthRef: anomaly51-prod
+        mount: kv
+        type: kv-v2
+        path: apps/anomaly51/prod
+        refreshAfter: 1m
+        destination:
+          create: true
+          name: anomaly51-postgres-bootstrap
+          type: kubernetes.io/basic-auth
+          transformation:
+            excludes:
+              - ".*"
+            templates:
+              username:
+                text: '{{ get .Secrets "POSTGRES_USER" }}'
+              password:
+                text: '{{ get .Secrets "POSTGRES_PASSWORD" }}'
+
+    # RabbitMQ's topology operator imports `username` and `password` from this
+    # Vault-backed Secret. The runtime AMQP URL remains in anomaly51-env.
+    - apiVersion: secrets.hashicorp.com/v1beta1
+      kind: VaultStaticSecret
+      metadata:
+        name: anomaly51-rabbitmq
+        labels:
+          app.kubernetes.io/name: anomaly51-rabbitmq
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-8"
+      spec:
+        vaultAuthRef: anomaly51-prod
+        mount: kv
+        type: kv-v2
+        path: apps/anomaly51/prod
+        refreshAfter: 1m
+        destination:
+          create: true
+          name: anomaly51-rabbitmq
+          labels:
+            rabbitmq.com/topology-operator: "true"
+          transformation:
+            excludes:
+              - ".*"
+            templates:
+              username:
+                text: '{{ get .Secrets "RABBITMQ_USERNAME" }}'
+              password:
+                text: '{{ get .Secrets "RABBITMQ_PASSWORD" }}'
+
+    - apiVersion: secrets.hashicorp.com/v1beta1
+      kind: VaultStaticSecret
+      metadata:
+        name: anomaly51-registry
+        labels:
+          app.kubernetes.io/name: anomaly51
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-8"
+      spec:
+        vaultAuthRef: anomaly51-prod
+        mount: kv
+        type: kv-v2
+        path: apps/registry
+        refreshAfter: 1h
+        destination:
+          create: true
+          name: anomaly51-registry
+          type: kubernetes.io/dockerconfigjson
+          transformation:
+            excludes:
+              - ".*"
+            templates:
+              .dockerconfigjson:
+                text: |
+                  {"auths":{"harbor.internal.api-api-api.com":{"username":"{{ get .Secrets "username" }}","password":"{{ get .Secrets "password" }}"}}}
+        rolloutRestartTargets:
+          - kind: Deployment
+            name: anomaly51-web
+          - kind: Deployment
+            name: anomaly51-user-service
+          - kind: Deployment
+            name: anomaly51-casino-service
+          - kind: Deployment
+            name: anomaly51-telegram-service
+
+    - apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+      metadata:
+        name: anomaly51-postgres
+        labels:
+          app.kubernetes.io/name: anomaly51-postgres
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-7"
+          argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+      spec:
+        instances: 1
+        imageName: ghcr.io/cloudnative-pg/postgresql:18.4-minimal-trixie
+        bootstrap:
+          initdb:
+            database: anomaly51
+            owner: anomaly51
+            encoding: UTF8
+            secret:
+              name: anomaly51-postgres-bootstrap
+        storage:
+          storageClass: nfs-csi
+          size: 5Gi
+        postgresql:
+          parameters:
+            max_connections: "50"
+            shared_buffers: 32MB
+        resources:
+          requests:
+            cpu: 25m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 384Mi
+
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: anomaly51-redis
+        labels:
+          app.kubernetes.io/name: anomaly51-redis
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-7"
+      spec:
+        type: ClusterIP
+        selector:
+          app.kubernetes.io/name: anomaly51-redis
+        ports:
+          - name: redis
+            port: 6379
+            targetPort: redis
+
+    - apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: anomaly51-redis
+        labels:
+          app.kubernetes.io/name: anomaly51-redis
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-7"
+      spec:
+        serviceName: anomaly51-redis
+        replicas: 1
+        persistentVolumeClaimRetentionPolicy:
+          whenDeleted: Retain
+          whenScaled: Retain
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: anomaly51-redis
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: anomaly51-redis
+              app.kubernetes.io/component: cache
+              app.kubernetes.io/part-of: anomaly51
+          spec:
+            serviceAccountName: anomaly51-prod
+            automountServiceAccountToken: false
+            securityContext:
+              fsGroup: 1000
+              fsGroupChangePolicy: OnRootMismatch
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: redis
+                image: docker.io/library/redis:7.4-alpine
+                imagePullPolicy: IfNotPresent
+                args:
+                  - redis-server
+                  - --appendonly
+                  - "yes"
+                  - --appendfsync
+                  - everysec
+                ports:
+                  - name: redis
+                    containerPort: 6379
+                startupProbe:
+                  exec:
+                    command:
+                      - redis-cli
+                      - ping
+                  periodSeconds: 3
+                  timeoutSeconds: 2
+                  failureThreshold: 40
+                readinessProbe:
+                  exec:
+                    command:
+                      - redis-cli
+                      - ping
+                  periodSeconds: 10
+                  timeoutSeconds: 2
+                  failureThreshold: 3
+                livenessProbe:
+                  exec:
+                    command:
+                      - redis-cli
+                      - ping
+                  periodSeconds: 20
+                  timeoutSeconds: 2
+                  failureThreshold: 5
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 32Mi
+                  limits:
+                    cpu: 100m
+                    memory: 128Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  runAsNonRoot: true
+                  runAsUser: 999
+                  runAsGroup: 1000
+                  capabilities:
+                    drop:
+                      - ALL
+                volumeMounts:
+                  - name: data
+                    mountPath: /data
+                  - name: tmp
+                    mountPath: /tmp
+            volumes:
+              - name: tmp
+                emptyDir: {}
+        volumeClaimTemplates:
+          - metadata:
+              name: data
+            spec:
+              accessModes:
+                - ReadWriteOnce
+              storageClassName: nfs-csi
+              resources:
+                requests:
+                  storage: 1Gi
+
+    # The frontend hostname keeps API and Socket.IO calls same-origin. The
+    # catch-all web rule is last and therefore never receives backend paths.
+    - apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      metadata:
+        name: anomaly51
+        labels:
+          app.kubernetes.io/name: anomaly51
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "1"
+      spec:
+        parentRefs:
+          - group: gateway.networking.k8s.io
+            kind: Gateway
+            name: public
+            namespace: networking
+            sectionName: https
+        hostnames:
+          - anomaly51.api-api-api.com
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /api/auth
+            backendRefs:
+              - group: ""
+                kind: Service
+                name: anomaly51-user-service
+                port: 80
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /api/telegram
+            backendRefs:
+              - group: ""
+                kind: Service
+                name: anomaly51-telegram-service
+                port: 80
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /api/wallet
+              - path:
+                  type: PathPrefix
+                  value: /api/game
+              - path:
+                  type: PathPrefix
+                  value: /api/crash
+              - path:
+                  type: PathPrefix
+                  value: /api/slots
+              - path:
+                  type: PathPrefix
+                  value: /api/health
+              - path:
+                  type: PathPrefix
+                  value: /socket.io
+            backendRefs:
+              - group: ""
+                kind: Service
+                name: anomaly51-casino-service
+                port: 80
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            backendRefs:
+              - group: ""
+                kind: Service
+                name: anomaly51-web
+                port: 80
+
+    # The API alias exposes the same bounded public API surface, but never the
+    # frontend or internal service routes.
+    - apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      metadata:
+        name: anomaly51-api
+        labels:
+          app.kubernetes.io/name: anomaly51-api
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "1"
+      spec:
+        parentRefs:
+          - group: gateway.networking.k8s.io
+            kind: Gateway
+            name: public
+            namespace: networking
+            sectionName: https
+        hostnames:
+          - anomaly51-api.api-api-api.com
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /api/auth
+            backendRefs:
+              - group: ""
+                kind: Service
+                name: anomaly51-user-service
+                port: 80
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /api/telegram
+            backendRefs:
+              - group: ""
+                kind: Service
+                name: anomaly51-telegram-service
+                port: 80
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /api/wallet
+              - path:
+                  type: PathPrefix
+                  value: /api/game
+              - path:
+                  type: PathPrefix
+                  value: /api/crash
+              - path:
+                  type: PathPrefix
+                  value: /api/slots
+              - path:
+                  type: PathPrefix
+                  value: /api/health
+              - path:
+                  type: PathPrefix
+                  value: /socket.io
+            backendRefs:
+              - group: ""
+                kind: Service
+                name: anomaly51-casino-service
+                port: 80
+
+    - apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: anomaly51-default-deny
+        labels:
+          app.kubernetes.io/name: anomaly51
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+      spec:
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/part-of: anomaly51
+        policyTypes:
+          - Ingress
+          - Egress
+
+    - apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: anomaly51-allow-required
+        labels:
+          app.kubernetes.io/name: anomaly51
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+      spec:
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/part-of: anomaly51
+        policyTypes:
+          - Ingress
+          - Egress
+        ingress:
+          - from:
+              - podSelector:
+                  matchLabels:
+                    app.kubernetes.io/part-of: anomaly51
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: networking
+            ports:
+              - protocol: TCP
+                port: 80
+              - protocol: TCP
+                port: 3000
+              - protocol: TCP
+                port: 3001
+              - protocol: TCP
+                port: 3002
+        egress:
+          - to:
+              - podSelector:
+                  matchLabels:
+                    app.kubernetes.io/part-of: anomaly51
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: kube-system
+            ports:
+              - protocol: UDP
+                port: 53
+              - protocol: TCP
+                port: 53
+          - to:
+              - podSelector:
+                  matchLabels:
+                    cnpg.io/cluster: anomaly51-postgres
+            ports:
+              - protocol: TCP
+                port: 5432
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: rabbitmq-system
+            ports:
+              - protocol: TCP
+                port: 5672
+          - to:
+              - ipBlock:
+                  cidr: 0.0.0.0/0
+            ports:
+              - protocol: TCP
+                port: 443
+
+    - apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: anomaly51-register-webhook
+        labels:
+          app.kubernetes.io/name: anomaly51-register-webhook
+          app.kubernetes.io/component: telegram
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/hook: PostSync
+          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+          argocd.argoproj.io/sync-wave: "1"
+      spec:
+        backoffLimit: 5
+        activeDeadlineSeconds: 300
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: anomaly51-register-webhook
+              app.kubernetes.io/component: telegram
+              app.kubernetes.io/part-of: anomaly51
+          spec:
+            restartPolicy: Never
+            serviceAccountName: anomaly51-prod
+            automountServiceAccountToken: false
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: register
+                image: docker.io/curlimages/curl:8.12.1
+                imagePullPolicy: IfNotPresent
+                command:
+                  - sh
+                  - -ec
+                args:
+                  - |
+                    response="$(curl --silent --show-error --fail-with-body --retry 5 --retry-all-errors \
+                      --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
+                      --data-urlencode "url=https://anomaly51.api-api-api.com/api/telegram/webhook" \
+                      --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}" \
+                      --data-urlencode 'allowed_updates=["message"]')"
+                    printf '%s' "$response" | grep -q '"ok":true'
+                env:
+                  - name: TELEGRAM_BOT_TOKEN
+                    valueFrom:
+                      secretKeyRef:
+                        name: anomaly51-env
+                        key: TELEGRAM_BOT_TOKEN
+                  - name: TELEGRAM_WEBHOOK_SECRET
+                    valueFrom:
+                      secretKeyRef:
+                        name: anomaly51-env
+                        key: TELEGRAM_WEBHOOK_SECRET
+                resources:
+                  requests:
+                    cpu: 5m
+                    memory: 16Mi
+                  limits:
+                    cpu: 50m
+                    memory: 32Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  runAsNonRoot: true
+                  runAsUser: 101
+                  runAsGroup: 102
+                  capabilities:
+                    drop:
+                      - ALL
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: anomaly51-kafka
+        labels:
+          app.kubernetes.io/name: anomaly51-kafka
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-7"
+      spec:
+        clusterIP: None
+        publishNotReadyAddresses: true
+        selector:
+          app.kubernetes.io/name: anomaly51-kafka
+        ports:
+          - name: broker
+            port: 9092
+            targetPort: broker
+          - name: controller
+            port: 9093
+            targetPort: controller
+
+    - apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: anomaly51-kafka
+        labels:
+          app.kubernetes.io/name: anomaly51-kafka
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-7"
+      spec:
+        serviceName: anomaly51-kafka
+        replicas: 1
+        persistentVolumeClaimRetentionPolicy:
+          whenDeleted: Retain
+          whenScaled: Retain
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: anomaly51-kafka
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: anomaly51-kafka
+              app.kubernetes.io/component: event-broker
+              app.kubernetes.io/part-of: anomaly51
+          spec:
+            serviceAccountName: anomaly51-prod
+            automountServiceAccountToken: false
+            securityContext:
+              fsGroup: 1000
+              fsGroupChangePolicy: OnRootMismatch
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: kafka
+                image: docker.io/apache/kafka:4.3.1
+                imagePullPolicy: IfNotPresent
+                env:
+                  - name: CLUSTER_ID
+                    value: MkU3OEVBNTcwNTJENDM2Qk
+                  - name: KAFKA_NODE_ID
+                    value: "1"
+                  - name: KAFKA_PROCESS_ROLES
+                    value: broker,controller
+                  - name: KAFKA_LISTENERS
+                    value: PLAINTEXT://:9092,CONTROLLER://:9093
+                  - name: KAFKA_ADVERTISED_LISTENERS
+                    value: PLAINTEXT://anomaly51-kafka:9092
+                  - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+                    value: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+                  - name: KAFKA_CONTROLLER_LISTENER_NAMES
+                    value: CONTROLLER
+                  - name: KAFKA_INTER_BROKER_LISTENER_NAME
+                    value: PLAINTEXT
+                  - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+                    value: 1@anomaly51-kafka-0.anomaly51-kafka.apps.svc.cluster.local:9093
+                  - name: KAFKA_LOG_DIRS
+                    value: /var/lib/kafka/data
+                  - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+                    value: "1"
+                  - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+                    value: "1"
+                  - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+                    value: "1"
+                  - name: KAFKA_DEFAULT_REPLICATION_FACTOR
+                    value: "1"
+                  - name: KAFKA_MIN_INSYNC_REPLICAS
+                    value: "1"
+                  - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+                    value: "0"
+                  - name: KAFKA_NUM_PARTITIONS
+                    value: "3"
+                  - name: KAFKA_HEAP_OPTS
+                    value: -Xms128m -Xmx256m
+                ports:
+                  - name: broker
+                    containerPort: 9092
+                  - name: controller
+                    containerPort: 9093
+                startupProbe:
+                  tcpSocket:
+                    port: broker
+                  periodSeconds: 5
+                  timeoutSeconds: 2
+                  failureThreshold: 60
+                readinessProbe:
+                  tcpSocket:
+                    port: broker
+                  periodSeconds: 10
+                  timeoutSeconds: 2
+                  failureThreshold: 6
+                livenessProbe:
+                  tcpSocket:
+                    port: broker
+                  periodSeconds: 20
+                  timeoutSeconds: 2
+                  failureThreshold: 6
+                resources:
+                  requests:
+                    cpu: 25m
+                    memory: 128Mi
+                  limits:
+                    cpu: 300m
+                    memory: 512Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  runAsGroup: 1000
+                  capabilities:
+                    drop:
+                      - ALL
+                volumeMounts:
+                  - name: data
+                    mountPath: /var/lib/kafka/data
+            terminationGracePeriodSeconds: 60
+        volumeClaimTemplates:
+          - metadata:
+              name: data
+            spec:
+              accessModes:
+                - ReadWriteOnce
+              storageClassName: nfs-csi
+              resources:
+                requests:
+                  storage: 2Gi
+
+    - apiVersion: rabbitmq.com/v1beta1
+      kind: Vhost
+      metadata:
+        name: anomaly51
+        labels:
+          app.kubernetes.io/name: anomaly51-rabbitmq
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-7"
+          argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+      spec:
+        name: anomaly51
+        defaultQueueType: quorum
+        deletionPolicy: retain
+        rabbitmqClusterReference:
+          name: shared
+          namespace: rabbitmq-system
+
+    - apiVersion: rabbitmq.com/v1beta1
+      kind: User
+      metadata:
+        name: anomaly51
+        labels:
+          app.kubernetes.io/name: anomaly51-rabbitmq
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-7"
+          argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+      spec:
+        importCredentialsSecret:
+          name: anomaly51-rabbitmq
+        rabbitmqClusterReference:
+          name: shared
+          namespace: rabbitmq-system
+
+    - apiVersion: rabbitmq.com/v1beta1
+      kind: Permission
+      metadata:
+        name: anomaly51
+        labels:
+          app.kubernetes.io/name: anomaly51-rabbitmq
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-6"
+          argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+      spec:
+        vhost: anomaly51
+        userReference:
+          name: anomaly51
+        permissions:
+          configure: ".*"
+          write: ".*"
+          read: ".*"
+        rabbitmqClusterReference:
+          name: shared
+          namespace: rabbitmq-system
+
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: anomaly51-web
+        labels:
+          app.kubernetes.io/name: anomaly51-web
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+      spec:
+        type: ClusterIP
+        selector:
+          app.kubernetes.io/name: anomaly51-web
+        ports:
+          - name: http
+            port: 80
+            targetPort: http
+            appProtocol: http
+
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: anomaly51-user-service
+        labels:
+          app.kubernetes.io/name: anomaly51-user-service
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+      spec:
+        type: ClusterIP
+        selector:
+          app.kubernetes.io/name: anomaly51-user-service
+        ports:
+          - name: http
+            port: 80
+            targetPort: http
+            appProtocol: http
+
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: anomaly51-casino-service
+        labels:
+          app.kubernetes.io/name: anomaly51-casino-service
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+      spec:
+        type: ClusterIP
+        selector:
+          app.kubernetes.io/name: anomaly51-casino-service
+        ports:
+          - name: http
+            port: 80
+            targetPort: http
+            appProtocol: http
+
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: anomaly51-telegram-service
+        labels:
+          app.kubernetes.io/name: anomaly51-telegram-service
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+      spec:
+        type: ClusterIP
+        selector:
+          app.kubernetes.io/name: anomaly51-telegram-service
+        ports:
+          - name: http
+            port: 80
+            targetPort: http
+            appProtocol: http
+
+    - apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: anomaly51-user-migrate
+        labels:
+          app.kubernetes.io/name: anomaly51-user-migrate
+          app.kubernetes.io/component: migration
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/hook: Sync
+          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+          argocd.argoproj.io/sync-wave: "-3"
+      spec:
+        backoffLimit: 2
+        activeDeadlineSeconds: 900
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: anomaly51-user-migrate
+              app.kubernetes.io/component: migration
+              app.kubernetes.io/part-of: anomaly51
+          spec:
+            restartPolicy: Never
+            serviceAccountName: anomaly51-prod
+            automountServiceAccountToken: false
+            imagePullSecrets:
+              - name: anomaly51-registry
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: migrate
+                image: __IMAGE_user__
+                imagePullPolicy: IfNotPresent
+                command:
+                  - sh
+                  - -ec
+                args:
+                  - |
+                    until node -e 'const u=new URL(process.env.DATABASE_URL);const s=require("node:net").createConnection({host:u.hostname,port:Number(u.port||5432)});s.setTimeout(2000);s.once("connect",()=>{s.end();process.exit(0)});const fail=()=>process.exit(1);s.once("error",fail);s.once("timeout",fail)'; do sleep 2; done
+                    exec node apps/user-service/dist/src/migrate.js
+                env:
+                  - name: NODE_ENV
+                    value: production
+                  - name: ALLOWED_ORIGINS
+                    value: https://anomaly51.api-api-api.com,https://anomaly51-api.api-api-api.com
+                  - name: REDIS_URL
+                    value: redis://anomaly51-redis:6379
+                  - name: ENABLE_DEV_AUTH
+                    value: "false"
+                envFrom:
+                  - secretRef:
+                      name: anomaly51-env
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                  limits:
+                    cpu: 150m
+                    memory: 192Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  runAsGroup: 1000
+                  capabilities:
+                    drop:
+                      - ALL
+                volumeMounts:
+                  - name: tmp
+                    mountPath: /tmp
+            volumes:
+              - name: tmp
+                emptyDir: {}
+
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: anomaly51-web
+        labels:
+          app.kubernetes.io/name: anomaly51-web
+          app.kubernetes.io/component: frontend
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "0"
+      spec:
+        replicas: 1
+        revisionHistoryLimit: 2
+        strategy:
+          type: RollingUpdate
+          rollingUpdate:
+            maxSurge: 0
+            maxUnavailable: 1
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: anomaly51-web
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: anomaly51-web
+              app.kubernetes.io/component: frontend
+              app.kubernetes.io/part-of: anomaly51
+          spec:
+            serviceAccountName: anomaly51-prod
+            automountServiceAccountToken: false
+            imagePullSecrets:
+              - name: anomaly51-registry
+            terminationGracePeriodSeconds: 30
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: node-role.kubernetes.io/control-plane
+                          operator: DoesNotExist
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: web
+                image: __IMAGE_web__
+                imagePullPolicy: IfNotPresent
+                env:
+                  - name: NGINX_RESOLVER
+                    value: 10.43.0.10
+                  - name: USER_SERVICE_UPSTREAM
+                    value: anomaly51-user-service:80
+                  - name: CASINO_SERVICE_UPSTREAM
+                    value: anomaly51-casino-service:80
+                  - name: TELEGRAM_SERVICE_UPSTREAM
+                    value: anomaly51-telegram-service:80
+                ports:
+                  - name: http
+                    containerPort: 80
+                startupProbe:
+                  httpGet:
+                    path: /healthz
+                    port: http
+                  periodSeconds: 3
+                  timeoutSeconds: 2
+                  failureThreshold: 30
+                readinessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: http
+                  periodSeconds: 10
+                  timeoutSeconds: 2
+                  failureThreshold: 3
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: http
+                  periodSeconds: 20
+                  timeoutSeconds: 2
+                  failureThreshold: 5
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 16Mi
+                  limits:
+                    cpu: 100m
+                    memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                      - ALL
+                    add:
+                      - NET_BIND_SERVICE
+
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: anomaly51-user-service
+        labels:
+          app.kubernetes.io/name: anomaly51-user-service
+          app.kubernetes.io/component: identity
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "0"
+      spec:
+        replicas: 1
+        revisionHistoryLimit: 2
+        strategy:
+          type: RollingUpdate
+          rollingUpdate:
+            maxSurge: 0
+            maxUnavailable: 1
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: anomaly51-user-service
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: anomaly51-user-service
+              app.kubernetes.io/component: identity
+              app.kubernetes.io/part-of: anomaly51
+          spec:
+            serviceAccountName: anomaly51-prod
+            automountServiceAccountToken: false
+            imagePullSecrets:
+              - name: anomaly51-registry
+            terminationGracePeriodSeconds: 30
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: node-role.kubernetes.io/control-plane
+                          operator: DoesNotExist
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: user-service
+                image: __IMAGE_user__
+                imagePullPolicy: IfNotPresent
+                env:
+                  - name: NODE_ENV
+                    value: production
+                  - name: HOST
+                    value: 0.0.0.0
+                  - name: PORT
+                    value: "3001"
+                  - name: TRUST_PROXY
+                    value: "1"
+                  - name: ALLOWED_ORIGINS
+                    value: https://anomaly51.api-api-api.com,https://anomaly51-api.api-api-api.com
+                  - name: REDIS_URL
+                    value: redis://anomaly51-redis:6379
+                  - name: REDIS_PREFIX
+                    value: anomaly51:prod:user-service
+                  - name: JWT_ISSUER
+                    value: anomaly51-user-service
+                  - name: JWT_AUDIENCE
+                    value: anomaly51-web
+                  - name: AUTH_COOKIE_NAME
+                    value: anomaly51_session
+                  - name: COOKIE_SAME_SITE
+                    value: lax
+                  - name: ENABLE_DEV_AUTH
+                    value: "false"
+                envFrom:
+                  - secretRef:
+                      name: anomaly51-env
+                ports:
+                  - name: http
+                    containerPort: 3001
+                startupProbe:
+                  httpGet:
+                    path: /health/live
+                    port: http
+                  periodSeconds: 3
+                  timeoutSeconds: 2
+                  failureThreshold: 40
+                readinessProbe:
+                  httpGet:
+                    path: /health/ready
+                    port: http
+                  periodSeconds: 10
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+                livenessProbe:
+                  httpGet:
+                    path: /health/live
+                    port: http
+                  periodSeconds: 20
+                  timeoutSeconds: 3
+                  failureThreshold: 5
+                resources:
+                  requests:
+                    cpu: 25m
+                    memory: 96Mi
+                  limits:
+                    cpu: 250m
+                    memory: 256Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  runAsGroup: 1000
+                  capabilities:
+                    drop:
+                      - ALL
+                volumeMounts:
+                  - name: tmp
+                    mountPath: /tmp
+            volumes:
+              - name: tmp
+                emptyDir: {}
+
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: anomaly51-casino-service
+        labels:
+          app.kubernetes.io/name: anomaly51-casino-service
+          app.kubernetes.io/component: games
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "0"
+      spec:
+        replicas: 1
+        revisionHistoryLimit: 2
+        strategy:
+          type: RollingUpdate
+          rollingUpdate:
+            maxSurge: 0
+            maxUnavailable: 1
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: anomaly51-casino-service
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: anomaly51-casino-service
+              app.kubernetes.io/component: games
+              app.kubernetes.io/part-of: anomaly51
+          spec:
+            serviceAccountName: anomaly51-prod
+            automountServiceAccountToken: false
+            imagePullSecrets:
+              - name: anomaly51-registry
+            terminationGracePeriodSeconds: 30
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: node-role.kubernetes.io/control-plane
+                          operator: DoesNotExist
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: casino-service
+                image: __IMAGE_casino__
+                imagePullPolicy: IfNotPresent
+                env:
+                  - name: NODE_ENV
+                    value: production
+                  - name: HOST
+                    value: 0.0.0.0
+                  - name: PORT
+                    value: "3000"
+                  - name: TRUST_PROXY
+                    value: "1"
+                  - name: ALLOWED_ORIGINS
+                    value: https://anomaly51.api-api-api.com,https://anomaly51-api.api-api-api.com
+                  - name: REDIS_URL
+                    value: redis://anomaly51-redis:6379
+                  - name: REDIS_REQUIRED
+                    value: "true"
+                  - name: BROKER_WORKERS_ENABLED
+                    value: "true"
+                  - name: KAFKA_BROKERS
+                    value: anomaly51-kafka:9092
+                  - name: KAFKA_CLIENT_ID
+                    value: anomaly51-casino-service
+                  - name: JWT_ISSUER
+                    value: anomaly51-user-service
+                  - name: AUTH_COOKIE_NAME
+                    value: anomaly51_session
+                  - name: STARTING_BALANCE
+                    value: "20000"
+                envFrom:
+                  - secretRef:
+                      name: anomaly51-env
+                ports:
+                  - name: http
+                    containerPort: 3000
+                startupProbe:
+                  httpGet:
+                    path: /health/live
+                    port: http
+                  periodSeconds: 3
+                  timeoutSeconds: 2
+                  failureThreshold: 50
+                readinessProbe:
+                  httpGet:
+                    path: /health/ready
+                    port: http
+                  periodSeconds: 10
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+                livenessProbe:
+                  httpGet:
+                    path: /health/live
+                    port: http
+                  periodSeconds: 20
+                  timeoutSeconds: 3
+                  failureThreshold: 5
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 128Mi
+                  limits:
+                    cpu: 400m
+                    memory: 384Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  runAsGroup: 1000
+                  capabilities:
+                    drop:
+                      - ALL
+                volumeMounts:
+                  - name: tmp
+                    mountPath: /tmp
+            volumes:
+              - name: tmp
+                emptyDir: {}
+
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: anomaly51-telegram-service
+        labels:
+          app.kubernetes.io/name: anomaly51-telegram-service
+          app.kubernetes.io/component: telegram
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/sync-wave: "0"
+      spec:
+        replicas: 1
+        revisionHistoryLimit: 2
+        strategy:
+          type: RollingUpdate
+          rollingUpdate:
+            maxSurge: 0
+            maxUnavailable: 1
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: anomaly51-telegram-service
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: anomaly51-telegram-service
+              app.kubernetes.io/component: telegram
+              app.kubernetes.io/part-of: anomaly51
+          spec:
+            serviceAccountName: anomaly51-prod
+            automountServiceAccountToken: false
+            imagePullSecrets:
+              - name: anomaly51-registry
+            terminationGracePeriodSeconds: 30
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: node-role.kubernetes.io/control-plane
+                          operator: DoesNotExist
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: telegram-service
+                image: __IMAGE_telegram__
+                imagePullPolicy: IfNotPresent
+                env:
+                  - name: NODE_ENV
+                    value: production
+                  - name: HOST
+                    value: 0.0.0.0
+                  - name: PORT
+                    value: "3002"
+                  - name: TRUST_PROXY
+                    value: "1"
+                  - name: REDIS_URL
+                    value: redis://anomaly51-redis:6379
+                  - name: REDIS_REQUIRED
+                    value: "true"
+                  - name: KAFKA_BROKERS
+                    value: anomaly51-kafka:9092
+                  - name: KAFKA_CLIENT_ID
+                    value: anomaly51-telegram-service
+                  - name: KAFKA_GROUP_ID
+                    value: anomaly51.telegram-dispatcher.prod.v1
+                  - name: BROKER_WORKERS_ENABLED
+                    value: "true"
+                  - name: USER_SERVICE_URL
+                    value: http://anomaly51-user-service
+                  - name: CASINO_SERVICE_URL
+                    value: http://anomaly51-casino-service
+                  - name: TELEGRAM_BOT_MODE
+                    value: webhook
+                  - name: TELEGRAM_PLAY_URL
+                    value: https://anomaly51.api-api-api.com
+                  - name: WEB_APP_URL
+                    value: https://anomaly51.api-api-api.com
+                envFrom:
+                  - secretRef:
+                      name: anomaly51-env
+                ports:
+                  - name: http
+                    containerPort: 3002
+                startupProbe:
+                  httpGet:
+                    path: /health/live
+                    port: http
+                  periodSeconds: 3
+                  timeoutSeconds: 2
+                  failureThreshold: 40
+                readinessProbe:
+                  httpGet:
+                    path: /health/ready
+                    port: http
+                  periodSeconds: 10
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+                livenessProbe:
+                  httpGet:
+                    path: /health/live
+                    port: http
+                  periodSeconds: 20
+                  timeoutSeconds: 3
+                  failureThreshold: 5
+                resources:
+                  requests:
+                    cpu: 25m
+                    memory: 96Mi
+                  limits:
+                    cpu: 300m
+                    memory: 256Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  runAsGroup: 1000
+                  capabilities:
+                    drop:
+                      - ALL
+                volumeMounts:
+                  - name: tmp
+                    mountPath: /tmp
+            volumes:
+              - name: tmp
+                emptyDir: {}
+
+    - apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: anomaly51-telegram-migrate
+        labels:
+          app.kubernetes.io/name: anomaly51-telegram-migrate
+          app.kubernetes.io/component: migration
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/hook: Sync
+          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+          argocd.argoproj.io/sync-wave: "-2"
+      spec:
+        backoffLimit: 2
+        activeDeadlineSeconds: 900
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: anomaly51-telegram-migrate
+              app.kubernetes.io/component: migration
+              app.kubernetes.io/part-of: anomaly51
+          spec:
+            restartPolicy: Never
+            serviceAccountName: anomaly51-prod
+            automountServiceAccountToken: false
+            imagePullSecrets:
+              - name: anomaly51-registry
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: migrate
+                image: __IMAGE_telegram__
+                imagePullPolicy: IfNotPresent
+                command:
+                  - sh
+                  - -ec
+                args:
+                  - |
+                    until node -e 'const u=new URL(process.env.DATABASE_URL);const s=require("node:net").createConnection({host:u.hostname,port:Number(u.port||5432)});s.setTimeout(2000);s.once("connect",()=>{s.end();process.exit(0)});const fail=()=>process.exit(1);s.once("error",fail);s.once("timeout",fail)'; do sleep 2; done
+                    exec node apps/telegram-service/dist/src/migrate.js
+                env:
+                  - name: NODE_ENV
+                    value: production
+                  - name: REDIS_URL
+                    value: redis://anomaly51-redis:6379
+                  - name: REDIS_REQUIRED
+                    value: "true"
+                  - name: KAFKA_BROKERS
+                    value: anomaly51-kafka:9092
+                  - name: BROKER_WORKERS_ENABLED
+                    value: "true"
+                  - name: USER_SERVICE_URL
+                    value: http://anomaly51-user-service
+                  - name: CASINO_SERVICE_URL
+                    value: http://anomaly51-casino-service
+                  - name: TELEGRAM_BOT_MODE
+                    value: webhook
+                  - name: TELEGRAM_PLAY_URL
+                    value: https://anomaly51.api-api-api.com
+                  - name: WEB_APP_URL
+                    value: https://anomaly51.api-api-api.com
+                envFrom:
+                  - secretRef:
+                      name: anomaly51-env
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                  limits:
+                    cpu: 150m
+                    memory: 192Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  runAsGroup: 1000
+                  capabilities:
+                    drop:
+                      - ALL
+                volumeMounts:
+                  - name: tmp
+                    mountPath: /tmp
+            volumes:
+              - name: tmp
+                emptyDir: {}
+
+    - apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: anomaly51-casino-migrate
+        labels:
+          app.kubernetes.io/name: anomaly51-casino-migrate
+          app.kubernetes.io/component: migration
+          app.kubernetes.io/part-of: anomaly51
+        annotations:
+          argocd.argoproj.io/hook: Sync
+          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+          argocd.argoproj.io/sync-wave: "-1"
+      spec:
+        backoffLimit: 2
+        activeDeadlineSeconds: 900
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: anomaly51-casino-migrate
+              app.kubernetes.io/component: migration
+              app.kubernetes.io/part-of: anomaly51
+          spec:
+            restartPolicy: Never
+            serviceAccountName: anomaly51-prod
+            automountServiceAccountToken: false
+            imagePullSecrets:
+              - name: anomaly51-registry
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: migrate
+                image: __IMAGE_casino__
+                imagePullPolicy: IfNotPresent
+                command:
+                  - sh
+                  - -ec
+                args:
+                  - |
+                    until node -e 'const u=new URL(process.env.DATABASE_URL);const s=require("node:net").createConnection({host:u.hostname,port:Number(u.port||5432)});s.setTimeout(2000);s.once("connect",()=>{s.end();process.exit(0)});const fail=()=>process.exit(1);s.once("error",fail);s.once("timeout",fail)'; do sleep 2; done
+                    exec npm run prisma:migrate -w @anomaly51/casino-service
+                env:
+                  - name: NODE_ENV
+                    value: production
+                  - name: ALLOWED_ORIGINS
+                    value: https://anomaly51.api-api-api.com,https://anomaly51-api.api-api-api.com
+                  - name: REDIS_URL
+                    value: redis://anomaly51-redis:6379
+                  - name: REDIS_REQUIRED
+                    value: "true"
+                  - name: BROKER_WORKERS_ENABLED
+                    value: "true"
+                  - name: KAFKA_BROKERS
+                    value: anomaly51-kafka:9092
+                  - name: NPM_CONFIG_CACHE
+                    value: /tmp/npm-cache
+                envFrom:
+                  - secretRef:
+                      name: anomaly51-env
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 96Mi
+                  limits:
+                    cpu: 200m
+                    memory: 256Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  runAsGroup: 1000
+                  capabilities:
+                    drop:
+                      - ALL
+                volumeMounts:
+                  - name: tmp
+                    mountPath: /tmp
+            volumes:
+              - name: tmp
+                emptyDir: {}

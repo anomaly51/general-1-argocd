@@ -1,0 +1,12 @@
+apiVersion: v2
+name: anomaly51-prod
+description: Production GitOps wrapper for Anomaly 51.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+dependencies:
+  - name: app
+    alias: app
+    version: 0.5.1
+    repository: oci://harbor.internal.api-api-api.com/helm-charts
