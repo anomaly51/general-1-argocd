@@ -738,11 +738,19 @@ app:
               port: 9092
               type: internal
               tls: false
-              # The cluster is internal-only; only Anomaly 51 workloads can connect.
+              # The cluster is internal-only. Application pods use the client
+              # listener, while the Strimzi operator needs it for AdminClient
+              # reconciliation (topics, broker state and listener status).
               networkPolicyPeers:
                 - podSelector:
                     matchLabels:
                       app.kubernetes.io/part-of: anomaly51
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: kafka-system
+                  podSelector:
+                    matchLabels:
+                      strimzi.io/kind: cluster-operator
           config:
             auto.create.topics.enable: true
             num.partitions: 3
