@@ -584,6 +584,13 @@ app:
             restartPolicy: Never
             serviceAccountName: anomaly51-prod
             automountServiceAccountToken: false
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: node-role.kubernetes.io/control-plane
+                          operator: DoesNotExist
             securityContext:
               seccompProfile:
                 type: RuntimeDefault
@@ -933,6 +940,13 @@ app:
             restartPolicy: Never
             serviceAccountName: anomaly51-prod
             automountServiceAccountToken: false
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: node-role.kubernetes.io/control-plane
+                          operator: DoesNotExist
             imagePullSecrets:
               - name: anomaly51-registry
             securityContext:
@@ -964,7 +978,7 @@ app:
                 resources:
                   requests:
                     cpu: 10m
-                    memory: 64Mi
+                    memory: 32Mi
                   limits:
                     cpu: 150m
                     memory: 192Mi
@@ -1485,6 +1499,13 @@ app:
             restartPolicy: Never
             serviceAccountName: anomaly51-prod
             automountServiceAccountToken: false
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: node-role.kubernetes.io/control-plane
+                          operator: DoesNotExist
             imagePullSecrets:
               - name: anomaly51-registry
             securityContext:
@@ -1528,7 +1549,7 @@ app:
                 resources:
                   requests:
                     cpu: 10m
-                    memory: 64Mi
+                    memory: 32Mi
                   limits:
                     cpu: 150m
                     memory: 192Mi
@@ -1572,6 +1593,13 @@ app:
             restartPolicy: Never
             serviceAccountName: anomaly51-prod
             automountServiceAccountToken: false
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: node-role.kubernetes.io/control-plane
+                          operator: DoesNotExist
             imagePullSecrets:
               - name: anomaly51-registry
             securityContext:
@@ -1609,7 +1637,7 @@ app:
                 resources:
                   requests:
                     cpu: 10m
-                    memory: 96Mi
+                    memory: 64Mi
                   limits:
                     cpu: 200m
                     memory: 256Mi
