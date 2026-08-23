@@ -515,16 +515,16 @@ app:
           - from:
               - namespaceSelector:
                   matchLabels:
-                    kubernetes.io/metadata.name: networking
+                    kubernetes.io/metadata.name: kube-system
             ports:
-              - protocol: TCP
-                port: 80
               - protocol: TCP
                 port: 3000
               - protocol: TCP
                 port: 3001
               - protocol: TCP
                 port: 3002
+              - protocol: TCP
+                port: 8080
         egress:
           - to:
               - podSelector:
