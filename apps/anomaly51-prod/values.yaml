@@ -357,6 +357,12 @@ app:
                   value: /api/plinko
               - path:
                   type: PathPrefix
+                  value: /api/pig-bank
+              - path:
+                  type: PathPrefix
+                  value: /api/truffle-raid
+              - path:
+                  type: PathPrefix
                   value: /api/health
               - path:
                   type: PathPrefix
@@ -430,6 +436,12 @@ app:
               - path:
                   type: PathPrefix
                   value: /api/plinko
+              - path:
+                  type: PathPrefix
+                  value: /api/pig-bank
+              - path:
+                  type: PathPrefix
+                  value: /api/truffle-raid
               - path:
                   type: PathPrefix
                   value: /api/health
@@ -1279,6 +1291,10 @@ app:
                     value: anomaly51_session
                   - name: STARTING_BALANCE
                     value: "20000"
+                  - name: ENGAGEMENT_REWARD_MAX_AMOUNT
+                    value: "5000"
+                  - name: ENGAGEMENT_REWARD_DAILY_CAP
+                    value: "20000"
                 envFrom:
                   - secretRef:
                       name: anomaly51-env
@@ -1404,6 +1420,18 @@ app:
                     value: webhook
                   - name: TELEGRAM_PLAY_URL
                     value: https://anomaly51.api-api-api.com
+                  - name: TELEGRAM_ENGAGEMENT_ENABLED
+                    value: "true"
+                  - name: TELEGRAM_ENGAGEMENT_TIMEZONE
+                    value: Europe/Kyiv
+                  - name: TELEGRAM_ENGAGEMENT_TICK_MS
+                    value: "15000"
+                  - name: TELEGRAM_ENGAGEMENT_GIFT_PERCENT
+                    value: "20"
+                  - name: TELEGRAM_ACTIVITY_DELAY_MIN_MINUTES
+                    value: "20"
+                  - name: TELEGRAM_ACTIVITY_DELAY_MAX_MINUTES
+                    value: "120"
                   - name: WEB_APP_URL
                     value: https://anomaly51.api-api-api.com
                 envFrom:
