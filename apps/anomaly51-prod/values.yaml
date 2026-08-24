@@ -5,16 +5,16 @@ app:
   images:
     web:
       repository: harbor.internal.api-api-api.com/applications/anomaly51-web
-      tag: sha-6a05d451d5d0
+      tag: sha-ae1700053380
     user:
       repository: harbor.internal.api-api-api.com/applications/anomaly51-user-service
-      tag: sha-6a05d451d5d0
+      tag: sha-ae1700053380
     casino:
       repository: harbor.internal.api-api-api.com/applications/anomaly51-casino-service
-      tag: sha-6a05d451d5d0
+      tag: sha-ae1700053380
     telegram:
       repository: harbor.internal.api-api-api.com/applications/anomaly51-telegram-service
-      tag: sha-6a05d451d5d0
+      tag: sha-ae1700053380
   # The reusable chart deliberately treats these as structured Kubernetes
   # resources. No workload-specific Helm templates live in this wrapper.
   objects:
