@@ -354,6 +354,9 @@ app:
                   value: /api/slots
               - path:
                   type: PathPrefix
+                  value: /api/plinko
+              - path:
+                  type: PathPrefix
                   value: /api/health
               - path:
                   type: PathPrefix
@@ -424,6 +427,9 @@ app:
               - path:
                   type: PathPrefix
                   value: /api/slots
+              - path:
+                  type: PathPrefix
+                  value: /api/plinko
               - path:
                   type: PathPrefix
                   value: /api/health
