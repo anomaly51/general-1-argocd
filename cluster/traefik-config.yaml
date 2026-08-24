@@ -5,6 +5,9 @@ metadata:
   namespace: kube-system
 spec:
   valuesContent: |-
+    deployment:
+      replicas: 2
+      minReadySeconds: 5
     providers:
       kubernetesIngress:
         enabled: false
@@ -16,6 +19,26 @@ spec:
       enabled: false
     gatewayClass:
       enabled: true
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: traefik
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    livenessProbe:
+      timeoutSeconds: 3
+      failureThreshold: 3
     service:
       annotations:
         metallb.io/address-pool: lan
