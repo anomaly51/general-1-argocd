@@ -363,6 +363,9 @@ app:
                   value: /api/truffle-raid
               - path:
                   type: PathPrefix
+                  value: /api/pig-tower
+              - path:
+                  type: PathPrefix
                   value: /api/health
               - path:
                   type: PathPrefix
@@ -442,6 +445,9 @@ app:
               - path:
                   type: PathPrefix
                   value: /api/truffle-raid
+              - path:
+                  type: PathPrefix
+                  value: /api/pig-tower
               - path:
                   type: PathPrefix
                   value: /api/health
