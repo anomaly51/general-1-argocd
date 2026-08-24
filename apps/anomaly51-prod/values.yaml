@@ -656,7 +656,7 @@ app:
                       --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
                       --data-urlencode "url=https://anomaly51.api-api-api.com/api/telegram/webhook" \
                       --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}" \
-                      --data-urlencode 'allowed_updates=["message"]')"
+                      --data-urlencode 'allowed_updates=["message","my_chat_member"]')"
                     printf '%s' "$response" | grep -q '"ok":true'
                 env:
                   - name: TELEGRAM_BOT_TOKEN
