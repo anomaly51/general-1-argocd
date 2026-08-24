@@ -10,14 +10,14 @@ strimzi-kafka-operator:
   generatePodDisruptionBudget: false
   extraEnvs:
     - name: JAVA_OPTS
-      value: -Xms64m -Xmx160m
+      value: -Xms128m -Xmx256m
   resources:
     requests:
-      cpu: 25m
-      memory: 128Mi
-    limits:
-      cpu: 250m
+      cpu: 50m
       memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
   nodeSelector:
     # Keep the memory-constrained Kubernetes API node free for control-plane work.
     kubernetes.io/hostname: general-1-worker-3
