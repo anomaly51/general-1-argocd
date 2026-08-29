@@ -3,10 +3,13 @@ kind: Kustomization
 
 resources:
   - route-namespaces.yaml
+  - juggluco-namespace.yaml
   - metallb-namespace.yaml
   - project.yaml
+  - projects/juggluco.yaml
   - traefik-config.yaml
   - applicationsets/apps.yaml
   - applicationsets/utility-apps.yaml
+  - applications/juggluco.yaml
   - operators/rabbitmq-cluster-operator.yaml
   - operators/rabbitmq-topology-operator.yaml

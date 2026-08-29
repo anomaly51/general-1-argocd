@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: juggluco
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  description: Least-privilege project for the Juggluco workload.
+  sourceRepos:
+    - https://github.com/anomaly51/Juggluco.git
+  destinations:
+    - namespace: juggluco
+      server: https://kubernetes.default.svc
+  clusterResourceBlacklist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: PersistentVolumeClaim
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: apps
+      kind: Deployment
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: secrets.hashicorp.com
+      kind: VaultAuth
+    - group: secrets.hashicorp.com
+      kind: VaultStaticSecret
+  orphanedResources:
+    warn: true

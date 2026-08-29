@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apps-juggluco
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
+spec:
+  project: juggluco
+  source:
+    repoURL: https://github.com/anomaly51/Juggluco.git
+    targetRevision: deploy
+    path: deploy/kubernetes/chart
+    helm:
+      releaseName: juggluco
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: juggluco
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
