@@ -12,7 +12,7 @@ vault:
     logFormat: json
     updateStrategyType: RollingUpdate
     annotations:
-      general-1.api-api-api.com/config-revision: "2"
+      general-1.api-api-api.com/config-revision: "3"
 
     resources:
       requests:
@@ -44,6 +44,7 @@ vault:
         config: |
           ui = false
           disable_mlock = true
+          enable_unauthenticated_access = ["generate-root"]
 
           listener "tcp" {
             tls_disable = 1
