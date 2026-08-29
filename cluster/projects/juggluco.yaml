@@ -24,6 +24,8 @@ spec:
       kind: ServiceAccount
     - group: apps
       kind: Deployment
+    - group: batch
+      kind: Job
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
     - group: secrets.hashicorp.com
