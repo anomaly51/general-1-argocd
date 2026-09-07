@@ -190,6 +190,24 @@ spec:
         - name: bot
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: IfNotPresent
+          startupProbe:
+            exec:
+              command: [python, -m, utils.health]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: [python, -m, utils.health]
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 1
+          livenessProbe:
+            exec:
+              command: [python, -m, utils.health]
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
           env:
             - name: APP_ENV
               value: prod
