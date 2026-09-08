@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/anomaly51/downloader-sloniara-bot
-  tag: sha-60520319b33e390124ff1ec3c475f59179721de8
+  tag: sha-1b6bb730d856a604a79d4c59f2364cc170409b9e
 
 resources:
   requests:
