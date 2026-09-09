@@ -13,7 +13,7 @@ class CutlineChartTest < Minitest::Test
   end
 
   MIGRATION = render('--set', 'migration.enabled=true').freeze
-  LIVE = render('--set', 'migration.enabled=false').freeze
+  LIVE = render('--set', 'migration.enabled=false', '--set', 'replicas.api=1').freeze
 
   def resource(kind, component = nil, docs = LIVE)
     name = component ? "cutline-studio-#{component}" : 'cutline-studio'

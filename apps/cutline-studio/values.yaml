@@ -18,7 +18,8 @@ images:
 
 replicas:
   # Keep API at one: import/generation workers and schedulers are process-local.
-  api: 1
+  # Pause startup until the bounded-memory history loader is deployed.
+  api: 0
   frontend: 1
   oauth2Proxy: 1
 
