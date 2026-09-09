@@ -112,7 +112,8 @@ spec:
       templates:
         .dockerconfigjson:
           text: |
-            {"auths":{"{{ .Values.registry.server }}":{"username":"{{ `{{ get .Secrets "username" }}` }}","password":"{{ `{{ get .Secrets "password" }}` }}"}}}
+            {{ `{{- $credentials := dict "username" (get .Secrets "username") "password" (get .Secrets "password") -}}` }}
+            {{ printf "{{- dict \"auths\" (dict %q $credentials) | mustToJson -}}" .Values.registry.server }}
   rolloutRestartTargets:
     - kind: Deployment
       name: {{ .Release.Name }}-api
