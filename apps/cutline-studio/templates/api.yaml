@@ -92,6 +92,9 @@ spec:
               value: {{ .Values.api.telegramBotEnabled | toString | quote }}
             - name: TELEGRAM_DAILY_MEMES_ENABLED
               value: {{ .Values.api.telegramDailyMemesEnabled | toString | quote }}
+            # Keep generation limited to the existing explicit chat allowlist.
+            - name: TELEGRAM_ALLOW_ALL_CHATS
+              value: "false"
             - name: HOME
               value: /tmp/studio-home
             - name: PYTHONDONTWRITEBYTECODE

@@ -1,11 +1,11 @@
 images:
   api:
     repository: harbor.internal.api-api-api.com/cutline-studio/api
-    tag: bootstrap-pending
+    tag: sha-08bcf8e475e6
     pullPolicy: IfNotPresent
   frontend:
     repository: harbor.internal.api-api-api.com/cutline-studio/frontend
-    tag: bootstrap-pending
+    tag: sha-08bcf8e475e6
     pullPolicy: IfNotPresent
   oauth2Proxy:
     repository: quay.io/oauth2-proxy/oauth2-proxy

@@ -130,7 +130,7 @@ class CutlineChartTest < Minitest::Test
   def test_api_paths_probes_and_migration_safe_flags
     api = container('api')
     env = api['env'].to_h { |e| [e['name'], e['value']] }
-    %w[STUDIO_RECOVER_GENERATION_JOBS STUDIO_PURGE_LEGACY_DATA TELEGRAM_BOT_ENABLED TELEGRAM_DAILY_MEMES_ENABLED].each do |key|
+    %w[STUDIO_RECOVER_GENERATION_JOBS STUDIO_PURGE_LEGACY_DATA TELEGRAM_BOT_ENABLED TELEGRAM_DAILY_MEMES_ENABLED TELEGRAM_ALLOW_ALL_CHATS].each do |key|
       assert_equal 'false', env[key]
     end
     assert_equal '/data/assets/manifest.json', env['ASSET_MANIFEST_PATH']
