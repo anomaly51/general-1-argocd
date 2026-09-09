@@ -57,6 +57,8 @@ spec:
           livenessProbe:
             # Recovery can reject SQL clients while the postmaster is healthy.
             # Keep it alive to finish NFS recovery; readiness still gates traffic.
+            # Explicitly remove the old handler during server-side apply.
+            exec: null
             tcpSocket:
               port: postgres
             periodSeconds: 30
