@@ -1,11 +1,11 @@
 images:
   api:
     repository: harbor.internal.api-api-api.com/cutline-studio/api
-    tag: sha-08bcf8e475e6
+    tag: sha-3cc9115dceac
     pullPolicy: IfNotPresent
   frontend:
     repository: harbor.internal.api-api-api.com/cutline-studio/frontend
-    tag: sha-08bcf8e475e6
+    tag: sha-3cc9115dceac
     pullPolicy: IfNotPresent
   oauth2Proxy:
     repository: quay.io/oauth2-proxy/oauth2-proxy
