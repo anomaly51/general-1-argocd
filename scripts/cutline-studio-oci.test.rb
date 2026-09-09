@@ -134,9 +134,18 @@ class CutlineOciBootstrapTest < Minitest::Test
     assert_equal true, ROLE.fetch('token_no_default_policy')
     assert_equal 600, ROLE.fetch('token_ttl')
     assert_equal 3600, ROLE.fetch('token_max_ttl')
+  end
+
+  def test_vso_self_renewal_and_cache_lookup_keep_data_access_narrow
     policy = File.read(File.join(ROOT, 'bootstrap/cutline-studio-oci-policy.hcl')).lines.reject { |line| line.start_with?('#') }.join
-    assert_equal ["kv/data/apps/cutline-studio/registry"], policy.scan(/path "([^"]+)"/).flatten
-    assert_equal ['read'], policy.scan(/capabilities = \["([^"]+)"\]/).flatten
+    rule = /path "([^"]+)"\s*\{\s*capabilities\s*=\s*\["([^"]+)"\]\s*\}/
+    rules = policy.scan(rule)
+    assert_equal 3, rules.length
+    assert_equal({ 'kv/data/apps/cutline-studio/registry' => 'read',
+                   'auth/token/renew-self' => 'update',
+                   'auth/token/lookup-self' => 'read' }, rules.to_h)
+    assert_empty policy.gsub(rule, '').strip, 'No extra ACL stanza or capability may be hidden outside the three rules'
+    assert_equal true, ROLE.fetch('token_no_default_policy')
     refute_includes policy, '*'
   end
 

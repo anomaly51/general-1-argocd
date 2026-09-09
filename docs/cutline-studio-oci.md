@@ -30,8 +30,15 @@ non-secret definitions through the existing authenticated Vault helper:
 
 The role binds only ServiceAccount `cutline-studio-oci` in `argocd`, audience
 `vault`, with a 600-second token TTL, maximum 3600 seconds, no default policy,
-and read access to that one data path. It cannot read app env or owner-login
-credentials, list other paths, or write Vault state. Do not print secret data.
+and read access to that one data path. The only additional permissions are
+`update` on `auth/token/renew-self` and `read` on `auth/token/lookup-self`.
+VSO 1.5.0 renews immediately after login and checks a restored/tainted cached
+client through lookup-self. Without the explicit renewal rule, disabling the
+default policy makes VSO fail with 403 before it can sync the registry Secret.
+Keep `token_no_default_policy: true`; do not attach the broad default policy.
+These self-only operations cannot manage other tokens. The role still cannot
+read app env or owner-login credentials, list other paths, or write secret data.
+Do not print secret data.
 Verify VSO readiness and Argo repository connectivity without reading Secret data.
 
 ## Activation — separate owner-approved commit
@@ -103,6 +110,8 @@ this one integration test is explicitly skipped.
 - [Argo CD v3.4.5 repository Secret examples](https://github.com/argoproj/argo-cd/blob/v3.4.5/docs/operator-manual/argocd-repositories.yaml)
   and [template merge implementation](https://github.com/argoproj/argo-cd/blob/v3.4.5/applicationset/controllers/template/patch.go).
 - [Vault Secrets Operator destination/transformation API](https://developer.hashicorp.com/vault/docs/deploy/kubernetes/vso/api-reference).
+- [Installed VSO 1.5.0 token lifecycle implementation](https://github.com/hashicorp/vault-secrets-operator/blob/v1.5.0/vault/client.go)
+  and [Vault self-token endpoints](https://developer.hashicorp.com/vault/api-docs/auth/token).
 
 The installed General-1 VSO CRD was also checked read-only for destination labels
 and `excludeRaw` support. All cluster changes remain GitOps-driven.
