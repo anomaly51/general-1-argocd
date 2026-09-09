@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import importlib.util
 import json
 import os
@@ -48,6 +49,43 @@ class FakeRegistry:
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_real_scratch_null_and_empty_array_layers_are_equivalent(self):
+        # Reproduced with an actual BuildKit FROM scratch + LABEL OCI export:
+        # manifest.layers=null; config.rootfs={type:layers,diff_ids:null}.
+        for layers in ([], None):
+            for diff_ids in ([], None):
+                payload = marker()
+                config = {"rootfs": {"type": "layers", "diff_ids": diff_ids},
+                          "config": {"Labels": {release.LABEL: json.dumps(payload)}}}
+                body = json.dumps(config).encode()
+                digest = "sha256:" + hashlib.sha256(body).hexdigest()
+                manifest = {"config": {"digest": digest}, "layers": layers}
+                registry = release.Registry("dummy", "dummy")
+                with patch.object(registry, "manifest", return_value=(manifest, "unused")), patch.object(registry, "get", return_value=(body, {})):
+                    self.assertEqual(registry.marker("main"), payload)
+                    self.assertEqual(registry.marker(payload["tag"]), payload)
+
+    def test_nonempty_missing_or_malformed_layers_fail_closed(self):
+        payload = marker()
+        registry = release.Registry("dummy", "dummy")
+        for layers in ([{"digest": "sha256:" + "a" * 64}], {}, "", False, "missing"):
+            manifest = {"config": {"digest": "sha256:" + "b" * 64}, "layers": layers}
+            if layers == "missing":
+                del manifest["layers"]
+            with patch.object(registry, "manifest", return_value=(manifest, "unused")), patch.object(registry, "get") as get:
+                with self.assertRaises(release.RegistryError):
+                    registry.marker("main")
+                get.assert_not_called()
+        for rootfs in ({}, {"type": "other", "diff_ids": []}, {"type": "layers"},
+                       {"type": "layers", "diff_ids": ["sha256:" + "a" * 64]}):
+            config = {"rootfs": rootfs, "config": {"Labels": {release.LABEL: json.dumps(payload)}}}
+            body = json.dumps(config).encode()
+            digest = "sha256:" + hashlib.sha256(body).hexdigest()
+            manifest = {"config": {"digest": digest}, "layers": None}
+            with patch.object(registry, "manifest", return_value=(manifest, "unused")), patch.object(registry, "get", return_value=(body, {})):
+                with self.assertRaises(release.RegistryError):
+                    registry.marker("main")
+
     def test_schema_requires_fixed_origin_full_sha_and_both_immutable_images(self):
         release.validate_marker(marker())
         alterations = [("source_repository", "other/repo"), ("channel", "dev"), ("source_sha", "b" * 39), ("tag", "latest"), ("source_run_number", True), ("source_run_id", 0), ("schema", 2)]

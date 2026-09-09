@@ -123,12 +123,17 @@ class Registry:
                 raise RegistryError("Deploy-ready marker must have exactly one image manifest")
             manifest, _ = self.manifest(MARKER_REPOSITORY, descriptors[0]["digest"])
         config_digest = manifest.get("config", {}).get("digest", "")
-        if not DIGEST_RE.fullmatch(config_digest) or manifest.get("layers") != []:
+        # BuildKit's FROM scratch output represents no layers as JSON null.
+        # Require the field, and never accept an actual filesystem layer.
+        if not DIGEST_RE.fullmatch(config_digest) or "layers" not in manifest or manifest["layers"] not in ([], None):
             raise RegistryError("Deploy-ready marker must be a layer-free image config")
         body, _ = self.get(MARKER_REPOSITORY, f"blobs/{config_digest}")
         if "sha256:" + hashlib.sha256(body).hexdigest() != config_digest:
             raise RegistryError("Deploy-ready config digest mismatch")
         config = json.loads(body)
+        rootfs = config.get("rootfs", {})
+        if rootfs.get("type") != "layers" or "diff_ids" not in rootfs or rootfs["diff_ids"] not in ([], None):
+            raise RegistryError("Deploy-ready marker config must have no filesystem layers")
         label = config.get("config", {}).get("Labels", {}).get(LABEL)
         if not isinstance(label, str) or len(label) > 16384:
             raise RegistryError("Missing or oversized deploy-ready release label")
