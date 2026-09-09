@@ -1,0 +1,22 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: authentik-public
+  annotations:
+    external-dns.alpha.kubernetes.io/target: 4a29ced3-c1b8-4e6f-885b-8b2caaec2149.cfargotunnel.com
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+spec:
+  parentRefs:
+    - name: public
+      namespace: networking
+      sectionName: https
+  hostnames:
+    - auth-general1.api-api-api.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: authentik-server
+          port: 80

@@ -1,0 +1,18 @@
+{{- range $component, $size := dict "data" .Values.storage.dataSize "postgres" .Values.storage.postgresSize }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $.Release.Name }}-{{ $component }}
+  labels:
+    {{- include "cutline.labels" $ | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/sync-options: Delete=false,Prune=false
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: {{ $.Values.storage.className }}
+  resources:
+    requests:
+      storage: {{ $size }}
+{{- end }}

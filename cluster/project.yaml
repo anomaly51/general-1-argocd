@@ -16,3 +16,8 @@ spec:
   namespaceResourceWhitelist:
     - group: "*"
       kind: "*"
+  roles:
+    - name: cutline-studio-ci
+      description: Read-only rollout verification for Cutline Studio CI.
+      policies:
+        - p, proj:gitops-apps:cutline-studio-ci, applications, get, gitops-apps/apps-cutline-studio, allow

@@ -1,0 +1,45 @@
+{{- range $component, $ports := dict "api" (dict "service" 8001 "target" "http") "frontend" (dict "service" 80 "target" "http") "oauth2-proxy" (dict "service" 4180 "target" "http") "postgres" (dict "service" 5432 "target" "postgres") }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Release.Name }}-{{ $component }}
+  labels:
+    {{- include "cutline.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "cutline.selector" (dict "root" $ "component" $component) | nindent 4 }}
+  ports:
+    - name: {{ $ports.target }}
+      port: {{ $ports.service }}
+      targetPort: {{ $ports.target }}
+{{- end }}
+---
+# There is intentionally no public route to the frontend, API, database or media.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "cutline.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.routes.gatewayName }}
+      namespace: {{ .Values.routes.gatewayNamespace }}
+      sectionName: {{ .Values.routes.gatewaySectionName }}
+  hostnames:
+    - {{ .Values.routes.hostname }}
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /}
+      timeouts:
+        request: {{ .Values.routes.timeout }}
+        backendRequest: {{ .Values.routes.timeout }}
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ .Release.Name }}-oauth2-proxy
+          port: 4180

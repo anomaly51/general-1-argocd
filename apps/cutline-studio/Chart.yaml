@@ -1,0 +1,6 @@
+apiVersion: v2
+name: cutline-studio
+description: Owner-only Cutline Studio, authenticated same-origin web/API, and retained data.
+type: application
+version: 0.1.0
+appVersion: "bootstrap-pending"

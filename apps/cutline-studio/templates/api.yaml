@@ -1,0 +1,138 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-api
+  labels:
+    {{- include "cutline.labels" . | nindent 4 }}
+spec:
+  replicas: {{ ternary 0 .Values.replicas.api .Values.migration.enabled }}
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "cutline.selector" (dict "root" . "component" "api") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cutline.selector" (dict "root" . "component" "api") | nindent 8 }}
+      annotations:
+        checksum/config: {{ toJson .Values.api | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}
+      automountServiceAccountToken: false
+      affinity:
+        {{- include "cutline.workerAffinity" . | nindent 8 }}
+      imagePullSecrets:
+        - name: {{ .Release.Name }}-registry
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: wait-postgres
+          image: "{{ .Values.images.api.repository }}:{{ .Values.images.api.tag }}"
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          command: [/app/backend/.venv/bin/python, -c]
+          args:
+            - |
+              import socket, time
+              while True:
+                  try:
+                      socket.create_connection(("{{ .Release.Name }}-postgres", 5432), 3).close()
+                      break
+                  except OSError:
+                      time.sleep(2)
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 100m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      containers:
+        - name: api
+          image: "{{ .Values.images.api.repository }}:{{ .Values.images.api.tag }}"
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          # Image entrypoint is tini -> production uvicorn, one worker, no reload.
+          workingDir: /app/backend
+          envFrom:
+            - secretRef:
+                name: {{ .Release.Name }}-env
+          env:
+            - name: CORS_ORIGINS
+              value: "https://{{ .Values.routes.hostname }}"
+            - name: ASSET_MANIFEST_PATH
+              value: /data/assets/manifest.json
+            - name: REFERENCE_VIDEO_ROOT
+              value: /data/assets/reference/videos
+            - name: REFERENCE_PROJECT_ROOT
+              value: /data/reference-projects
+            - name: GENERATED_ASSET_ROOT
+              value: /data/generated
+            - name: STUDIO_OUTPUT_ROOT
+              value: /data/outputs
+            - name: PROMPT_SUGGESTION_HISTORY_PATH
+              value: /data/prompt-suggestion-history.json
+            - name: POSE_MODEL_PATH
+              value: /app/backend/models/yolo11n-pose.onnx
+            - name: HEADLESS_WEBAV_BACKEND_ORIGIN
+              value: http://127.0.0.1:8001
+            - name: STUDIO_RECOVER_GENERATION_JOBS
+              value: {{ .Values.api.recoverGenerationJobs | toString | quote }}
+            - name: STUDIO_PURGE_LEGACY_DATA
+              value: {{ .Values.api.purgeLegacyData | toString | quote }}
+            - name: TELEGRAM_BOT_ENABLED
+              value: {{ .Values.api.telegramBotEnabled | toString | quote }}
+            - name: TELEGRAM_DAILY_MEMES_ENABLED
+              value: {{ .Values.api.telegramDailyMemesEnabled | toString | quote }}
+            - name: HOME
+              value: /tmp/studio-home
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+          ports:
+            - name: http
+              containerPort: 8001
+          startupProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /api/v1/ready, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.resources.api | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: tmp, mountPath: /tmp}
+            - {name: shm, mountPath: /dev/shm}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ .Values.storage.apiTmpSize }}
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ .Values.storage.apiSharedMemorySize }}

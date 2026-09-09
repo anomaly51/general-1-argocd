@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-oauth2-proxy
+  labels:
+    {{- include "cutline.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas.oauth2Proxy }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      {{- include "cutline.selector" (dict "root" . "component" "oauth2-proxy") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cutline.selector" (dict "root" . "component" "oauth2-proxy") | nindent 8 }}
+      annotations:
+        checksum/config: {{ printf "%s:%s" (toJson .Values.auth) .Values.routes.hostname | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}
+      automountServiceAccountToken: false
+      affinity:
+        {{- include "cutline.workerAffinity" . | nindent 8 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: oauth2-proxy
+          image: "{{ .Values.images.oauth2Proxy.repository }}:{{ .Values.images.oauth2Proxy.tag }}"
+          imagePullPolicy: {{ .Values.images.oauth2Proxy.pullPolicy }}
+          args:
+            - --provider=oidc
+            - --http-address=0.0.0.0:4180
+            - --upstream=http://{{ .Release.Name }}-frontend:80/
+            - --redirect-url=https://{{ .Values.routes.hostname }}/oauth2/callback
+            - --whitelist-domain={{ .Values.routes.hostname }}
+            - --reverse-proxy=true
+            - --trusted-proxy-ip={{ .Values.auth.trustedProxyCIDR }}
+            - --email-domain=*
+            # Pin the owner gate even if the required secret were empty.
+            - --allowed-group={{ required "auth.allowedGroup must restrict access to the owner group" .Values.auth.allowedGroup }}
+            - --oidc-groups-claim=groups
+            - --code-challenge-method=S256
+            - --insecure-oidc-skip-nonce=false
+            - --skip-provider-button=true
+            - --skip-jwt-bearer-tokens=false
+            - --skip-auth-preflight=false
+            - --cookie-name=__Host-cutline-studio
+            - --cookie-secure=true
+            - --cookie-httponly=true
+            - --cookie-samesite=lax
+            - --cookie-path=/
+            - --cookie-expire={{ .Values.auth.cookieExpire }}
+            - --cookie-refresh={{ .Values.auth.cookieRefresh }}
+            - --upstream-timeout={{ .Values.auth.upstreamTimeout }}
+            - --pass-access-token=false
+            - --pass-authorization-header=false
+            - --pass-basic-auth=false
+            - --pass-user-headers=true
+            - --request-logging=false
+            - --silence-ping-logging=true
+            - --show-debug-on-error=false
+          env:
+            {{- range $key := list "OAUTH2_PROXY_OIDC_ISSUER_URL" "OAUTH2_PROXY_CLIENT_ID" "OAUTH2_PROXY_CLIENT_SECRET" "OAUTH2_PROXY_COOKIE_SECRET" "OAUTH2_PROXY_ALLOWED_GROUPS" }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Release.Name }}-auth
+                  key: {{ $key }}
+                  optional: false
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 4180
+          startupProbe:
+            httpGet: {path: /ready, port: http}
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: {path: /ping, port: http}
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.resources.oauth2Proxy | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
