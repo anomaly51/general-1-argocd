@@ -25,7 +25,7 @@ replicas:
 migration:
   # Initial rollout: keep API stopped until DB/media restore has been verified.
   # Disabling this removes the restore tools deployment and starts the API.
-  enabled: true
+  enabled: false
 
 routes:
   hostname: cutline-general1.api-api-api.com
