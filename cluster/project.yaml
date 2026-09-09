@@ -19,5 +19,9 @@ spec:
   roles:
     - name: cutline-studio-ci
       description: Read-only rollout verification for Cutline Studio CI.
+      jwtTokens:
+        - id: cutline-studio-ci-20260909
+          iat: 1788981825
+          exp: 1820517825
       policies:
         - p, proj:gitops-apps:cutline-studio-ci, applications, get, gitops-apps/apps-cutline-studio, allow
