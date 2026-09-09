@@ -35,6 +35,14 @@ spec:
   rules:
     - matches:
         - path: {type: PathPrefix, value: /}
+      filters:
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            set:
+              - name: Cache-Control
+                value: private, no-store
+              - name: Vary
+                value: Cookie, Authorization
       timeouts:
         request: {{ .Values.routes.timeout }}
         backendRequest: {{ .Values.routes.timeout }}
