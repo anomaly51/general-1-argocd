@@ -85,7 +85,7 @@ class CutlineChartTest < Minitest::Test
     assert_equal 10001, restore_pod.dig('securityContext', 'runAsUser')
     assert_equal 'cutline-studio-data', restore_pod['volumes'].find { |v| v['name'] == 'data' }.dig('persistentVolumeClaim', 'claimName')
     restore = container('migration', MIGRATION)
-    assert_equal 'docker.io/library/postgres:16-bookworm', restore['image']
+    assert_equal 'docker.io/library/postgres:17-bookworm', restore['image']
     assert_equal ['sh', '-ec'], restore['command']
     refute restore.key?('envFrom')
     assert_equal %w[PGDATABASE PGPASSWORD PGUSER], restore['env'].select { |e| e.key?('valueFrom') }.map { |e| e['name'] }.sort
@@ -175,5 +175,17 @@ class CutlineChartTest < Minitest::Test
     peer = resource('NetworkPolicy', 'oauth2-proxy').dig('spec', 'ingress', 0, 'from', 0)
     assert_equal 'kube-system', peer.dig('namespaceSelector', 'matchLabels', 'kubernetes.io/metadata.name')
     assert_equal 'traefik', peer.dig('podSelector', 'matchLabels', 'app.kubernetes.io/name')
+  end
+
+  def test_postgres_probes_allow_recovery_and_client_timeout_before_exec_timeout
+    postgres = container('postgres')
+    %w[startupProbe readinessProbe].each do |name|
+      probe = postgres.fetch(name)
+      assert_equal 'exec pg_isready -h 127.0.0.1 -t 5 -U "$POSTGRES_USER" -d "$POSTGRES_DB"', probe.dig('exec', 'command', 2)
+      assert_operator probe.fetch('timeoutSeconds'), :>, 5
+    end
+    assert_equal({ 'port' => 'postgres' }, postgres.dig('livenessProbe', 'tcpSocket'))
+    refute postgres.fetch('livenessProbe').key?('exec')
+    assert_equal '/var/lib/postgresql/data/pgdata17', postgres.fetch('env').find { |e| e['name'] == 'PGDATA' }['value']
   end
 end
