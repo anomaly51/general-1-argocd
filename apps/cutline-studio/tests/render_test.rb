@@ -12,7 +12,7 @@ class CutlineChartTest < Minitest::Test
     YAML.load_stream(out).compact
   end
 
-  MIGRATION = render.freeze
+  MIGRATION = render('--set', 'migration.enabled=true').freeze
   LIVE = render('--set', 'migration.enabled=false').freeze
 
   def resource(kind, component = nil, docs = LIVE)
@@ -184,8 +184,9 @@ class CutlineChartTest < Minitest::Test
       assert_equal 'exec pg_isready -h 127.0.0.1 -t 5 -U "$POSTGRES_USER" -d "$POSTGRES_DB"', probe.dig('exec', 'command', 2)
       assert_operator probe.fetch('timeoutSeconds'), :>, 5
     end
-    assert_equal({ 'port' => 'postgres' }, postgres.dig('livenessProbe', 'tcpSocket'))
-    refute postgres.fetch('livenessProbe').key?('exec')
+    assert_includes postgres.dig('livenessProbe', 'exec', 'command', 2), 'kill -0'
+    refute postgres.fetch('livenessProbe').key?('tcpSocket')
+    refute_includes postgres.dig('livenessProbe', 'exec', 'command', 2), 'pg_isready'
     assert_equal '/var/lib/postgresql/data/pgdata17', postgres.fetch('env').find { |e| e['name'] == 'PGDATA' }['value']
   end
 end

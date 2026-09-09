@@ -57,10 +57,9 @@ spec:
           livenessProbe:
             # Recovery can reject SQL clients while the postmaster is healthy.
             # Keep it alive to finish NFS recovery; readiness still gates traffic.
-            # Explicitly remove the old handler during server-side apply.
-            exec: null
-            tcpSocket:
-              port: postgres
+            # Keep the existing exec handler to allow a non-replacing SSA update.
+            exec:
+              command: [sh, -ec, 'test -s "$PGDATA/postmaster.pid" && kill -0 "$(head -n 1 "$PGDATA/postmaster.pid")"']
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 10
