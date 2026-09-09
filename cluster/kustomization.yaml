@@ -6,6 +6,7 @@ resources:
   - juggluco-namespace.yaml
   - metallb-namespace.yaml
   - project.yaml
+  - cutline-studio-oci-repository.yaml
   - projects/juggluco.yaml
   - traefik-config.yaml
   - applicationsets/apps.yaml

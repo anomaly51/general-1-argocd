@@ -1,0 +1,64 @@
+# Bootstrap registry access through the root Application, independently of the
+# private OCI chart it unlocks. This does not activate the OCI Application source.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cutline-studio-oci
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+automountServiceAccountToken: false
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: cutline-studio-oci
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: cutline-studio-argocd-oci
+    serviceAccount: cutline-studio-oci
+    audiences: [vault]
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: cutline-studio-oci
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: cutline-studio-oci
+  mount: kv
+  type: kv-v2
+  path: apps/cutline-studio/registry
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: cutline-studio-oci
+    type: Opaque
+    labels:
+      argocd.argoproj.io/secret-type: repository
+    transformation:
+      excludeRaw: true
+      excludes: [".*"]
+      templates:
+        name:
+          text: cutline-studio-oci
+        type:
+          text: helm
+        url:
+          text: harbor.internal.api-api-api.com/cutline-studio
+        project:
+          text: gitops-apps
+        enableOCI:
+          text: "true"
+        username:
+          text: '{{ get .Secrets "username" }}'
+        password:
+          text: '{{ get .Secrets "password" }}'

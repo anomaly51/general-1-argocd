@@ -13,6 +13,10 @@ spec:
         revision: main
         directories:
           - path: apps/*
+        values:
+          # Activate only after the OCI chart and repository credentials are ready.
+          # Also remove only images.api.tag/images.frontend.tag from the GitOps overlay.
+          cutlineOCIEnabled: "false"
   template:
     metadata:
       name: "apps-{{ .path.basenameNormalized }}"
@@ -42,3 +46,21 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
+  templatePatch: |
+    {{- if and (eq .path.basenameNormalized "cutline-studio") (eq .values.cutlineOCIEnabled "true") }}
+    spec:
+      source: null
+      sources:
+        - repoURL: harbor.internal.api-api-api.com/cutline-studio
+          chart: cutline-studio
+          targetRevision: "0.1.*"
+          helm:
+            releaseName: cutline-studio
+            valueFiles:
+              - $values/apps/cutline-studio/values.yaml
+        - repoURL: https://github.com/anomaly51/general-1-argocd.git
+          targetRevision: main
+          ref: values
+    {{- else }}
+    {}
+    {{- end }}
