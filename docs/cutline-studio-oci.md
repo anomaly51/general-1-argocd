@@ -1,9 +1,16 @@
 # Cutline Studio OCI handoff
 
-The committed bootstrap is inactive: ApplicationSet generator value
-`cutlineOCIEnabled: "false"` preserves the existing Git chart source and both
-deployed image tags. Only the Cutline application can use the conditional patch;
-its name, project, destination, finalizer, and automated sync policy are unchanged.
+The GitOps configuration selects OCI with ApplicationSet generator value
+`cutlineOCIEnabled: "true"`. Only Cutline uses the conditional patch; its name,
+project, destination, finalizer, and automated sync policy are unchanged.
+The GitOps overlay omits exactly the API/frontend image tags, so each tested
+chart version supplies those two tags while GitOps retains all other configuration.
+The API remains paused at zero until separately authorized resumption.
+
+The old `.github/workflows/cutline-studio-sync.yml` scheduled/write workflow is
+retired. Its guarded Python consumer and unit tests remain archived for historical
+verification, not as an active deployment mechanism. Do not dispatch the old
+consumer or add its image-tag fields back to the OCI values overlay.
 
 ## Credential bootstrap
 
@@ -41,7 +48,7 @@ read app env or owner-login credentials, list other paths, or write secret data.
 Do not print secret data.
 Verify VSO readiness and Argo repository connectivity without reading Secret data.
 
-## Activation — separate owner-approved commit
+## Activation checkpoint — owner-approved GitOps commit
 
 Do not activate until source CI has published a tested immutable chart version
 `0.1.<GITHUB_RUN_NUMBER>` to
@@ -50,7 +57,7 @@ authentication is healthy. The source publisher embeds both tested image tags
 into that chart version. Chart publication must remain behind both image builds
 and the bounded real-codec runtime test.
 
-In one reviewed GitOps activation commit:
+The activation commit makes these changes together:
 
 1. Set only `spec.generators[0].git.values.cutlineOCIEnabled` in
    `cluster/applicationsets/apps.yaml` from string `"false"` to string `"true"`.
@@ -58,8 +65,8 @@ In one reviewed GitOps activation commit:
    `apps/cutline-studio/values.yaml`; retain repositories, pull policies, every
    other image tag, and all runtime/security/storage/migration/replica values.
    These two removals let the tested chart defaults own the application images.
-3. Retire the legacy GitHub scheduled two-tag writer before it can write tags
-   back into the overlay. Do not run it manually as a deployment substitute.
+3. Delete the legacy GitHub scheduled two-tag writer workflow before it can write
+   tags back into the overlay. Guard helper scripts/tests remain archived.
 
 The active source is Helm OCI repo URL without `oci://`, chart `cutline-studio`,
 version constraint `0.1.*`. Its second source is the GitOps repository at `main`
@@ -85,10 +92,36 @@ from an explicit source revert; never replace an immutable chart.
 ## Local validation
 
 Run `rtk ruby scripts/cutline-studio-oci.test.rb` and
-`rtk kubectl kustomize cluster`. Tests render the real Go template expressions
-through Helm locally, validate both activation states and unrelated apps, and
-check the exact scoped Vault/Argo credential contract. They do not contact Vault,
-publish artifacts, mutate cluster resources, or touch user jobs/media.
+`rtk kubectl kustomize cluster`. Tests assert the committed active state while
+retaining an explicit inactive fixture, render the real Go template expressions
+through Helm locally, check unrelated apps, and validate the exact scoped
+Vault/Argo credential contract. They do not contact Vault, publish artifacts,
+mutate cluster resources, or touch user jobs/media.
+
+The canonical deployment chart and its tests now live in the private source
+repository `anomaly51/cutline-studio` at `deploy/helm/cutline-studio`. From that
+checkout, run `rtk ruby deploy/helm/cutline-studio/tests/render_test.rb` and
+`rtk python3 -m unittest discover -s scripts/ci -p 'test_helm_publish.py' -v`.
+Source CI packages the chart only after tested immutable image publication.
+
+The former GitOps chart files are retained as a migration reference, not the
+active template source. `rtk ruby apps/cutline-studio/tests/render_test.rb` uses
+explicit fixture tags because the production overlay intentionally has none.
+For a local cross-repository contract check against the canonical chart, run
+`rtk env CUTLINE_SOURCE_CHART=/absolute/source/checkout/deploy/helm/cutline-studio ruby apps/cutline-studio/tests/render_test.rb`.
+This renders the canonical templates with the actual GitOps overlay plus test-only
+image tags. Neither fixture tags nor test artifacts are committed to production
+values or published to Harbor.
+
+For the actual published archive, set `CUTLINE_RELEASE_ARCHIVE` to a verified
+local `.tgz` path and `CUTLINE_BASELINE_REF` to the pre-activation GitOps commit
+(defaults to `HEAD` while activation is uncommitted), then run the OCI Ruby tests.
+This optional integration test renders the old GitOps chart with its previous
+values and the published chart with the tag-free overlay. It requires identical
+resource identities and configuration except exactly the two API/frontend images,
+including the API's wait-postgres init container, which uses that same API image.
+Both image identities must use the same immutable SHA. No secret values or rendered manifests
+are printed. Keep this proof separate from the test-only image-tag fixtures.
 
 Optional exact-controller merge validation: set `CUTLINE_ARGO_CONTEXT` to an
 already authenticated owner Argo context and `CUTLINE_ARGO_KUBECONFIG` to the

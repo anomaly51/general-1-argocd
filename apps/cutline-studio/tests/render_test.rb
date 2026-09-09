@@ -3,11 +3,17 @@ require 'open3'
 require 'yaml'
 
 class CutlineChartTest < Minitest::Test
-  CHART = File.expand_path('..', __dir__)
+  LEGACY_CHART = File.expand_path('..', __dir__)
+  CHART = File.expand_path(ENV.fetch('CUTLINE_SOURCE_CHART', LEGACY_CHART))
+  OVERLAY = File.join(LEGACY_CHART, 'values.yaml')
+  # Deployment image tags now come from the tested OCI chart, never this overlay.
+  # Local legacy/template regression tests must use explicit, non-published tags.
+  IMAGE_FIXTURES = ['--set-string', 'images.api.tag=sha-012345abcdef',
+                    '--set-string', 'images.frontend.tag=sha-012345abcdef'].freeze
 
   def self.render(*overrides)
     out, err, status = Open3.capture3('rtk', 'proxy', 'helm', 'template', 'cutline-studio', CHART,
-                                     '--namespace', 'apps', *overrides)
+                                     '--namespace', 'apps', '-f', OVERLAY, *IMAGE_FIXTURES, *overrides)
     raise err unless status.success?
     YAML.load_stream(out).compact
   end
@@ -67,7 +73,8 @@ class CutlineChartTest < Minitest::Test
 
   def test_schema_rejects_empty_or_wildcard_owner_group_and_multiple_api_workers
     ['auth.allowedGroup=', 'auth.allowedGroup=*', 'replicas.api=2', 'migration.enabled=oops'].each do |override|
-      _out, _err, status = Open3.capture3('rtk', 'proxy', 'helm', 'template', 'cutline-studio', CHART, '--set', override)
+      _out, _err, status = Open3.capture3('rtk', 'proxy', 'helm', 'template', 'cutline-studio', CHART,
+                                         '-f', OVERLAY, *IMAGE_FIXTURES, '--set', override)
       refute status.success?, "Unsafe override accepted: #{override}"
     end
   end
@@ -145,8 +152,8 @@ class CutlineChartTest < Minitest::Test
   end
 
   def test_api_and_frontend_images_use_dedicated_registry_project
-    assert_match %r{\Aharbor\.internal\.api-api-api\.com/cutline-studio/api:}, container('api')['image']
-    assert_match %r{\Aharbor\.internal\.api-api-api\.com/cutline-studio/frontend:}, container('frontend')['image']
+    assert_equal 'harbor.internal.api-api-api.com/cutline-studio/api:sha-012345abcdef', container('api')['image']
+    assert_equal 'harbor.internal.api-api-api.com/cutline-studio/frontend:sha-012345abcdef', container('frontend')['image']
   end
 
   def test_default_deny_is_scoped_to_chart

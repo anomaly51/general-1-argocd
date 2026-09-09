@@ -14,9 +14,9 @@ spec:
         directories:
           - path: apps/*
         values:
-          # Activate only after the OCI chart and repository credentials are ready.
-          # Also remove only images.api.tag/images.frontend.tag from the GitOps overlay.
-          cutlineOCIEnabled: "false"
+          # Tested OCI chart versions own API/frontend tags; GitOps owns config.
+          # Only Cutline uses this override; every other app stays Git-sourced.
+          cutlineOCIEnabled: "true"
   template:
     metadata:
       name: "apps-{{ .path.basenameNormalized }}"

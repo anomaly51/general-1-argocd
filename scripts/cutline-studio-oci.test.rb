@@ -57,7 +57,8 @@ class CutlineOciBootstrapTest < Minitest::Test
   def test_inactive_mode_preserves_original_cutline_source
     assert_equal true, APPSET.dig('spec', 'goTemplate')
     assert_includes APPSET.dig('spec', 'goTemplateOptions'), 'missingkey=error'
-    assert_includes %w[false true], APPSET.dig('spec', 'generators', 0, 'git', 'values', 'cutlineOCIEnabled')
+    # Keep an explicit inactive fixture even after the committed mode is active.
+    assert_equal 'true', APPSET.dig('spec', 'generators', 0, 'git', 'values', 'cutlineOCIEnabled')
     base, patch, app = render('cutline-studio', 'false')
     assert_equal({}, patch)
     assert_equal base, app
@@ -176,15 +177,21 @@ class CutlineOciBootstrapTest < Minitest::Test
 
   def test_committed_activation_and_overlay_tag_ownership_are_consistent
     values = YAML.load_file(File.join(ROOT, 'apps/cutline-studio/values.yaml'))
-    active = APPSET.dig('spec', 'generators', 0, 'git', 'values', 'cutlineOCIEnabled') == 'true'
+    assert_equal 'true', APPSET.dig('spec', 'generators', 0, 'git', 'values', 'cutlineOCIEnabled')
     %w[api frontend].each do |component|
-      if active
-        refute values.fetch('images').fetch(component).key?('tag'), "OCI chart must own #{component} tag"
-      else
-        assert_match(/\Asha-[0-9a-f]{12}\z/, values.dig('images', component, 'tag'))
-      end
+      refute values.fetch('images').fetch(component).key?('tag'), "OCI chart must own #{component} tag"
     end
     assert_includes [0, 1], values.dig('replicas', 'api')
+  end
+
+  def test_legacy_write_workflow_is_retired_but_guard_helpers_remain_archived
+    refute File.exist?(File.join(ROOT, '.github/workflows/cutline-studio-sync.yml'))
+    %w[cutline-studio-sync.py cutline-studio-sync.test.py].each do |name|
+      assert File.file?(File.join(ROOT, 'scripts', name))
+    end
+    Dir.glob(File.join(ROOT, '.github/workflows/*.{yml,yaml}')).each do |path|
+      refute_match(/cutline-studio-sync\.py\s+sync/, File.read(path), "Retired writer still invoked by #{File.basename(path)}")
+    end
   end
 
   def test_activation_tag_removal_preserves_every_other_value
@@ -201,6 +208,55 @@ class CutlineOciBootstrapTest < Minitest::Test
     assert_equal original.dig('images', 'postgres', 'tag'), values.dig('images', 'postgres', 'tag')
     assert_equal original['replicas'], values['replicas']
     assert_equal original['migration'], values['migration']
+  end
+
+  def test_optional_published_archive_preserves_all_but_two_application_images
+    archive = ENV['CUTLINE_RELEASE_ARCHIVE']
+    skip 'Set CUTLINE_RELEASE_ARCHIVE for actual published-chart semantic comparison' unless archive
+    baseline = ENV.fetch('CUTLINE_BASELINE_REF', 'HEAD')
+    previous, _error, status = Open3.capture3('rtk', 'proxy', 'git', '-C', ROOT, 'show',
+                                            "#{baseline}:apps/cutline-studio/values.yaml")
+    assert status.success?, 'Baseline GitOps values unavailable'
+    old_values = YAML.load(previous)
+    expected_overlay = Marshal.load(Marshal.dump(old_values))
+    %w[api frontend].each { |component| refute_nil expected_overlay.fetch('images').fetch(component).delete('tag') }
+    overlay_path = File.join(ROOT, 'apps/cutline-studio/values.yaml')
+    assert_equal expected_overlay, YAML.load_file(overlay_path), 'Activation must remove only the two tag scalars'
+    Dir.mktmpdir('cutline-release-compare-') do |directory|
+      before_path = File.join(directory, 'previous-values.yaml')
+      File.write(before_path, previous)
+      rendered = [[File.join(ROOT, 'apps/cutline-studio'), before_path], [archive, overlay_path]].map do |chart, values|
+        output, _error, result = Open3.capture3('rtk', 'proxy', 'helm', 'template', 'cutline-studio', chart,
+                                              '--namespace', 'apps', '-f', values)
+        assert result.success?, 'Chart rendering failed (response omitted)'
+        docs = YAML.load_stream(output).compact
+        keyed = docs.to_h { |doc| [[doc['apiVersion'], doc['kind'], doc.dig('metadata', 'namespace'), doc.dig('metadata', 'name')], doc] }
+        assert_equal docs.length, keyed.length, 'Duplicate resource identities'
+        keyed
+      end
+      before, after = rendered
+      assert_equal before.keys.sort_by(&:to_s), after.keys.sort_by(&:to_s)
+      expected = Marshal.load(Marshal.dump(before))
+      tags = %w[api frontend].map do |component|
+        key = after.keys.find { |value| value[1] == 'Deployment' && value[3] == "cutline-studio-#{component}" }
+        container = after.fetch(key).dig('spec', 'template', 'spec', 'containers').find { |item| item['name'] == component }
+        repository = old_values.dig('images', component, 'repository')
+        match = /\A#{Regexp.escape(repository)}:(sha-[0-9a-f]{12})\z/.match(container.fetch('image'))
+        refute_nil match, 'Published archive must supply an immutable application image'
+        expected.fetch(key).dig('spec', 'template', 'spec', 'containers').find { |item| item['name'] == component }['image'] = container['image']
+        if component == 'api'
+          # The PostgreSQL readiness init container deliberately uses the API image.
+          init = after.fetch(key).dig('spec', 'template', 'spec', 'initContainers').find { |item| item['name'] == 'wait-postgres' }
+          assert_equal container['image'], init.fetch('image')
+          expected.fetch(key).dig('spec', 'template', 'spec', 'initContainers').find { |item| item['name'] == 'wait-postgres' }['image'] = container['image']
+        end
+        match[1]
+      end
+      assert_equal 1, tags.uniq.length, 'Published chart must use the same tested SHA for both images'
+      differing = expected.keys.select { |key| expected[key] != after[key] }.map { |key| "#{key[1]}/#{key[3]}" }
+      assert differing.empty?, "Unexpected non-image changes in #{differing.join(', ')} (manifests omitted)"
+      puts "Published archive comparison passed: #{after.length} identical resource identities/configs; only API/frontend images -> #{tags.first}"
+    end
   end
 
   def test_optional_real_argocd_generate_removes_single_source
