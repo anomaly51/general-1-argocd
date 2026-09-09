@@ -86,6 +86,27 @@ def is_daemon(pod):
     return any(o["kind"] == "DaemonSet" and o.get("controller") for o in pod["metadata"].get("ownerReferences", []))
 
 
+def controller(pod):
+    owners = [o for o in pod["metadata"].get("ownerReferences", []) if o.get("controller")]
+    if len(owners) != 1:
+        raise Abort("Exactly one controller owner is required")
+    return {k: owners[0][k] for k in ("kind", "name", "uid")}
+
+
+def ready_elsewhere(pod):
+    statuses = pod.get("status", {}).get("containerStatuses", [])
+    return bool(pod["spec"].get("nodeName")) and pod["spec"]["nodeName"] != NODE and not pod["metadata"].get("deletionTimestamp") and pod.get("status", {}).get("phase") == "Running" and any(c["type"] == "Ready" and c["status"] == "True" for c in pod.get("status", {}).get("conditions", [])) and len(statuses) == len(pod["spec"]["containers"]) and all(c.get("ready") for c in statuses)
+
+
+def memory_killed(pod):
+    for status in pod.get("status", {}).get("containerStatuses", []):
+        for state in (status.get("state", {}), status.get("lastState", {})):
+            terminated = state.get("terminated", {})
+            if terminated.get("reason") == "OOMKilled" or terminated.get("exitCode") == 137:
+                return True
+    return False
+
+
 def selector_matches(labels, selector):
     if not all(labels.get(k) == v for k, v in selector.get("matchLabels", {}).items()):
         return False
@@ -117,6 +138,16 @@ class Maintenance:
         self.api, self.inventory, self.operation = api, inventory, operation
         self.clock, self.sleep, self.timeout = clock, sleep, timeout
         self.expected = {p["namespace"] + "/" + p["name"]: p for p in inventory["pods"]}
+        self.exceptions = {p["namespace"] + "/" + p["name"]: p for p in inventory.get("readinessExceptions", [])}
+        for name, exception in self.exceptions.items():
+            expected = self.expected.get(name)
+            if not expected or expected["uid"] != exception["uid"] or not any(o.get("controller") and o["uid"] == exception["controllerUID"] for o in expected["owners"]):
+                raise Abort("Readiness exception does not match the exact audited pod and controller")
+        if len(self.exceptions) != len(inventory.get("readinessExceptions", [])):
+            raise Abort("Duplicate readiness exception")
+        self.priority = inventory.get("drainPriority", [])
+        if len(set(self.priority)) != len(self.priority) or any(name not in self.expected or name in self.exceptions for name in self.priority):
+            raise Abort("Invalid movable drain priority inventory")
 
     def node(self):
         node = self.api.call("GET", f"/api/v1/nodes/{NODE}")
@@ -149,7 +180,7 @@ class Maintenance:
         ]
         self.api.call("PATCH", f"/api/v1/nodes/{NODE}", patch, "application/json-patch+json")
 
-    def pods(self, require_all=False):
+    def pods(self, require_all=False, allowed_missing=None):
         namespaces = self.api.call("GET", "/api/v1/namespaces")["items"]
         if {n["metadata"]["name"] for n in namespaces} != set(self.inventory["namespaces"]):
             raise Abort("Namespace inventory changed")
@@ -162,6 +193,8 @@ class Maintenance:
             target.extend(p for p in result["items"] if p["spec"].get("nodeName") == NODE and p.get("status", {}).get("phase") not in ("Succeeded", "Failed"))
         if require_all and {key(p) for p in target} != set(self.expected):
             raise Abort("Pod set changed since the approved inventory")
+        if allowed_missing is not None and set(self.expected) - {key(p) for p in target} - set(allowed_missing):
+            raise Abort("An unprocessed audited pod disappeared during the drain")
         for pod in target:
             if identity(pod) != self.expected.get(key(pod)):
                 raise Abort("Pod UID, owner, volume or mount inventory changed")
@@ -169,7 +202,55 @@ class Maintenance:
                 raise Abort("Static mirror pods require a separate review")
             if not any(o.get("controller") for o in pod["metadata"].get("ownerReferences", [])):
                 raise Abort("Unmanaged pods require a separate review; force is forbidden")
+            if require_all and pod["metadata"].get("deletionTimestamp"):
+                raise Abort("An audited pod is already terminating; refresh the reviewed inventory")
         return target
+
+    def owner_pods(self, namespace, owner):
+        result = self.api.call("GET", f"/api/v1/namespaces/{namespace}/pods")
+        if result.get("metadata", {}).get("continue"):
+            raise Abort("Unexpected paginated replacement inventory")
+        return [p for p in result["items"] if any(o.get("controller") and all(o.get(k) == v for k, v in owner.items()) for o in p["metadata"].get("ownerReferences", []))]
+
+    def old_pod_gone(self, pod):
+        metadata = pod["metadata"]
+        try:
+            current = self.api.call("GET", f"/api/v1/namespaces/{metadata['namespace']}/pods/{metadata['name']}")
+        except APIError as exc:
+            if exc.status == 404:
+                return True
+            raise
+        return current["metadata"]["uid"] != metadata["uid"]
+
+    def wait_relocated(self, pod, owner, baseline_uids, baseline_ready, issued, deadline):
+        name = key(pod)
+        pinned = name in self.exceptions
+        replacement_deadline = min(deadline, self.clock() + 180)
+        stable_uid, stable_since = None, None
+        while self.clock() < replacement_deadline:
+            self.pods(allowed_missing=issued)
+            old_gone = self.old_pod_gone(pod)
+            if pinned and old_gone:
+                log("pinned_pod_terminated", replacement_wait_skipped=True)
+                return
+            if not pinned:
+                candidates = self.owner_pods(pod["metadata"]["namespace"], owner)
+                fresh = [p for p in candidates if p["metadata"]["uid"] not in baseline_uids]
+                if any(memory_killed(p) for p in fresh):
+                    raise Abort("A replacement was memory-killed; stop before further evictions")
+                ready = [p for p in candidates if ready_elsewhere(p)]
+                replacements = [p for p in fresh if ready_elsewhere(p) and (owner["kind"] != "StatefulSet" or p["metadata"]["name"] == pod["metadata"]["name"])]
+                if old_gone and replacements and len(ready) >= baseline_ready + 1:
+                    candidate_uid = sorted(p["metadata"]["uid"] for p in replacements)[0]
+                    if stable_uid != candidate_uid:
+                        stable_uid, stable_since = candidate_uid, self.clock()
+                    elif self.clock() - stable_since >= 15:
+                        log("replacement_ready", stable_seconds=15)
+                        return
+                else:
+                    stable_uid, stable_since = None, None
+            self.sleep(min(3, max(0, replacement_deadline - self.clock())))
+        raise Abort("Replacement or graceful termination readiness deadline exceeded")
 
     def check_pdbs(self, pods):
         for namespace in sorted({p["metadata"]["namespace"] for p in pods if not is_daemon(p)}):
@@ -186,36 +267,46 @@ class Maintenance:
         try:
             # Validate everything before making the node unschedulable.
             self.node()
-            self.check_pdbs(self.pods(require_all=True))
+            original = self.pods(require_all=True)
+            self.check_pdbs(original)
             cordon_attempted = True
             self.set_cordon(True)
             issued = set()
-            while self.clock() < deadline:
-                remaining = [p for p in self.pods() if not is_daemon(p)]
-                if not remaining:
-                    log("drain_complete", evictions_accepted=len(issued), node_left_cordoned=True)
-                    return
-                for pod in remaining:
+            priority = {name: i for i, name in enumerate(self.priority)}
+            exception_order = {name: i for i, name in enumerate(self.exceptions)}
+            ordered = sorted([p for p in original if not is_daemon(p)], key=lambda p: (key(p) in self.exceptions, exception_order.get(key(p), priority.get(key(p), len(priority))), key(p)))
+            for pod in ordered:
+                if self.clock() >= deadline:
+                    raise Abort("Drain deadline exceeded")
+                self.pods(allowed_missing=issued)
+                owner = controller(pod)
+                while True:
                     if self.clock() >= deadline:
                         raise Abort("Drain deadline exceeded")
                     name = key(pod)
-                    if name in issued or pod["metadata"].get("deletionTimestamp"):
-                        continue
+                    self.pods(allowed_missing=issued)
                     namespace, pod_name = pod["metadata"]["namespace"], pod["metadata"]["name"]
+                    baseline = [] if name in self.exceptions else self.owner_pods(namespace, owner)
+                    baseline_uids = {p["metadata"]["uid"] for p in baseline}
+                    baseline_ready = sum(ready_elsewhere(p) for p in baseline)
                     eviction = {"apiVersion": "policy/v1", "kind": "Eviction", "metadata": {"namespace": namespace, "name": pod_name}, "deleteOptions": {"preconditions": {"uid": pod["metadata"]["uid"]}}}
                     try:
                         self.api.call("POST", f"/api/v1/namespaces/{namespace}/pods/{pod_name}/eviction", eviction)
                         issued.add(name)
+                        break
                     except APIError as exc:
                         if exc.status == 404:
-                            continue
+                            raise Abort("An audited pod disappeared before eviction acknowledgment") from None
                         if exc.status == 429:
                             # The server enforces current PDBs, including changes after preflight.
+                            self.sleep(min(3, max(0, deadline - self.clock())))
                             continue
                         raise
-                log("drain_progress", remaining=len(remaining), evictions_accepted=len(issued))
-                self.sleep(min(3, max(0, deadline - self.clock())))
-            raise Abort("Drain deadline exceeded")
+                self.wait_relocated(pod, owner, baseline_uids, baseline_ready, issued, deadline)
+                log("drain_progress", remaining=len(ordered) - len(issued), evictions_accepted=len(issued))
+            if any(not is_daemon(p) for p in self.pods(allowed_missing=issued)):
+                raise Abort("Unexpected non-daemon pod remains after sequential drain")
+            log("drain_complete", evictions_accepted=len(issued), node_left_cordoned=True)
         except BaseException:
             # A PATCH can succeed even if its response is lost. Read ownership
             # before rollback instead of relying on a local success flag.

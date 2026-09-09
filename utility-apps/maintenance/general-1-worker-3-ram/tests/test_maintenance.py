@@ -11,7 +11,7 @@ SPEC.loader.exec_module(m)
 
 
 def pod(name="app", uid="pod-uid", daemon=False):
-    return {"metadata": {"namespace": "apps", "name": name, "uid": uid, "labels": {"app": "example"}, "ownerReferences": [{"kind": "DaemonSet" if daemon else "ReplicaSet", "name": "owner", "uid": "owner-uid", "controller": True}]}, "spec": {"nodeName": m.NODE, "containers": [{"name": "app", "volumeMounts": [{"name": "tmp", "mountPath": "/tmp"}]}], "volumes": [{"name": "tmp", "emptyDir": {}}]}, "status": {"phase": "Running"}}
+    return {"metadata": {"namespace": "apps", "name": name, "uid": uid, "labels": {"app": "example"}, "ownerReferences": [{"kind": "DaemonSet" if daemon else "ReplicaSet", "name": "owner", "uid": "owner-uid", "controller": True}]}, "spec": {"nodeName": m.NODE, "containers": [{"name": "app", "volumeMounts": [{"name": "tmp", "mountPath": "/tmp"}]}], "volumes": [{"name": "tmp", "emptyDir": {}}]}, "status": {"phase": "Running", "conditions": [{"type": "Ready", "status": "True"}], "containerStatuses": [{"name": "app", "ready": True}]}}
 
 
 class FakeAPI:
@@ -24,9 +24,15 @@ class FakeAPI:
         self.eviction_status = None
         self.after_cordon = None
         self.lose_cordon_response = False
+        self.create_replacement = True
+        self.keep_terminated = False
+        self.after_eviction = None
+        self.on_get = None
 
     def call(self, method, path, body=None, content_type=None):
         self.calls.append((method, path, copy.deepcopy(body)))
+        if method == "GET" and self.on_get:
+            self.on_get(self)
         if method == "GET" and path.endswith("/nodes/" + m.NODE):
             return copy.deepcopy(self.node)
         if method == "PATCH":
@@ -44,29 +50,52 @@ class FakeAPI:
             return copy.deepcopy(self.node)
         if path == "/api/v1/namespaces":
             return {"items": [{"metadata": {"name": n}} for n in self.namespaces]}
-        if "/pods?" in path:
+        if method == "GET" and ("/pods?" in path or path.endswith("/pods")):
             namespace = path.split("/")[4]
             return {"items": copy.deepcopy([p for p in self.live if p["metadata"]["namespace"] == namespace])}
+        if method == "GET" and "/pods/" in path:
+            namespace, name = path.split("/")[4], path.split("/")[6]
+            found = [p for p in self.live if p["metadata"]["namespace"] == namespace and p["metadata"]["name"] == name]
+            if not found:
+                raise m.APIError(404)
+            return copy.deepcopy(found[0])
         if path.endswith("/poddisruptionbudgets"):
             return {"items": self.pdbs}
         if method == "POST" and path.endswith("/eviction"):
             if self.eviction_status:
                 raise m.APIError(self.eviction_status)
             uid = body["deleteOptions"]["preconditions"]["uid"]
-            self.live = [p for p in self.live if p["metadata"]["uid"] != uid]
+            old = next(p for p in self.live if p["metadata"]["uid"] == uid)
+            if self.keep_terminated:
+                old["status"]["phase"] = "Succeeded"
+                old["metadata"]["deletionTimestamp"] = "2026-09-09T00:00:00Z"
+            else:
+                self.live.remove(old)
+            replacement = None
+            if self.create_replacement:
+                replacement = copy.deepcopy(old)
+                replacement["metadata"]["uid"] = uid + "-replacement"
+                if m.controller(old)["kind"] != "StatefulSet":
+                    replacement["metadata"]["name"] += "-replacement"
+                replacement["spec"]["nodeName"] = "general-1-worker-1"
+                self.live.append(replacement)
+            if self.after_eviction:
+                self.after_eviction(self, old, replacement)
             return {}
         raise AssertionError((method, path))
 
 
 class SafetyTests(unittest.TestCase):
-    def setup_run(self, pods=None):
+    def setup_run(self, pods=None, exceptions=None, priority=None, timeout=90):
         pods = pods if pods is not None else [pod(), pod("daemon", "daemon-uid", True)]
         api = FakeAPI(pods)
         inventory = {"node": {"name": m.NODE, "uid": "node-uid"}, "namespaces": api.namespaces[:], "pods": [m.identity(p) for p in pods]}
+        inventory["readinessExceptions"] = exceptions or []
+        inventory["drainPriority"] = priority or []
         now = [0]
         def sleep(seconds):
             now[0] += max(1, seconds)
-        runner = m.Maintenance(api, inventory, "approved-operation", timeout=30, clock=lambda: now[0], sleep=sleep)
+        runner = m.Maintenance(api, inventory, "approved-operation", timeout=timeout, clock=lambda: now[0], sleep=sleep)
         return api, runner
 
     def assert_untouched(self, api):
@@ -81,7 +110,7 @@ class SafetyTests(unittest.TestCase):
         self.assertEqual(len(writes), 1)
         self.assertEqual(writes[0][2]["apiVersion"], "policy/v1")
         self.assertEqual(writes[0][2]["deleteOptions"], {"preconditions": {"uid": "pod-uid"}})
-        self.assertEqual(len(api.live), 1)
+        self.assertEqual([p["metadata"]["name"] for p in api.live if p["spec"]["nodeName"] == m.NODE], ["daemon"])
         self.assertFalse(any(c[0] == "DELETE" for c in api.calls))
 
     def test_changed_uid_aborts_before_cordon(self):
@@ -174,12 +203,114 @@ class SafetyTests(unittest.TestCase):
         with self.assertRaises(m.Abort): runner.drain()
         self.assert_untouched(api)
 
+    def test_each_eviction_waits_for_a_new_stable_ready_replacement(self):
+        api, runner = self.setup_run([pod("first", "first-uid"), pod("second", "second-uid")])
+        accepted_at = []
+        api.after_eviction = lambda *_: accepted_at.append(runner.clock())
+        runner.drain()
+        self.assertEqual(len(accepted_at), 2)
+        self.assertGreaterEqual(accepted_at[1] - accepted_at[0], 15)
+        self.assertGreaterEqual(runner.clock() - accepted_at[1], 15)
+
+    def test_preexisting_ready_sibling_cannot_satisfy_replacement_gate(self):
+        api, runner = self.setup_run()
+        sibling = pod("sibling", "sibling-uid")
+        sibling["spec"]["nodeName"] = "general-1-worker-2"
+        api.live.append(sibling)
+        api.create_replacement = False
+        with self.assertRaises(m.Abort): runner.drain()
+        self.assertFalse(api.node["spec"]["unschedulable"])
+
+    def test_new_wrong_owner_uid_cannot_satisfy_replacement_gate(self):
+        api, runner = self.setup_run()
+        def change_owner(api, old, replacement):
+            replacement["metadata"]["ownerReferences"][0]["uid"] = "different-controller"
+        api.after_eviction = change_owner
+        with self.assertRaises(m.Abort): runner.drain()
+        self.assertFalse(api.node["spec"]["unschedulable"])
+
+    def test_replacement_on_worker3_is_inventory_drift(self):
+        api, runner = self.setup_run()
+        api.after_eviction = lambda api, old, replacement: replacement["spec"].update(nodeName=m.NODE)
+        with self.assertRaises(m.Abort): runner.drain()
+        self.assertFalse(api.node["spec"]["unschedulable"])
+
+    def test_replacement_oom_stops_before_the_next_eviction(self):
+        api, runner = self.setup_run([pod("first", "first-uid"), pod("second", "second-uid")])
+        def oom(api, old, replacement):
+            replacement["status"]["containerStatuses"][0]["lastState"] = {"terminated": {"reason": "OOMKilled", "exitCode": 137}}
+        api.after_eviction = oom
+        with self.assertRaises(m.Abort): runner.drain()
+        self.assertEqual(len([c for c in api.calls if c[0] == "POST"]), 1)
+        self.assertFalse(api.node["spec"]["unschedulable"])
+
+    def test_ready_count_cannot_drop_below_pre_eviction_baseline(self):
+        api, runner = self.setup_run()
+        sibling = pod("sibling", "sibling-uid")
+        sibling["spec"]["nodeName"] = "general-1-worker-2"
+        api.live.append(sibling)
+        api.after_eviction = lambda api, *_: api.live.remove(sibling)
+        with self.assertRaises(m.Abort): runner.drain()
+        self.assertFalse(api.node["spec"]["unschedulable"])
+
+    def test_unprocessed_pod_disappearance_aborts(self):
+        api, runner = self.setup_run([pod("first", "first-uid"), pod("second", "second-uid")])
+        api.after_eviction = lambda api, *_: setattr(api, "live", [p for p in api.live if p["metadata"]["uid"] != "second-uid"])
+        with self.assertRaises(m.Abort): runner.drain()
+        self.assertEqual(len([c for c in api.calls if c[0] == "POST"]), 1)
+        self.assertFalse(api.node["spec"]["unschedulable"])
+
+    def test_pinned_exceptions_follow_all_movable_pods_in_audited_order(self):
+        pods = [pod("harbor", "harbor-uid"), pod("operator", "operator-uid"), pod("movable", "movable-uid")]
+        exceptions = [{"namespace": "apps", "name": name, "uid": name + "-uid", "controllerUID": "owner-uid"} for name in ("operator", "harbor")]
+        api, runner = self.setup_run(pods, exceptions=exceptions)
+        def remove_pinned_replacement(api, old, replacement):
+            if m.key(old) in runner.exceptions:
+                api.live.remove(replacement)
+        api.after_eviction = remove_pinned_replacement
+        runner.drain()
+        self.assertEqual([c[2]["metadata"]["name"] for c in api.calls if c[0] == "POST"], ["movable", "operator", "harbor"])
+        self.assertEqual(runner.clock(), 15)
+
+    def test_pinned_exception_does_not_skip_pdb(self):
+        exception = {"namespace": "apps", "name": "app", "uid": "pod-uid", "controllerUID": "owner-uid"}
+        api, runner = self.setup_run([pod()], exceptions=[exception])
+        api.pdbs = [{"spec": {"selector": {}}, "status": {"disruptionsAllowed": 0}}]
+        with self.assertRaises(m.Abort): runner.drain()
+        self.assert_untouched(api)
+
+    def test_pinned_exception_waits_until_old_uid_really_disappears(self):
+        exception = {"namespace": "apps", "name": "app", "uid": "pod-uid", "controllerUID": "owner-uid"}
+        api, runner = self.setup_run([pod()], exceptions=[exception])
+        api.keep_terminated = True
+        api.create_replacement = False
+        with self.assertRaises(m.Abort): runner.drain()
+        self.assertFalse(api.node["spec"]["unschedulable"])
+
+    def test_pinned_exception_requires_exact_pod_and_controller_uid(self):
+        for field in ("uid", "controllerUID"):
+            exception = {"namespace": "apps", "name": "app", "uid": "pod-uid", "controllerUID": "owner-uid"}
+            exception[field] = "wrong"
+            with self.assertRaises(m.Abort): self.setup_run([pod()], exceptions=[exception])
+
+    def test_statefulset_requires_replacement_of_same_ordinal(self):
+        target = pod("database-0", "database-uid")
+        target["metadata"]["ownerReferences"][0]["kind"] = "StatefulSet"
+        api, runner = self.setup_run([target])
+        api.after_eviction = lambda api, old, replacement: replacement["metadata"].update(name="database-1")
+        with self.assertRaises(m.Abort): runner.drain()
+        self.assertFalse(api.node["spec"]["unschedulable"])
+
     def test_checked_in_target_and_no_duplicate_pods(self):
         inventory = json.loads((ROOT / "files/inventory.json").read_text())
         self.assertEqual(inventory["proxmox"]["vmId"], 114)
         self.assertEqual(inventory["proxmox"]["desiredMemoryMiB"], 4096)
         self.assertEqual(len({p["uid"] for p in inventory["pods"]}), len(inventory["pods"]))
         self.assertEqual(len({(p["namespace"], p["name"]) for p in inventory["pods"]}), len(inventory["pods"]))
+        self.assertEqual(len(inventory["readinessExceptions"]), 6)
+        self.assertEqual(inventory["readinessExceptions"][-1]["namespace"], "harbor")
+        self.assertTrue(inventory["readinessExceptions"][-1]["name"].startswith("harbor-registry-"))
+        m.Maintenance(FakeAPI([]), inventory, "inventory-validation")
 
 
 if __name__ == "__main__":

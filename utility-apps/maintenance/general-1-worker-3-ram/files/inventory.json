@@ -33,6 +33,67 @@
     "redis-system",
     "vault-system"
   ],
+  "readinessExceptions": [
+    {
+      "namespace": "database-system",
+      "name": "cloudnative-pg-848b4c86f9-vrn2v",
+      "uid": "f98da831-fa81-4d98-bf30-8802ccacbc39",
+      "controllerUID": "0ecb1e58-d2b0-419f-808a-69db5c82aef4",
+      "reason": "required-node-selector"
+    },
+    {
+      "namespace": "kafka-system",
+      "name": "strimzi-cluster-operator-5dbd5f4c6c-lmj8l",
+      "uid": "c0cb42ff-1efb-4a0f-a5fa-b86004a62f6d",
+      "controllerUID": "9ff19c79-26d7-4f05-945a-b29301f4930e",
+      "reason": "required-node-selector"
+    },
+    {
+      "namespace": "nfs-system",
+      "name": "csi-nfs-controller-8575f8765-x8cgt",
+      "uid": "112e83cf-1114-468e-bc61-3f60b5e8826b",
+      "controllerUID": "8621dd37-0b2a-48ce-8ca6-a78d891bb30a",
+      "reason": "required-node-selector"
+    },
+    {
+      "namespace": "rabbitmq-system",
+      "name": "rabbitmq-cluster-operator-6bcf664576-ljtg7",
+      "uid": "3e1e11ad-50f6-4b1a-a96d-e17137d1c65b",
+      "controllerUID": "4b2c370b-9ead-447c-a787-83281bfe833e",
+      "reason": "required-node-selector"
+    },
+    {
+      "namespace": "rabbitmq-system",
+      "name": "shared-server-2",
+      "uid": "75d112b7-f606-4008-a032-7e1c6183736f",
+      "controllerUID": "a985b8f2-90cc-4394-9b83-0fe42e09f83e",
+      "reason": "worker-local-pvc"
+    },
+    {
+      "namespace": "harbor",
+      "name": "harbor-registry-6b4855577d-brfk8",
+      "uid": "b8cf7f2c-fca9-4fd3-ab6c-28d464dbca19",
+      "controllerUID": "e14209ec-9e5b-4bbe-b655-ffaccfc7b2d6",
+      "reason": "worker-local-pvc-harbor-last"
+    }
+  ],
+  "drainPriority": [
+    "authentik/authentik-server-649d7d4c4b-x5tj4",
+    "apps/bot-motivation-55f87684dc-xrwv6",
+    "apps/telegram-swearmoderation-bot-8477564d4f-c7fbr",
+    "apps/weatherbot-for-tg51-fcc8595dd-r5mnj",
+    "apps/online-shop-fastapi-backend-5fccbf4c-4cp8c",
+    "metallb-system/metallb-controller-5d5dd498f9-9xvw7",
+    "apps/job-application-crm-api-cdcd56dc8-9svlw",
+    "apps/uptime-monitor-scheduler-545744fbc8-p77fv",
+    "argocd/argocd-server-58db797c76-lz65t",
+    "networking/cloudflared-794465d9f7-rgt7j",
+    "apps/shisha-guid-backend-postgres-0",
+    "argocd/argocd-redis-75d59bd487-h2gb8",
+    "apps/anomaly51-redis-managed-0",
+    "apps/online-shop-fastapi-frontend-68d8d94c5d-586jc",
+    "apps/cutline-studio-frontend-578d8ff785-2lkht"
+  ],
   "pods": [
     {
       "namespace": "apps",
