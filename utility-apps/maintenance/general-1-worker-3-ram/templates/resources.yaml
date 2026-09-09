@@ -1,0 +1,179 @@
+{{- $inventory := .Files.Get "files/inventory.json" | fromJson -}}
+{{- $name := .Release.Name -}}
+{{- if not (has .Values.phase (list "drain" "uncordon" "recover-uncordon")) }}{{ fail "phase must be drain, uncordon or recover-uncordon" }}{{ end -}}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9-]{0,49}$" .Values.operationId) }}{{ fail "operationId must be a short DNS label" }}{{ end -}}
+{{- $jobName := printf "%s-%s-%s" $name .Values.phase .Values.operationId -}}
+{{- if gt (len $jobName) 63 }}{{ fail "Job name exceeds 63 characters; use a shorter operationId" }}{{ end -}}
+{{- if or (lt (int .Values.drainTimeoutSeconds) 30) (gt (int .Values.drainTimeoutSeconds) 840) }}{{ fail "drainTimeoutSeconds must be 30..840" }}{{ end -}}
+{{- if not (regexMatch "^docker.io/library/python:3[.]12-slim-bookworm@sha256:[a-f0-9]{64}$" .Values.image) }}{{ fail "maintenance image must be digest-pinned public Python 3.12 slim" }}{{ end -}}
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $name }}
+rules:
+  - apiGroups: [""]
+    resources: [nodes]
+    resourceNames: [general-1-worker-3]
+    verbs: [get, patch]
+  {{- if eq .Values.phase "drain" }}
+  # Detect a new namespace and abort; pod reads below remain namespace-scoped.
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [list]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $name }}
+{{- if eq .Values.phase "drain" }}
+{{- range $namespace := $inventory.namespaces }}
+{{- $podNames := list -}}
+{{- range $pod := $inventory.pods -}}
+{{- $daemon := false -}}
+{{- range $owner := $pod.owners }}{{ if and (eq $owner.kind "DaemonSet") $owner.controller }}{{ $daemon = true }}{{ end }}{{ end -}}
+{{- if and (eq $pod.namespace $namespace) (not $daemon) (not $pod.mirror) }}{{ $podNames = append $podNames $pod.name }}{{ end -}}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ $namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [get, list]
+  {{- if $podNames }}
+  - apiGroups: [""]
+    resources: [pods/eviction]
+    resourceNames: {{ $podNames | toJson }}
+    verbs: [create]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ $namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+{{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-{{ .Values.phase }}
+  namespace: {{ .Release.Namespace }}
+data:
+  inventory.json: |
+{{ .Files.Get "files/inventory.json" | indent 4 }}
+  maintenance.py: |
+{{ .Files.Get "files/maintenance.py" | indent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $jobName }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    # Never automatically retry a partial drain; phase changes are explicit.
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  suspend: {{ .Values.suspended }}
+  backoffLimit: 0
+  activeDeadlineSeconds: 960
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $name }}
+        app.kubernetes.io/component: maintenance
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ $name }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [general-1-worker-1, general-1-worker-2]
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [general-1-worker-1]
+      containers:
+        - name: maintenance
+          image: {{ .Values.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: [python, -B, /plan/maintenance.py]
+          args:
+            - --phase
+            - {{ .Values.phase }}
+            - --operation-id
+            - {{ .Values.operationId }}
+            - --timeout
+            - {{ .Values.drainTimeoutSeconds | quote }}
+            - --inventory-max-age
+            - {{ .Values.inventoryMaxAgeSeconds | quote }}
+            {{- if .Values.temporaryDataAuditApproved }}
+            - --temporary-data-audit-approved
+            {{- end }}
+            {{- if .Values.recoveryApproved }}
+            - --recovery-approved
+            {{- end }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: plan
+              mountPath: /plan
+              readOnly: true
+      volumes:
+        - name: plan
+          configMap:
+            name: {{ $name }}-{{ .Values.phase }}
+{{- end }}

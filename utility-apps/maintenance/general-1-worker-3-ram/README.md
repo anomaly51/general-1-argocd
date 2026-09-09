@@ -1,0 +1,30 @@
+# VM114 RAM maintenance — Kubernetes phases only
+
+This chart is enabled for a suspended bootstrap: `enabled: true`, `suspended: true`, and `temporaryDataAuditApproved: false`. Resources can be reviewed, but the Job cannot execute until root explicitly activates it. Setting `enabled: false` renders no resources. It contains **no Proxmox credential or VM operation**. Root performs the separately authorized graceful VM shutdown, memory-only change 3072→4096 MiB, and start after the drain Job succeeds.
+
+`files/inventory.json` records the exact worker3 node UID, 24 pod UIDs/owners, volume kinds/PVC names and mount paths observed on 2026-09-09 at 22:35 UTC. Every existing namespace is explicitly enumerated. A new namespace, unexpected pod, replacement UID or changed mount aborts the drain. DaemonSets are checked but never evicted. The current snapshot is valid for at most two hours; refresh/review it if delayed or workloads change. Never regenerate it blindly just to bypass an unexpected change.
+
+## Activation sequence (root-owned GitOps commits)
+
+1. Review the fresh live inventory, host capacity, RabbitMQ membership, idle registry uploads and temporary-directory audit. The bot-motivation `/tmp` is an application working directory: verify it is empty and idle. Persistent data and both worker-local PVCs must remain untouched.
+2. Bootstrap with the checked-in `enabled: true`, `suspended: true`; verify RBAC, placement and the inventory rendered correctly. Existing utility ApplicationSet discovers this chart into namespace `maintenance`. The Job requires worker1/worker2 and prefers worker1; it cannot schedule on worker3 or the master.
+3. Activate `phase: drain`, `suspended: false`, `temporaryDataAuditApproved: true`. Normal `policy/v1` evictions include UID preconditions and honor current PDBs and pod grace periods. There is no force, direct pod DELETE, Secret read, or PVC write permission. The preflight is strict and the drain is bounded to 840 seconds, with cleanup margin before the Job's 960-second deadline. The executor logs only controlled status/counts, not API responses or workload data.
+4. Wait for Job success and `drain_complete`. The target remains cordoned with an operation-owned annotation. Harbor registry and RabbitMQ member2 replacements may remain Pending because their PVCs are worker-local. Root may now perform the external VM maintenance. Do not start it after a failed Job. On a pre-shutdown drain failure, the script attempts to remove only its own cordon; verify rollback and recover through a reviewed explicit phase if an API outage prevented it.
+5. After root starts VM114 and verifies guest RAM, change only `phase: uncordon` in GitOps (keep the same operationId). A new Job is created. This phase has no pod/eviction/namespace permissions; it only gets/patches worker3. It requires the same node UID, matching operation annotation, Ready state, and at least 3840 MiB reported capacity before uncordoning.
+6. Verify all affected workloads, local PVC reattachment, Harbor, Authentik, Argo CD, RabbitMQ and public authentication/TLS. Keep Studio API enablement as a separate tested rollout. Then remove/disable this temporary chart through root's GitOps cleanup; do not leave eviction privileges enabled indefinitely.
+
+If external VM maintenance fails and root restores the VM at its original 3072 MiB, use the separate `phase: recover-uncordon` with `recoveryApproved: true` and the same operationId. It requires the same node UID and owned cordon, Ready state, and at least 2816 MiB reported capacity (allowing guest overhead below configured 3072 MiB). It has node-only permissions. This is never selected automatically and does not weaken the normal upgraded-memory uncordon gate.
+
+There are no retry hooks or TTL-based reruns. `backoffLimit: 0` prevents replay of a partially completed operation. Do not change the immutable Job template in place while a phase is running. If a phase must be reviewed and rerun, root must intentionally choose a new operation ID only after checking the existing node annotation and recovery state; do not overwrite another maintenance owner.
+
+The RBAC namespace-list read exists solely to detect newly introduced namespaces. Pod/PDB reads are namespace-scoped, and eviction-create permissions list only the exact audited non-DaemonSet pod names. No wildcard permissions, node proxy, Secret, exec, direct delete or persistent-storage mutation is granted.
+
+## Local checks
+
+```sh
+rtk proxy python3 -B -m unittest discover -s utility-apps/maintenance/general-1-worker-3-ram/tests -v
+rtk proxy helm lint utility-apps/maintenance/general-1-worker-3-ram
+rtk proxy helm template general-1-worker-3-ram utility-apps/maintenance/general-1-worker-3-ram --namespace maintenance --set enabled=true
+```
+
+Run tests in an existing Python environment with PyYAML to include all rendered-chart security checks; the execution image itself uses only Python's standard library. These checks do not apply resources. Eviction semantics follow the [Kubernetes Eviction API](https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/); subresource name restrictions follow [Kubernetes RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/).

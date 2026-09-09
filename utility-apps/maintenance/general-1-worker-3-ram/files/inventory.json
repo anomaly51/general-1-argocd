@@ -1,0 +1,1300 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-09-09T22:35:41.526Z",
+  "node": {
+    "name": "general-1-worker-3",
+    "uid": "1903d2f2-918a-47e8-a17e-1811c0e2f2e4"
+  },
+  "proxmox": {
+    "node": "machine-2",
+    "vmId": 114,
+    "expectedName": "general-1-worker-3",
+    "currentMemoryMiB": 3072,
+    "desiredMemoryMiB": 4096
+  },
+  "namespaces": [
+    "apps",
+    "argocd",
+    "authentik",
+    "database-system",
+    "default",
+    "harbor",
+    "juggluco",
+    "kafka-system",
+    "kube-node-lease",
+    "kube-public",
+    "kube-system",
+    "maintenance",
+    "metallb-system",
+    "monitoring",
+    "networking",
+    "nfs-system",
+    "rabbitmq-system",
+    "redis-system",
+    "vault-system"
+  ],
+  "pods": [
+    {
+      "namespace": "apps",
+      "name": "anomaly51-redis-managed-0",
+      "uid": "81cebf16-1247-4758-84b2-03e2c4b348f4",
+      "owners": [
+        {
+          "kind": "StatefulSet",
+          "name": "anomaly51-redis-managed",
+          "uid": "5bd33188-096d-4a71-a190-e1ae84680a9d",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "config",
+          "kind": "emptyDir",
+          "claimName": null
+        },
+        {
+          "name": "external-config",
+          "kind": "configMap",
+          "claimName": null
+        },
+        {
+          "name": "redis-data",
+          "kind": "persistentVolumeClaim",
+          "claimName": "data-anomaly51-redis-0"
+        }
+      ],
+      "mounts": [
+        {
+          "container": "anomaly51-redis-managed",
+          "name": "external-config",
+          "path": "/etc/redis/external.conf.d",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "anomaly51-redis-managed",
+          "name": "redis-data",
+          "path": "/data",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "apps",
+      "name": "bot-motivation-55f87684dc-xrwv6",
+      "uid": "9beca405-2636-4042-a0b4-511f06f26ad3",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "bot-motivation-55f87684dc",
+          "uid": "7a264248-e498-47f4-9e53-7bfc3e563109",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "cookies",
+          "kind": "secret",
+          "claimName": null
+        },
+        {
+          "name": "data",
+          "kind": "persistentVolumeClaim",
+          "claimName": "bot-motivation-data"
+        },
+        {
+          "name": "tmp",
+          "kind": "emptyDir",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "bot",
+          "name": "cookies",
+          "path": "/secrets/cookies.txt",
+          "subPath": "cookies.txt",
+          "readOnly": true
+        },
+        {
+          "container": "bot",
+          "name": "data",
+          "path": "/data",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "bot",
+          "name": "tmp",
+          "path": "/tmp",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "apps",
+      "name": "cutline-studio-frontend-578d8ff785-2lkht",
+      "uid": "85845172-f59d-48b1-a0da-e4e1646ab69c",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "cutline-studio-frontend-578d8ff785",
+          "uid": "b2e71bcc-4c42-410a-a8c3-d6fa92ad8ec1",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "tmp",
+          "kind": "emptyDir",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "frontend",
+          "name": "tmp",
+          "path": "/tmp",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "apps",
+      "name": "job-application-crm-api-cdcd56dc8-9svlw",
+      "uid": "712decdd-76ae-4538-89f9-a6fa8f7455c8",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "job-application-crm-api-cdcd56dc8",
+          "uid": "b56f3b15-a3cc-4991-8565-fa8f5a84ac42",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [],
+      "mounts": []
+    },
+    {
+      "namespace": "apps",
+      "name": "online-shop-fastapi-backend-5fccbf4c-4cp8c",
+      "uid": "fde8607c-f8f4-412e-94d1-fafe89ff21d1",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "online-shop-fastapi-backend-5fccbf4c",
+          "uid": "ebfda313-90b8-493e-a070-8879fa39d1fd",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "uploads",
+          "kind": "persistentVolumeClaim",
+          "claimName": "online-shop-fastapi-uploads"
+        }
+      ],
+      "mounts": [
+        {
+          "container": "backend",
+          "name": "uploads",
+          "path": "/code/static/uploads",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "apps",
+      "name": "online-shop-fastapi-frontend-68d8d94c5d-586jc",
+      "uid": "71af25ce-beec-4bfd-a0d1-97ef27f9ff45",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "online-shop-fastapi-frontend-68d8d94c5d",
+          "uid": "0e8e04f5-b5f1-45eb-bb7f-6c065ba7c1e4",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [],
+      "mounts": []
+    },
+    {
+      "namespace": "apps",
+      "name": "shisha-guid-backend-postgres-0",
+      "uid": "4253a3ff-8746-4a43-b91d-be8a0d454d15",
+      "owners": [
+        {
+          "kind": "StatefulSet",
+          "name": "shisha-guid-backend-postgres",
+          "uid": "cdc11443-70d0-4a67-8e79-e0428efe8d8f",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "data",
+          "kind": "persistentVolumeClaim",
+          "claimName": "shisha-guid-backend-postgres"
+        }
+      ],
+      "mounts": [
+        {
+          "container": "postgres",
+          "name": "data",
+          "path": "/var/lib/postgresql/data",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "apps",
+      "name": "telegram-swearmoderation-bot-8477564d4f-c7fbr",
+      "uid": "d72fa4e3-eb99-4269-81dc-31abbf31e597",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "telegram-swearmoderation-bot-8477564d4f",
+          "uid": "3b2c9a54-05ad-46e4-977a-b74d8247a07a",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "logs",
+          "kind": "emptyDir",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "bot",
+          "name": "logs",
+          "path": "/app/logs",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "apps",
+      "name": "uptime-monitor-scheduler-545744fbc8-p77fv",
+      "uid": "a076a806-140d-419f-a5fd-dd96ee83fdf4",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "uptime-monitor-scheduler-545744fbc8",
+          "uid": "d50a7558-362a-453c-8d8c-47098f5fd3e5",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [],
+      "mounts": []
+    },
+    {
+      "namespace": "apps",
+      "name": "weatherbot-for-tg51-fcc8595dd-r5mnj",
+      "uid": "290574b5-af32-4e77-97fe-8d3d014ae14a",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "weatherbot-for-tg51-fcc8595dd",
+          "uid": "b13a9d89-0d88-47dc-bb8b-9ffc40e710c1",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "data",
+          "kind": "persistentVolumeClaim",
+          "claimName": "weatherbot-for-tg51-data"
+        },
+        {
+          "name": "logs",
+          "kind": "emptyDir",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "bot",
+          "name": "data",
+          "path": "/app/data",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "bot",
+          "name": "logs",
+          "path": "/app/logs",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "argocd",
+      "name": "argocd-redis-75d59bd487-h2gb8",
+      "uid": "866fdb78-5747-416d-bac1-c4b4233b2b9d",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "argocd-redis-75d59bd487",
+          "uid": "45661c4f-85b4-4a78-99a0-f391852ffd09",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "kube-api-access-7t29m",
+          "kind": "projected",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "redis",
+          "name": "kube-api-access-7t29m",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "secret-init",
+          "name": "kube-api-access-7t29m",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        }
+      ]
+    },
+    {
+      "namespace": "argocd",
+      "name": "argocd-server-58db797c76-lz65t",
+      "uid": "b9e05624-931f-4181-8fbb-ee2aeb9737f4",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "argocd-server-58db797c76",
+          "uid": "5d5782b6-40af-427a-91eb-4cfc80eb53a8",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "argocd-cmd-params-cm",
+          "kind": "configMap",
+          "claimName": null
+        },
+        {
+          "name": "argocd-dex-server-tls",
+          "kind": "secret",
+          "claimName": null
+        },
+        {
+          "name": "argocd-repo-server-tls",
+          "kind": "secret",
+          "claimName": null
+        },
+        {
+          "name": "kube-api-access-rdv42",
+          "kind": "projected",
+          "claimName": null
+        },
+        {
+          "name": "plugins-home",
+          "kind": "emptyDir",
+          "claimName": null
+        },
+        {
+          "name": "ssh-known-hosts",
+          "kind": "configMap",
+          "claimName": null
+        },
+        {
+          "name": "tls-certs",
+          "kind": "configMap",
+          "claimName": null
+        },
+        {
+          "name": "tmp",
+          "kind": "emptyDir",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "argocd-server",
+          "name": "argocd-cmd-params-cm",
+          "path": "/home/argocd/params",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "argocd-server",
+          "name": "argocd-dex-server-tls",
+          "path": "/app/config/dex/tls",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "argocd-server",
+          "name": "argocd-repo-server-tls",
+          "path": "/app/config/server/tls",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "argocd-server",
+          "name": "kube-api-access-rdv42",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "argocd-server",
+          "name": "plugins-home",
+          "path": "/home/argocd",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "argocd-server",
+          "name": "ssh-known-hosts",
+          "path": "/app/config/ssh",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "argocd-server",
+          "name": "tls-certs",
+          "path": "/app/config/tls",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "argocd-server",
+          "name": "tmp",
+          "path": "/tmp",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "authentik",
+      "name": "authentik-server-649d7d4c4b-x5tj4",
+      "uid": "4439fa95-227e-4aac-ba8a-19001cf5544f",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "authentik-server-649d7d4c4b",
+          "uid": "56af73ea-984d-45fe-8abd-31dbeac8486c",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "kube-api-access-98dc5",
+          "kind": "projected",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "server",
+          "name": "kube-api-access-98dc5",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        }
+      ]
+    },
+    {
+      "namespace": "database-system",
+      "name": "cloudnative-pg-848b4c86f9-vrn2v",
+      "uid": "f98da831-fa81-4d98-bf30-8802ccacbc39",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "cloudnative-pg-848b4c86f9",
+          "uid": "0ecb1e58-d2b0-419f-808a-69db5c82aef4",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "kube-api-access-ttrh5",
+          "kind": "projected",
+          "claimName": null
+        },
+        {
+          "name": "scratch-data",
+          "kind": "emptyDir",
+          "claimName": null
+        },
+        {
+          "name": "webhook-certificates",
+          "kind": "secret",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "manager",
+          "name": "kube-api-access-ttrh5",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "manager",
+          "name": "scratch-data",
+          "path": "/controller",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "manager",
+          "name": "webhook-certificates",
+          "path": "/run/secrets/cnpg.io/webhook",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "harbor",
+      "name": "harbor-registry-6b4855577d-brfk8",
+      "uid": "b8cf7f2c-fca9-4fd3-ab6c-28d464dbca19",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "harbor-registry-6b4855577d",
+          "uid": "e14209ec-9e5b-4bbe-b655-ffaccfc7b2d6",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "registry-config",
+          "kind": "configMap",
+          "claimName": null
+        },
+        {
+          "name": "registry-data",
+          "kind": "persistentVolumeClaim",
+          "claimName": "harbor-registry"
+        },
+        {
+          "name": "registry-htpasswd",
+          "kind": "secret",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "registry",
+          "name": "registry-config",
+          "path": "/etc/registry/config.yml",
+          "subPath": "config.yml",
+          "readOnly": false
+        },
+        {
+          "container": "registry",
+          "name": "registry-data",
+          "path": "/storage",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "registry",
+          "name": "registry-htpasswd",
+          "path": "/etc/registry/passwd",
+          "subPath": "passwd",
+          "readOnly": false
+        },
+        {
+          "container": "registryctl",
+          "name": "registry-config",
+          "path": "/etc/registry/config.yml",
+          "subPath": "config.yml",
+          "readOnly": false
+        },
+        {
+          "container": "registryctl",
+          "name": "registry-config",
+          "path": "/etc/registryctl/config.yml",
+          "subPath": "ctl-config.yml",
+          "readOnly": false
+        },
+        {
+          "container": "registryctl",
+          "name": "registry-data",
+          "path": "/storage",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "kafka-system",
+      "name": "strimzi-cluster-operator-5dbd5f4c6c-lmj8l",
+      "uid": "c0cb42ff-1efb-4a0f-a5fa-b86004a62f6d",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "strimzi-cluster-operator-5dbd5f4c6c",
+          "uid": "9ff19c79-26d7-4f05-945a-b29301f4930e",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "co-config-volume",
+          "kind": "configMap",
+          "claimName": null
+        },
+        {
+          "name": "kube-api-access",
+          "kind": "projected",
+          "claimName": null
+        },
+        {
+          "name": "strimzi-tmp",
+          "kind": "emptyDir",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "strimzi-cluster-operator",
+          "name": "co-config-volume",
+          "path": "/opt/strimzi/custom-config/",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "strimzi-cluster-operator",
+          "name": "kube-api-access",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "strimzi-cluster-operator",
+          "name": "strimzi-tmp",
+          "path": "/tmp",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "metallb-system",
+      "name": "metallb-controller-5d5dd498f9-9xvw7",
+      "uid": "a8118f09-3968-4297-8c2b-5420ef5a6839",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "metallb-controller-5d5dd498f9",
+          "uid": "f8ecd141-7cb2-4d5b-819c-ee27b1567571",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "cert",
+          "kind": "secret",
+          "claimName": null
+        },
+        {
+          "name": "kube-api-access-gl464",
+          "kind": "projected",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "controller",
+          "name": "cert",
+          "path": "/tmp/k8s-webhook-server/serving-certs",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "controller",
+          "name": "kube-api-access-gl464",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        }
+      ]
+    },
+    {
+      "namespace": "metallb-system",
+      "name": "metallb-speaker-znjhd",
+      "uid": "2a312144-b819-4346-8dc7-1949902e9e69",
+      "owners": [
+        {
+          "kind": "DaemonSet",
+          "name": "metallb-speaker",
+          "uid": "ad3d056a-dd3b-4805-978c-4370f0c4e944",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "kube-api-access-gv4n4",
+          "kind": "projected",
+          "claimName": null
+        },
+        {
+          "name": "memberlist",
+          "kind": "secret",
+          "claimName": null
+        },
+        {
+          "name": "memberlist-config",
+          "kind": "configMap",
+          "claimName": null
+        },
+        {
+          "name": "metallb-excludel2",
+          "kind": "configMap",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "speaker",
+          "name": "kube-api-access-gv4n4",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "speaker",
+          "name": "memberlist-config",
+          "path": "/etc/metallb/memberlist",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "speaker",
+          "name": "memberlist",
+          "path": "/etc/ml_secret_key",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "speaker",
+          "name": "metallb-excludel2",
+          "path": "/etc/metallb",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "networking",
+      "name": "cloudflared-794465d9f7-rgt7j",
+      "uid": "e598b208-5543-4d76-8194-0a55ea1bff7a",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "cloudflared-794465d9f7",
+          "uid": "67d73927-9e13-4480-bc22-7e942447d667",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "config",
+          "kind": "configMap",
+          "claimName": null
+        },
+        {
+          "name": "kube-api-access-xf8z6",
+          "kind": "projected",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "cloudflared",
+          "name": "config",
+          "path": "/etc/cloudflared/config",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "cloudflared",
+          "name": "kube-api-access-xf8z6",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        }
+      ]
+    },
+    {
+      "namespace": "networking",
+      "name": "node-resolver-g5r7k",
+      "uid": "cc2f5e9b-7478-4fc3-b11e-9dd14fed1a9a",
+      "owners": [
+        {
+          "kind": "DaemonSet",
+          "name": "node-resolver",
+          "uid": "ecdf0d34-aee6-4de9-a911-dad52d05e425",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "resolver",
+          "kind": "hostPath",
+          "claimName": null
+        },
+        {
+          "name": "resolver-head",
+          "kind": "hostPath",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "resolver",
+          "name": "resolver-head",
+          "path": "/host/resolv.conf.head",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "resolver",
+          "name": "resolver",
+          "path": "/host/resolv.conf",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "nfs-system",
+      "name": "csi-nfs-controller-8575f8765-x8cgt",
+      "uid": "112e83cf-1114-468e-bc61-3f60b5e8826b",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "csi-nfs-controller-8575f8765",
+          "uid": "8621dd37-0b2a-48ce-8ca6-a78d891bb30a",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "kube-api-access-zrtbg",
+          "kind": "projected",
+          "claimName": null
+        },
+        {
+          "name": "pods-mount-dir",
+          "kind": "hostPath",
+          "claimName": null
+        },
+        {
+          "name": "socket-dir",
+          "kind": "emptyDir",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "csi-provisioner",
+          "name": "kube-api-access-zrtbg",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "csi-provisioner",
+          "name": "socket-dir",
+          "path": "/csi",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "csi-resizer",
+          "name": "kube-api-access-zrtbg",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "csi-resizer",
+          "name": "socket-dir",
+          "path": "/csi",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "liveness-probe",
+          "name": "kube-api-access-zrtbg",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "liveness-probe",
+          "name": "socket-dir",
+          "path": "/csi",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "nfs",
+          "name": "kube-api-access-zrtbg",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "nfs",
+          "name": "pods-mount-dir",
+          "path": "/var/lib/kubelet/pods",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "nfs",
+          "name": "socket-dir",
+          "path": "/csi",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "nfs-system",
+      "name": "csi-nfs-node-56txt",
+      "uid": "86dfc635-312c-46ab-a46d-2ea1ce270c5a",
+      "owners": [
+        {
+          "kind": "DaemonSet",
+          "name": "csi-nfs-node",
+          "uid": "575bf75f-5305-4af5-b744-53359fb0a4c6",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "kube-api-access-bnljt",
+          "kind": "projected",
+          "claimName": null
+        },
+        {
+          "name": "pods-mount-dir",
+          "kind": "hostPath",
+          "claimName": null
+        },
+        {
+          "name": "registration-dir",
+          "kind": "hostPath",
+          "claimName": null
+        },
+        {
+          "name": "socket-dir",
+          "kind": "hostPath",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "liveness-probe",
+          "name": "kube-api-access-bnljt",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "liveness-probe",
+          "name": "socket-dir",
+          "path": "/csi",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "nfs",
+          "name": "kube-api-access-bnljt",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "nfs",
+          "name": "pods-mount-dir",
+          "path": "/var/lib/kubelet/pods",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "nfs",
+          "name": "socket-dir",
+          "path": "/csi",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "node-driver-registrar",
+          "name": "kube-api-access-bnljt",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "node-driver-registrar",
+          "name": "registration-dir",
+          "path": "/registration",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "node-driver-registrar",
+          "name": "socket-dir",
+          "path": "/csi",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    },
+    {
+      "namespace": "rabbitmq-system",
+      "name": "rabbitmq-cluster-operator-6bcf664576-ljtg7",
+      "uid": "3e1e11ad-50f6-4b1a-a96d-e17137d1c65b",
+      "owners": [
+        {
+          "kind": "ReplicaSet",
+          "name": "rabbitmq-cluster-operator-6bcf664576",
+          "uid": "4b2c370b-9ead-447c-a787-83281bfe833e",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "cluster-operator-webhook-certs",
+          "kind": "secret",
+          "claimName": null
+        },
+        {
+          "name": "kube-api-access-mhsn9",
+          "kind": "projected",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "operator",
+          "name": "cluster-operator-webhook-certs",
+          "path": "/tmp/k8s-webhook-server/serving-certs",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "operator",
+          "name": "kube-api-access-mhsn9",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        }
+      ]
+    },
+    {
+      "namespace": "rabbitmq-system",
+      "name": "shared-server-2",
+      "uid": "75d112b7-f606-4008-a032-7e1c6183736f",
+      "owners": [
+        {
+          "kind": "StatefulSet",
+          "name": "shared-server",
+          "uid": "a985b8f2-90cc-4394-9b83-0fe42e09f83e",
+          "controller": true
+        }
+      ],
+      "mirror": false,
+      "volumes": [
+        {
+          "name": "erlang-cookie-secret",
+          "kind": "secret",
+          "claimName": null
+        },
+        {
+          "name": "kube-api-access-lr6zh",
+          "kind": "projected",
+          "claimName": null
+        },
+        {
+          "name": "persistence",
+          "kind": "persistentVolumeClaim",
+          "claimName": "persistence-shared-server-2"
+        },
+        {
+          "name": "plugins-conf",
+          "kind": "configMap",
+          "claimName": null
+        },
+        {
+          "name": "pod-info",
+          "kind": "downwardAPI",
+          "claimName": null
+        },
+        {
+          "name": "rabbitmq-confd",
+          "kind": "projected",
+          "claimName": null
+        },
+        {
+          "name": "rabbitmq-erlang-cookie",
+          "kind": "emptyDir",
+          "claimName": null
+        },
+        {
+          "name": "rabbitmq-plugins",
+          "kind": "emptyDir",
+          "claimName": null
+        }
+      ],
+      "mounts": [
+        {
+          "container": "rabbitmq",
+          "name": "kube-api-access-lr6zh",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "rabbitmq",
+          "name": "persistence",
+          "path": "/var/lib/rabbitmq/mnesia/",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "rabbitmq",
+          "name": "pod-info",
+          "path": "/etc/pod-info/",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "rabbitmq",
+          "name": "rabbitmq-confd",
+          "path": "/etc/rabbitmq/conf.d/10-operatorDefaults.conf",
+          "subPath": "operatorDefaults.conf",
+          "readOnly": false
+        },
+        {
+          "container": "rabbitmq",
+          "name": "rabbitmq-confd",
+          "path": "/etc/rabbitmq/conf.d/11-default_user.conf",
+          "subPath": "default_user.conf",
+          "readOnly": false
+        },
+        {
+          "container": "rabbitmq",
+          "name": "rabbitmq-confd",
+          "path": "/etc/rabbitmq/conf.d/90-userDefinedConfiguration.conf",
+          "subPath": "userDefinedConfiguration.conf",
+          "readOnly": false
+        },
+        {
+          "container": "rabbitmq",
+          "name": "rabbitmq-erlang-cookie",
+          "path": "/var/lib/rabbitmq/",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "rabbitmq",
+          "name": "rabbitmq-plugins",
+          "path": "/operator",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "setup-container",
+          "name": "erlang-cookie-secret",
+          "path": "/tmp/erlang-cookie-secret/",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "setup-container",
+          "name": "kube-api-access-lr6zh",
+          "path": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "subPath": null,
+          "readOnly": true
+        },
+        {
+          "container": "setup-container",
+          "name": "persistence",
+          "path": "/var/lib/rabbitmq/mnesia/",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "setup-container",
+          "name": "plugins-conf",
+          "path": "/tmp/rabbitmq-plugins/",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "setup-container",
+          "name": "rabbitmq-confd",
+          "path": "/tmp/default_user.conf",
+          "subPath": "default_user.conf",
+          "readOnly": false
+        },
+        {
+          "container": "setup-container",
+          "name": "rabbitmq-erlang-cookie",
+          "path": "/var/lib/rabbitmq/",
+          "subPath": null,
+          "readOnly": false
+        },
+        {
+          "container": "setup-container",
+          "name": "rabbitmq-plugins",
+          "path": "/operator",
+          "subPath": null,
+          "readOnly": false
+        }
+      ]
+    }
+  ]
+}

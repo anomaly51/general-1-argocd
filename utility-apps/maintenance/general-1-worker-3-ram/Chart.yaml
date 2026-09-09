@@ -1,0 +1,6 @@
+apiVersion: v2
+name: general-1-worker-3-ram
+description: Single-use, UID-locked Kubernetes maintenance for Proxmox VM114; no VM credentials or VM operations.
+type: application
+version: 0.1.0
+appVersion: "1"
