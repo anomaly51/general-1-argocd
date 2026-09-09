@@ -13,7 +13,7 @@ images:
     pullPolicy: IfNotPresent
   postgres:
     repository: docker.io/library/postgres
-    tag: 16-bookworm
+    tag: 17-bookworm
     pullPolicy: IfNotPresent
 
 replicas:
