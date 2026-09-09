@@ -86,6 +86,8 @@ spec:
               value: http://127.0.0.1:8001
             - name: STUDIO_RECOVER_GENERATION_JOBS
               value: {{ .Values.api.recoverGenerationJobs | toString | quote }}
+            - name: GENERATION_MAX_ACTIVE_JOBS
+              value: {{ .Values.api.maxActiveJobs | toString | quote }}
             - name: STUDIO_PURGE_LEGACY_DATA
               value: {{ .Values.api.purgeLegacyData | toString | quote }}
             - name: TELEGRAM_BOT_ENABLED

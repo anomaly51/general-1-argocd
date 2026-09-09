@@ -134,6 +134,7 @@ class CutlineChartTest < Minitest::Test
       assert_equal 'false', env[key]
     end
     assert_equal '/data/assets/manifest.json', env['ASSET_MANIFEST_PATH']
+    assert_equal '1', env['GENERATION_MAX_ACTIVE_JOBS']
     assert_equal '/data/generated', env['GENERATED_ASSET_ROOT']
     assert_equal '/data/outputs', env['STUDIO_OUTPUT_ROOT']
     assert_equal 'http://127.0.0.1:8001', env['HEADLESS_WEBAV_BACKEND_ORIGIN']

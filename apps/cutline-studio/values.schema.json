@@ -26,6 +26,7 @@
     "api": {
       "type": "object",
       "properties": {
+        "maxActiveJobs": {"type": "integer", "minimum": 1},
         "recoverGenerationJobs": {"type": "boolean"},
         "purgeLegacyData": {"type": "boolean"},
         "telegramBotEnabled": {"type": "boolean"},

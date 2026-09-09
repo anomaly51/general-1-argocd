@@ -56,6 +56,8 @@ storage:
 
 api:
   # Migration-safe defaults; explicitly enable only after the copied data is verified.
+  # Queue additional work instead of running multiple browser encoders at once.
+  maxActiveJobs: 1
   recoverGenerationJobs: false
   purgeLegacyData: false
   telegramBotEnabled: false
