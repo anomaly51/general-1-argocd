@@ -1,6 +1,7 @@
 # Studio encrypted swap maintenance
 
-This chart is **suspended by default**. It manages only General1 worker 1
+This chart was initially reviewed **while suspended**; its Git values record
+the explicitly approved operational phase. It manages only General1 worker 1
 (`general-1-worker-1`, machine-id `b233eaca510b4f35a4a3715cf11fa89d`) and the
 new dedicated **8 GiB** disk with serial `studio-swap-v1`. The disk was hot-added
 to VM109; this chart has no Proxmox access and never changes RAM or restarts a VM.

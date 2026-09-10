@@ -13,8 +13,8 @@ class StudioSwapRenderTest < Minitest::Test
     YAML.load_stream(output).compact
   end
 
-  def test_default_is_suspended_pinned_and_has_no_kubernetes_credentials
-    docs = render
+  def test_suspended_plan_is_pinned_and_has_no_kubernetes_credentials
+    docs = render('--set', 'suspended=true', '--set', 'phase=prepareDependencies')
     assert_equal %w[ConfigMap Job], docs.map { |doc| doc['kind'] }.sort
     job = docs.find { |doc| doc['kind'] == 'Job' }
     assert_equal true, job.dig('spec', 'suspend')
@@ -47,7 +47,7 @@ class StudioSwapRenderTest < Minitest::Test
   end
 
   def test_prepare_and_activate_are_distinct_jobs
-    prepare = render('--set', 'suspended=false', '--set', 'noKubeletArgumentOverridesVerified=false').find { |doc| doc['kind'] == 'Job' }
+    prepare = render('--set', 'phase=prepareDependencies', '--set', 'suspended=false', '--set', 'noKubeletArgumentOverridesVerified=false').find { |doc| doc['kind'] == 'Job' }
     activate = render('--set', 'phase=activate', '--set', 'suspended=false', '--set', 'noKubeletArgumentOverridesVerified=true').find { |doc| doc['kind'] == 'Job' }
     refute_equal prepare.dig('metadata', 'name'), activate.dig('metadata', 'name')
     assert_equal ['activate'], activate.dig('spec', 'template', 'spec', 'containers', 0, 'args')
