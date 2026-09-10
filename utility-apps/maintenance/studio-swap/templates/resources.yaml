@@ -1,0 +1,80 @@
+{{- if not (regexMatch "^general-1-worker-[123]$" .Values.target.hostname) }}{{ fail "target must be one explicit General1 worker" }}{{ end -}}
+{{- if not (regexMatch "^[a-f0-9]{32}$" .Values.target.machineId) }}{{ fail "target.machineId must be the audited host machine-id" }}{{ end -}}
+{{- if ne .Values.disk.serial "studio-swap-v1" }}{{ fail "only dedicated studio-swap-v1 disk is permitted" }}{{ end -}}
+{{- if ne (int64 .Values.disk.sizeBytes) (int64 8589934592) }}{{ fail "only the dedicated exact 8GiB disk is permitted" }}{{ end -}}
+{{- if lt (int64 .Values.rootReserveBytes) (int64 1073741824) }}{{ fail "root reserve must be at least 1GiB" }}{{ end -}}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9-]{0,29}$" .Values.operationId) }}{{ fail "invalid operationId" }}{{ end -}}
+{{- if not (regexMatch "^docker.io/library/python:3[.]12-slim-bookworm@sha256:[a-f0-9]{64}$" .Values.image) }}{{ fail "maintenance image must be digest pinned" }}{{ end -}}
+{{- if not (has .Values.phase (list "prepareDependencies" "activate")) }}{{ fail "phase must be prepareDependencies or activate" }}{{ end -}}
+{{- if .Values.baselineFailSwapOn }}{{ fail "rollback with retained swap requires audited baseline failSwapOn=false" }}{{ end -}}
+{{- if and (not .Values.suspended) (eq .Values.phase "activate") (or (empty .Values.expectedKubeletFileHashes) (not .Values.noKubeletArgumentOverridesVerified)) }}{{ fail "activation requires audited kubelet hashes and override preflight" }}{{ end -}}
+{{- $phaseName := ternary "prepare" "activate" (eq .Values.phase "prepareDependencies") -}}
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-{{ .Values.operationId }}
+  namespace: {{ .Release.Namespace }}
+data:
+  plan.json: |
+    {{ dict "hostname" .Values.target.hostname "machine_id" .Values.target.machineId "serial" .Values.disk.serial "size_bytes" .Values.disk.sizeBytes "root_reserve_bytes" .Values.rootReserveBytes "expected_kubelet_hashes" .Values.expectedKubeletFileHashes "no_kubelet_overrides_verified" .Values.noKubeletArgumentOverridesVerified "baseline_fail_swap_on" .Values.baselineFailSwapOn "disk_eviction_hard" .Values.expectedDiskEvictionHard | toJson }}
+  maintenance.py: |
+{{ .Files.Get "files/maintenance.py" | indent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-{{ $phaseName }}-{{ .Values.operationId }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  suspend: {{ .Values.suspended }}
+  backoffLimit: 0
+  activeDeadlineSeconds: 1200
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: studio-swap
+        app.kubernetes.io/component: maintenance
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      hostPID: true
+      terminationGracePeriodSeconds: 60
+      nodeSelector:
+        kubernetes.io/hostname: {{ .Values.target.hostname }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+      containers:
+        - name: maintenance
+          image: {{ .Values.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: [python, -B, /plan/maintenance.py, --enter-host]
+          args: [{{ .Values.phase | quote }}]
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            readOnlyRootFilesystem: true
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          volumeMounts:
+            - name: host
+              mountPath: /host
+            - name: plan
+              mountPath: /plan
+              readOnly: true
+      volumes:
+        - name: host
+          hostPath:
+            path: /
+            type: Directory
+        - name: plan
+          configMap:
+            name: {{ .Release.Name }}-{{ .Values.operationId }}
+{{- end }}

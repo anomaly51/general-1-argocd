@@ -1,0 +1,6 @@
+apiVersion: v2
+name: studio-swap
+description: Suspended single-node, owned-disk encrypted swap maintenance; no VM or Kubernetes API credentials.
+type: application
+version: 0.1.0
+appVersion: "1"

@@ -1,0 +1,28 @@
+# Root must review host preflight and the newly attached blank disk before activation.
+enabled: true
+suspended: true
+phase: prepareDependencies
+operationId: w1-swap-v1
+image: docker.io/library/python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
+target:
+  hostname: general-1-worker-1
+  machineId: b233eaca510b4f35a4a3715cf11fa89d
+disk:
+  serial: studio-swap-v1
+  sizeBytes: 8589934592
+rootReserveBytes: 1073741824
+# Populate with the audited SHA256 of EVERY existing *.conf; never contains credentials.
+expectedKubeletFileHashes:
+  00-k3s-defaults.conf: 91c9e08416505a535f9e84a94fa9ef2f705e5cd1cdbe498f7e1f7d79a1514f53
+noKubeletArgumentOverridesVerified: true
+baselineFailSwapOn: false
+expectedDiskEvictionHard:
+  imagefs.available: "5%"
+  nodefs.available: "5%"
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 192Mi
