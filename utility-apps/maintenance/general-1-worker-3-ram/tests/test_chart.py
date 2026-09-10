@@ -21,11 +21,24 @@ class ChartTests(unittest.TestCase):
         result = subprocess.run(command, capture_output=True, text=True, check=True)
         return [d for d in yaml.safe_load_all(result.stdout) if d]
 
-    def test_explicitly_disabled_fixture_renders_no_resources(self):
-        self.assertEqual(self.render("enabled=false"), [])
+    def test_retired_default_and_disabled_fixture_render_only_inert_marker(self):
+        for settings in ((), ("enabled=false",), ("enabled=false", "phase=uncordon")):
+            with self.subTest(settings=settings):
+                docs = self.render(*settings)
+                self.assertEqual([d["kind"] for d in docs], ["ConfigMap"])
+                marker = docs[0]
+                self.assertEqual(marker["metadata"]["name"], "general-1-worker-3-ram-retired")
+                self.assertEqual(marker["metadata"]["namespace"], "maintenance")
+                self.assertEqual(marker["data"], {
+                    "status": "retired",
+                    "replacement": "maintenance-studio-swap",
+                    "reason": "Dedicated encrypted swap on W1 replaces the abandoned W3 RAM redistribution plan.",
+                })
+                self.assertNotIn("annotations", marker["metadata"])
+                self.assertNotIn("finalizers", marker["metadata"])
 
     def test_enabled_remains_suspended_and_temporary_audit_not_approved(self):
-        docs = self.render()
+        docs = self.render("enabled=true")
         job = next(d for d in docs if d["kind"] == "Job")
         self.assertTrue(job["spec"]["suspend"])
         self.assertNotIn("--temporary-data-audit-approved", job["spec"]["template"]["spec"]["containers"][0]["args"])

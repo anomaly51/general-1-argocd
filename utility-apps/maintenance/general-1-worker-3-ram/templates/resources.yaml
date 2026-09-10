@@ -176,4 +176,17 @@ spec:
         - name: plan
           configMap:
             name: {{ $name }}-{{ .Values.phase }}
+{{- else }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-retired
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/component: retirement
+data:
+  status: retired
+  replacement: maintenance-studio-swap
+  reason: "Dedicated encrypted swap on W1 replaces the abandoned W3 RAM redistribution plan."
 {{- end }}

@@ -1,13 +1,28 @@
-# VM114 RAM maintenance — Kubernetes phases only
+# Retired: VM114 RAM maintenance
 
-This chart is enabled for a suspended bootstrap: `enabled: true`, `suspended: true`, and `temporaryDataAuditApproved: false`. Resources can be reviewed, but the Job cannot execute until root explicitly activates it. Setting `enabled: false` renders no resources. It contains **no Proxmox credential or VM operation**. Root performs the separately authorized graceful VM shutdown, memory-only change 3072→4096 MiB, and start after the drain Job succeeds.
+This plan is retired. The user chose a dedicated encrypted swap disk on
+`general-1-worker-1`, managed by `maintenance-studio-swap`, instead of RAM
+redistribution or a VM restart. W3/VM114 was not modified by this plan. Keep
+`enabled: false`; the old suspended drain must not be activated.
+
+The disabled chart renders only an inert `general-1-worker-3-ram-retired`
+ConfigMap. Its nonempty resource inventory lets Argo CD naturally prune the old
+Job, ServiceAccount, RBAC and execution ConfigMap without enabling global
+`allowEmpty` or changing the ApplicationSet. The marker has no script,
+credentials, host access or execution behavior. Retiring the chart does not
+perform a drain, uncordon, VM operation or RAM change.
+
+The historical implementation and explicit `enabled=true` test fixtures remain
+for audit only. Reuse requires a new request, fresh inventory and independent
+review; the sequence below is not current authorization. The implementation
+contains **no Proxmox credential or VM operation**.
 
 `files/inventory.json` records the exact worker3 node UID, 24 pod UIDs/owners, volume kinds/PVC names and mount paths observed on 2026-09-09 at 22:35 UTC. Every existing namespace is explicitly enumerated. A new namespace, unexpected pod, replacement UID or changed mount aborts the drain. DaemonSets are checked but never evicted. The current snapshot is valid for at most two hours; refresh/review it if delayed or workloads change. Never regenerate it blindly just to bypass an unexpected change.
 
-## Activation sequence (root-owned GitOps commits)
+## Archived activation sequence (not authorized for execution)
 
 1. Review the fresh live inventory, host capacity, RabbitMQ membership, idle registry uploads and temporary-directory audit. The bot-motivation `/tmp` is an application working directory: verify it is empty and idle. Persistent data and both worker-local PVCs must remain untouched.
-2. Bootstrap with the checked-in `enabled: true`, `suspended: true`; verify RBAC, placement and the inventory rendered correctly. Existing utility ApplicationSet discovers this chart into namespace `maintenance`. The Job requires worker1/worker2 and prefers worker1; it cannot schedule on worker3 or the master.
+2. The historical bootstrap used `enabled: true`, `suspended: true`; verify RBAC, placement and the inventory rendered correctly. Existing utility ApplicationSet discovers this chart into namespace `maintenance`. The Job requires worker1/worker2 and prefers worker1; it cannot schedule on worker3 or the master.
 3. Activate `phase: drain`, `suspended: false`, `temporaryDataAuditApproved: true` only after fresh physical-host and destination-node capacity checks pass. Normal `policy/v1` evictions include UID preconditions and honor current PDBs and pod grace periods. Movable pods are evicted one at a time in the reviewed largest-working-set-first order. Each old UID must disappear, then a new UID of the exact same controller must be Running and fully Ready outside worker3 for 15 seconds, with Ready count at least one above the pre-eviction outside-worker3 baseline. A StatefulSet replacement must retain the same ordinal. Pre-existing siblings cannot satisfy this gate. Each replacement wait is bounded to 180 seconds within the total 840-second drain deadline; OOM/exit137, inventory drift or timeout aborts before another eviction. There is no force, direct pod DELETE, Secret read, or PVC write permission. Cleanup has margin before the Job's 960-second deadline. The executor logs only controlled status/counts, not API responses or workload data.
 4. After all movable replacements are stable, the six exact UID/controller exceptions are evicted normally: the CNPG, Strimzi, NFS and RabbitMQ operators, RabbitMQ member2, then Harbor registry last. Their required node selectors or worker-local PVCs prevent replacement elsewhere, so only the replacement-readiness gate is skipped; UID/PDB/graceful-termination checks still apply. Wait for Job success and `drain_complete`. The target remains cordoned with an operation-owned annotation. Root may now perform the external VM maintenance. Do not start it after a failed Job. On a pre-shutdown drain failure, the script attempts to remove only its own cordon; verify rollback and recover through a reviewed explicit phase if an API outage prevented it.
 5. After root starts VM114 and verifies guest RAM, change only `phase: uncordon` in GitOps (keep the same operationId). A new Job is created. This phase has no pod/eviction/namespace permissions; it only gets/patches worker3. It requires the same node UID, matching operation annotation, Ready state, and at least 3840 MiB reported capacity before uncordoning.
