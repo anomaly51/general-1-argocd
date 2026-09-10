@@ -61,14 +61,33 @@ class CutlineChartTest < Minitest::Test
   def test_owner_group_remains_nonempty_and_no_auth_bypasses
     auth = container('oauth2-proxy')
     args = auth.fetch('args')
-    assert_includes args, '--allowed-group=cutline-studio-owner'
-    assert_includes args, '--scope=openid email profile offline_access'
+    assert_equal ['--allowed-group=cutline-studio-owner'], args.grep(/^--allowed-group=/)
+    assert_includes args, '--provider=oidc'
+    assert_includes args, '--oidc-groups-claim=groups'
     assert_includes args, '--code-challenge-method=S256'
     assert_includes args, '--insecure-oidc-skip-nonce=false'
-    assert_includes args, '--cookie-secure=true'
+    %w[--cookie-name=__Host-cutline-studio --cookie-secure=true --cookie-httponly=true
+       --cookie-samesite=lax --cookie-path=/ --skip-jwt-bearer-tokens=false
+       --skip-auth-preflight=false --pass-access-token=false
+       --pass-authorization-header=false].each { |arg| assert_includes args, arg }
+    refute_includes args, '--insecure-oidc-skip-issuer-verification=true'
+    refute_includes args, '--ssl-insecure-skip-verify=true'
+    refute args.any? { |arg| arg.start_with?('--oidc-extra-audience', '--oidc-audience-claim') }
+    assert_includes args, '--redirect-url=https://cutline-general1.api-api-api.com/oauth2/callback'
     refute args.any? { |arg| arg.start_with?('--skip-auth-route', '--trusted-ip=', '--skip-auth-regex') }
-    required = auth.fetch('env').find { |env| env['name'] == 'OAUTH2_PROXY_ALLOWED_GROUPS' }
-    assert_equal false, required.dig('valueFrom', 'secretKeyRef', 'optional')
+    %w[OAUTH2_PROXY_ALLOWED_GROUPS OAUTH2_PROXY_OIDC_ISSUER_URL OAUTH2_PROXY_CLIENT_ID].each do |key|
+      required = auth.fetch('env').find { |env| env['name'] == key }
+      assert_equal({ 'name' => 'cutline-studio-auth', 'key' => key, 'optional' => false },
+                   required.dig('valueFrom', 'secretKeyRef'))
+    end
+  end
+
+  def test_username_only_login_does_not_require_email_claim_or_scope
+    args = container('oauth2-proxy').fetch('args')
+    assert_equal ['--oidc-email-claim=preferred_username'], args.grep(/^--oidc-email-claim=/)
+    assert_equal ['--scope=openid profile offline_access'], args.grep(/^--scope=/)
+    assert_includes args, '--email-domain=*'
+    refute args.any? { |arg| arg.start_with?('--insecure-oidc-allow-unverified-email') }
   end
 
   def test_schema_rejects_empty_or_wildcard_owner_group_and_multiple_api_workers

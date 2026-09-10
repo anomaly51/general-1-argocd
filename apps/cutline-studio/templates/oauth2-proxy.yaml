@@ -43,10 +43,11 @@ spec:
             # Pin the owner gate even if the required secret were empty.
             - --allowed-group={{ required "auth.allowedGroup must restrict access to the owner group" .Values.auth.allowedGroup }}
             - --oidc-groups-claim=groups
-            # Authorization is the exact dedicated group, not the local admin's placeholder email.
-            - --insecure-oidc-allow-unverified-email=true
+            # OAuth2 Proxy requires a nonempty session email field; use the signed
+            # username claim without requiring or inventing an Authentik email.
+            - --oidc-email-claim=preferred_username
             # Authentik emits the groups claim via profile, not a groups scope.
-            - --scope=openid email profile offline_access
+            - --scope=openid profile offline_access
             - --code-challenge-method=S256
             - --insecure-oidc-skip-nonce=false
             - --skip-provider-button=true
