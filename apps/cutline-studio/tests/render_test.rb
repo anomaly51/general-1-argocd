@@ -106,6 +106,40 @@ class CutlineChartTest < Minitest::Test
     assert_equal 'Recreate', resource('Deployment', 'api').dig('spec', 'strategy', 'type')
   end
 
+  def test_api_node_selector_is_optional_and_keeps_worker_only_affinity
+    ['{}', 'null'].each do |selector|
+      docs = self.class.render('--set-json', "api.nodeSelector=#{selector}")
+      api = pod('api', docs)
+      # Helm fills an empty override from chart defaults; null clears the map.
+      defaults = YAML.load_file(File.join(CHART, 'values.yaml')).dig('api', 'nodeSelector')
+      expected = selector == 'null' ? nil : defaults
+      if expected && !expected.empty?
+        assert_equal expected, api.fetch('nodeSelector')
+      else
+        refute api.key?('nodeSelector')
+      end
+      assert_equal pod('api').fetch('affinity'), api.fetch('affinity')
+      assert_equal [{ 'matchExpressions' => [
+        { 'key' => 'node-role.kubernetes.io/control-plane', 'operator' => 'DoesNotExist' }
+      ] }], api.dig('affinity', 'nodeAffinity', 'requiredDuringSchedulingIgnoredDuringExecution', 'nodeSelectorTerms')
+    end
+  end
+
+  def test_api_node_selector_pins_only_api_and_preserves_worker_affinity
+    docs = self.class.render('--set-json',
+                             'api.nodeSelector={"kubernetes.io/hostname":"general-1-worker-3","kubernetes.io/os":"linux"}')
+    assert_equal({ 'kubernetes.io/hostname' => 'general-1-worker-3', 'kubernetes.io/os' => 'linux' },
+                 pod('api', docs).fetch('nodeSelector'))
+    assert_equal pod('api').fetch('affinity'), pod('api', docs).fetch('affinity')
+    %w[frontend oauth2-proxy postgres].each do |component|
+      refute pod(component, docs).key?('nodeSelector')
+      assert_equal pod(component).fetch('affinity'), pod(component, docs).fetch('affinity')
+    end
+    migration = self.class.render('--set', 'migration.enabled=true', '--set-json',
+                                 'api.nodeSelector={"kubernetes.io/hostname":"general-1-worker-3"}')
+    refute pod('migration', migration).key?('nodeSelector')
+  end
+
   def test_restore_tools_share_media_identity_and_only_db_credentials
     restore_pod = pod('migration', MIGRATION)
     assert_equal 10001, restore_pod.dig('securityContext', 'runAsUser')

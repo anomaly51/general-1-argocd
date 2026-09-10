@@ -23,6 +23,10 @@ spec:
       automountServiceAccountToken: false
       affinity:
         {{- include "cutline.workerAffinity" . | nindent 8 }}
+      {{- with .Values.api.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       imagePullSecrets:
         - name: {{ .Release.Name }}-registry
       terminationGracePeriodSeconds: 60

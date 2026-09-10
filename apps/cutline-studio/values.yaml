@@ -16,7 +16,7 @@ images:
 
 replicas:
   # Keep API at one: import/generation workers and schedulers are process-local.
-  # Pause startup until the bounded-memory history loader is deployed.
+  # Resume only after the dedicated worker's LimitedSwap canary is ready.
   api: 0
   frontend: 1
   oauth2Proxy: 1
@@ -53,6 +53,8 @@ storage:
   apiSharedMemorySize: 512Mi
 
 api:
+  nodeSelector:
+    kubernetes.io/hostname: general-1-worker-1
   # Migration-safe defaults; explicitly enable only after the copied data is verified.
   # Queue additional work instead of running multiple browser encoders at once.
   maxActiveJobs: 1
@@ -81,11 +83,13 @@ resources:
   api:
     requests:
       cpu: 250m
-      memory: 512Mi
+      memory: 384Mi
       ephemeral-storage: 512Mi
     limits:
       cpu: "2"
-      memory: 2Gi
+      # Bound resident RAM while the eligible Burstable container can use swap.
+      # Validate the combined API/export peak before changing this canary cap.
+      memory: 512Mi
       ephemeral-storage: 6Gi
   frontend:
     requests:
