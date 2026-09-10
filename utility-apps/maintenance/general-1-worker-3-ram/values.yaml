@@ -1,5 +1,5 @@
-# Root activates only after reviewing the fresh inventory and temporary-data idle check.
-enabled: true
+# Retired: use the dedicated W1 swap disk; do not drain/reallocate VM RAM.
+enabled: false
 suspended: true
 phase: drain
 operationId: vm114-ram-4096-20260910
