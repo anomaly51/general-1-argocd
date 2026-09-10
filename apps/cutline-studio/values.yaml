@@ -16,8 +16,8 @@ images:
 
 replicas:
   # Keep API at one: import/generation workers and schedulers are process-local.
-  # Resume only after the dedicated worker's LimitedSwap canary is ready.
-  api: 0
+  # Dedicated worker swap was verified before this bounded canary started.
+  api: 1
   frontend: 1
   oauth2Proxy: 1
 
