@@ -1,16 +1,10 @@
-# Cutline Studio OCI handoff
+# Cutline Studio OCI deployment
 
 The GitOps configuration selects OCI with ApplicationSet generator value
 `cutlineOCIEnabled: "true"`. Only Cutline uses the conditional patch; its name,
 project, destination, finalizer, and automated sync policy are unchanged.
 The GitOps overlay omits exactly the API/frontend image tags, so each tested
 chart version supplies those two tags while GitOps retains all other configuration.
-The API remains paused at zero until separately authorized resumption.
-
-The old `.github/workflows/cutline-studio-sync.yml` scheduled/write workflow is
-retired. Its guarded Python consumer and unit tests remain archived for historical
-verification, not as an active deployment mechanism. Do not dispatch the old
-consumer or add its image-tag fields back to the OCI values overlay.
 
 ## Credential bootstrap
 
@@ -46,95 +40,24 @@ Keep `token_no_default_policy: true`; do not attach the broad default policy.
 These self-only operations cannot manage other tokens. The role still cannot
 read app env or owner-login credentials, list other paths, or write secret data.
 Do not print secret data.
-Verify VSO readiness and Argo repository connectivity without reading Secret data.
 
-## Activation checkpoint — owner-approved GitOps commit
-
-Do not activate until source CI has published a tested immutable chart version
-`0.1.<GITHUB_RUN_NUMBER>` to
-`harbor.internal.api-api-api.com/cutline-studio/cutline-studio` and repository
-authentication is healthy. The source publisher embeds both tested image tags
-into that chart version. Chart publication must remain behind both image builds
-and the bounded real-codec runtime test.
-
-The activation commit makes these changes together:
-
-1. Set only `spec.generators[0].git.values.cutlineOCIEnabled` in
-   `cluster/applicationsets/apps.yaml` from string `"false"` to string `"true"`.
-2. Remove exactly `images.api.tag` and `images.frontend.tag` from
-   `apps/cutline-studio/values.yaml`; retain repositories, pull policies, every
-   other image tag, and all runtime/security/storage/migration/replica values.
-   These two removals let the tested chart defaults own the application images.
-3. Delete the legacy GitHub scheduled two-tag writer workflow before it can write
-   tags back into the overlay. Guard helper scripts/tests remain archived.
+## Deployment sources
 
 The active source is Helm OCI repo URL without `oci://`, chart `cutline-studio`,
 version constraint `0.1.*`. Its second source is the GitOps repository at `main`
-with `ref: values` and deliberately **no path**. It supplies only
-`$values/apps/cutline-studio/values.yaml`, avoiding a second set of rendered
-resources. No broad ApplicationSet or cluster polling configuration is changed.
+with `ref: values` and no path. It supplies only
+`$values/apps/cutline-studio/values.yaml`.
 
-Before pushing activation, render the packaged chart with the modified overlay
-and compare resource identity/configuration with the existing chart. Keep the API
-at zero until the separately authorized capacity/startup work allows resumption.
-After GitOps reconciliation, verify the same Application UID/finalizer, two
-sources, selected chart revision, exact images, and no repeated resources. A
-paused API is not deployment success: require one current/updated/ready/available
-API replica and the authenticated version endpoint.
+The canonical deployment chart lives in the private source repository
+`anomaly51/cutline-studio` at `deploy/helm/cutline-studio`. Source CI publishes it
+to `harbor.internal.api-api-api.com/cutline-studio/cutline-studio` with both
+application image tags embedded in each release. Argo CD follows those releases.
+The local chart files are a migration reference, not the active template source.
 
-Prove subsequent automatic delivery using a second source commit: tested images
-and a newer chart must appear, then Argo's normal reconciliation must select that
-chart and make the new images healthy without dispatch, tag writeback, manual
-sync, or forced refresh. The usual reconciliation interval is minutes, not an
-instant delivery guarantee. Rollback should publish a new higher chart version
-from an explicit source revert; never replace an immutable chart.
+Rollback should publish a new higher chart version from an explicit source
+revert; never replace an immutable chart.
 
-## Local validation
-
-Run `rtk ruby scripts/cutline-studio-oci.test.rb` and
-`rtk kubectl kustomize cluster`. Tests assert the committed active state while
-retaining an explicit inactive fixture, render the real Go template expressions
-through Helm locally, check unrelated apps, and validate the exact scoped
-Vault/Argo credential contract. They do not contact Vault, publish artifacts,
-mutate cluster resources, or touch user jobs/media.
-
-The canonical deployment chart and its tests now live in the private source
-repository `anomaly51/cutline-studio` at `deploy/helm/cutline-studio`. From that
-checkout, run `rtk ruby deploy/helm/cutline-studio/tests/render_test.rb` and
-`rtk python3 -m unittest discover -s scripts/ci -p 'test_helm_publish.py' -v`.
-Source CI packages the chart only after tested immutable image publication.
-
-The former GitOps chart files are retained as a migration reference, not the
-active template source. `rtk ruby apps/cutline-studio/tests/render_test.rb` uses
-explicit fixture tags because the production overlay intentionally has none.
-For a local cross-repository contract check against the canonical chart, run
-`rtk env CUTLINE_SOURCE_CHART=/absolute/source/checkout/deploy/helm/cutline-studio ruby apps/cutline-studio/tests/render_test.rb`.
-This renders the canonical templates with the actual GitOps overlay plus test-only
-image tags. Neither fixture tags nor test artifacts are committed to production
-values or published to Harbor.
-
-For the actual published archive, set `CUTLINE_RELEASE_ARCHIVE` to a verified
-local `.tgz` path and `CUTLINE_BASELINE_REF` to the pre-activation GitOps commit
-(defaults to `HEAD` while activation is uncommitted), then run the OCI Ruby tests.
-This optional integration test renders the old GitOps chart with its previous
-values and the published chart with the tag-free overlay. It requires identical
-resource identities and configuration except exactly the two API/frontend images,
-including the API's wait-postgres init container, which uses that same API image.
-Both image identities must use the same immutable SHA. No secret values or rendered manifests
-are printed. Keep this proof separate from the test-only image-tag fixtures.
-
-Optional exact-controller merge validation: set `CUTLINE_ARGO_CONTEXT` to an
-already authenticated owner Argo context and `CUTLINE_ARGO_KUBECONFIG` to the
-explicit General-1 kubeconfig when running the Ruby tests. The test uses only
-the non-mutating Argo Generate RPC with a local list fixture and temporary
-service port-forward, no Git/Harbor fetch. Argo requires ApplicationSet-create
-permission even for this read-only RPC; never expand the CI token to run it.
-It asserts that the actual controller merge removes `spec.source`, retains two
-sources and the same identity/finalizer/sync policy. The CLI has a 30-second
-bound and its temporary artifacts are removed. Without the optional context,
-this one integration test is explicitly skipped.
-
-## Confirmed upstream contracts
+## References
 
 - [Argo CD 3.4 Git generator values](https://argo-cd.readthedocs.io/en/release-3.4/operator-manual/applicationset/Generators-Git/#pass-additional-key-value-pairs-via-values-field)
   and [templatePatch](https://argo-cd.readthedocs.io/en/release-3.4/operator-manual/applicationset/Template/#template-patch).
@@ -146,5 +69,4 @@ this one integration test is explicitly skipped.
 - [Installed VSO 1.5.0 token lifecycle implementation](https://github.com/hashicorp/vault-secrets-operator/blob/v1.5.0/vault/client.go)
   and [Vault self-token endpoints](https://developer.hashicorp.com/vault/api-docs/auth/token).
 
-The installed General-1 VSO CRD was also checked read-only for destination labels
-and `excludeRaw` support. All cluster changes remain GitOps-driven.
+All cluster changes remain GitOps-driven.
