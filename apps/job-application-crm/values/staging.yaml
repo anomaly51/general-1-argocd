@@ -1,14 +1,20 @@
-# Complete isolated environment; activated after the first CI release.
 _release:
-  revision: f786d0cae09f7e93de4c9352543b722eddca8e09
+  revision: a1ed19f3f3c8bbfbddae37a82d6e2f4a0a0e4e44
+  sourceRepository: anomaly51/job-application-crm
+  sourceCommit: 7c9dd54fae982f72c1fb346ad065a1681ab97f19
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/job-application-crm/actions/runs/36480982962
+  imageKeys:
+  - images.api
+  - images.frontend
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/job-application-crm-api
-    tag: sha-ae78029ee474
+    tag: sha-7c9dd54fae98@sha256:b9952173da9beb6c653fad3129eb2d49aabef534111f7ae8392eb0df4ec37120
     pullPolicy: IfNotPresent
   frontend:
     repository: harbor.internal.api-api-api.com/applications/job-application-crm-frontend
-    tag: sha-eb04acbc88dc
+    tag: sha-7c9dd54fae98@sha256:1f09d5f8dfe66dccbfde61193f45cb3fc49e67c90e13410dea85d06d43c652f2
     pullPolicy: IfNotPresent
   postgres:
     repository: docker.io/library/postgres
