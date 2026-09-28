@@ -1,0 +1,5 @@
+apiVersion: v2
+name: environments-swap
+description: Dedicated encrypted swap for application environments
+type: application
+version: 0.1.0
