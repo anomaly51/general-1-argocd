@@ -42,6 +42,8 @@ spec:
     spec:
       serviceAccountName: shisha-guid-backend
       automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: shisha-guid-backend-registry
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
