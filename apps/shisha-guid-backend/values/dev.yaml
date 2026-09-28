@@ -1,10 +1,16 @@
 _release:
-  revision: ccd32793828376539a29048135f6069da9994d6e
+  revision: 27c4924ea8295fe780188ccf953bbeaa8e3172bb
+  sourceRepository: anomaly51/shisha-guid-backend
+  sourceCommit: b9d6261ad2f403c436f97b8cee1107780719d741
+  sourceBranch: dev
+  runUrl: https://github.com/anomaly51/shisha-guid-backend/actions/runs/36480996914
+  imageKeys:
+  - images.api
 replicas: 1
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/shisha-guid-backend
-    tag: sha-d787aa48972e
+    tag: sha-b9d6261ad2f4@sha256:aa489dbaf9c0bc0282a730f8fd7294a3bb818ed142e015af9c94627838f0fbf1
     pullPolicy: IfNotPresent
   postgres:
     repository: docker.io/library/postgres
