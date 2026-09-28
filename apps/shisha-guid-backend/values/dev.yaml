@@ -1,6 +1,5 @@
 _release:
   revision: ccd32793828376539a29048135f6069da9994d6e
-  namespace: shisha-guide-dev
 replicas: 1
 images:
   api:

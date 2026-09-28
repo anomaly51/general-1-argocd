@@ -1,9 +1,5 @@
-# Chart version used by Argo CD; the remaining keys are Helm values.
 _release:
   revision: ccd32793828376539a29048135f6069da9994d6e
-  namespace: shisha-guide-dev
-
-# Complete environment configuration; this chart has no shared values.yaml.
 replicas: 1
 image:
   repository: harbor.internal.api-api-api.com/applications/shisha-guid-frontend
@@ -28,7 +24,7 @@ service:
   containerPort: 80
 config:
   publicSiteUrl: https://shisha-dev-general1.api-api-api.com
-  ssrApiUrl: http://shisha-guid-backend/api/v1
+  ssrApiUrl: http://shisha-guid-backend.shisha-guid-backend-dev.svc.cluster.local/api/v1
 resources:
   requests:
     cpu: 10m

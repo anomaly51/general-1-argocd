@@ -40,15 +40,15 @@ spec:
         server: https://kubernetes.default.svc
         namespace: '{{ dig "namespace" (ternary "apps" (printf "%s-%s" (index .path.segments 1) (trimSuffix ".yaml" .path.filename)) (eq .path.filename "prod.yaml")) ._release }}'
       syncPolicy:
-        managedNamespaceMetadata:
-          labels:
-            gateway.api-api-api.com/public: "true"
         syncOptions:
           - CreateNamespace=true
   templatePatch: |
     {{- if ne .path.filename "prod.yaml" }}
     spec:
       syncPolicy:
+        managedNamespaceMetadata:
+          labels:
+            gateway.api-api-api.com/public: "true"
         automated:
           prune: true
           selfHeal: true

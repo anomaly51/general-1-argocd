@@ -87,6 +87,15 @@ def updated_profile(values: dict, images: list[dict], source: dict, chart_revisi
     return result
 
 
+def release_output(environment: str) -> None:
+    if output := os.environ.get("GITHUB_OUTPUT"):
+        appset = yaml.safe_load(Path("cluster/applicationsets/apps.yaml").read_text())
+        entries = appset["spec"]["generators"][0]["git"]["files"]
+        active = {"path": f"apps/*/values/{environment}.yaml"} in entries
+        with open(output, "a") as file:
+            file.write(f"commit={git('rev-parse', 'HEAD')}\nenvironment={environment}\nactive={str(active).lower()}\n")
+
+
 def publish(app: str, environment: str, images: list[dict], source: dict, chart_revision: str | None) -> None:
     expected_environment = {"main": "staging", "dev": "dev"}.get(source["branch"])
     if environment != expected_environment:
@@ -112,6 +121,7 @@ def publish(app: str, environment: str, images: list[dict], source: dict, chart_
         updated = updated_profile(values, images, source, revision)
         if updated == values:
             print("This release is already recorded.")
+            release_output(environment)
             return
         path.write_text(yaml.safe_dump(updated, sort_keys=False))
         subprocess.run(["git", "diff", "--check"], check=True)
@@ -121,12 +131,7 @@ def publish(app: str, environment: str, images: list[dict], source: dict, chart_
         if result.returncode == 0:
             commit = git("rev-parse", "HEAD")
             print(f"Recorded {app}/{environment} at GitOps commit {commit}")
-            if output := os.environ.get("GITHUB_OUTPUT"):
-                appset = yaml.safe_load(Path("cluster/applicationsets/apps.yaml").read_text())
-                entries = appset["spec"]["generators"][0]["git"]["files"]
-                active = {"path": f"apps/*/values/{environment}.yaml"} in entries
-                with open(output, "a") as file:
-                    file.write(f"commit={commit}\nenvironment={environment}\nactive={str(active).lower()}\n")
+            release_output(environment)
             return
         time.sleep(attempt + 1)
     raise RuntimeError("GitOps main kept changing; no force-push was attempted")
