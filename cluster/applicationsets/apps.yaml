@@ -12,8 +12,9 @@ spec:
         repoURL: https://github.com/anomaly51/general-1-argocd.git
         revision: main
         files:
-          # Bootstrap: activate dev/staging discovery after their first CI release.
           - path: apps/*/values/prod.yaml
+          - path: apps/*/values/dev.yaml
+          - path: apps/*/values/staging.yaml
   template:
     metadata:
       name: '{{ if eq .path.filename "prod.yaml" }}apps-{{ index .path.segments 1 }}{{ else }}{{ index .path.segments 1 }}-{{ trimSuffix ".yaml" .path.filename }}{{ end }}'

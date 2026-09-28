@@ -63,21 +63,31 @@ Dry run never commits or synchronizes. A competing push during promotion fails
 safely; rerun against fresh main. A failed production rollout is reported as a
 failed workflow. There is no automatic rollback of database migrations or data.
 
-## Bootstrap progress
+## Configured environments
 
 Source workflows and main/dev branches are installed in all ten repositories.
-Production discovery remains active with existing chart/image revisions.
-Complete isolated dev/staging profiles exist for Shisha backend/frontend, CRM,
+Production retains its existing chart/image revisions and manual synchronization.
+Argo discovers isolated dev/staging profiles for Shisha backend/frontend, CRM,
 Online Shop and Uptime Monitor. Uptime uses separate RabbitMQ users/vhosts; its
 non-production bot has zero replicas and no Telegram token. Optional production
 email, payment and Google OAuth credentials are excluded from these test profiles.
 Cutline remains prod-only until separate owner-gated OIDC providers are configured.
 Standalone Telegram bots remain prod-only until separate bot tokens are supplied.
-Dev/staging discovery will be added after CI access and initial builds are
-verified, so old browser images cannot accidentally address production APIs.
-GitHub App setup currently requires the owner's GitHub Confirm access step.
+The GitHub App `anomaly51-gitops-ci` is installed only on `general-1-argocd`;
+its validated private key is stored in Vault. Initial profile images are pinned
+to digests published by the source CI workflows.
+
+For example, promote Shisha backend in GitOps Actions with
+`application=shisha-guid-backend`, `staging_commit=<full GitOps SHA>`,
+`release_verified=true`, `dry_run=false`. Leave source_commit and chart_version
+empty for this application. Use dry_run=true to review the proposed diff first.
 
 Worker swap is managed by `utility-apps/maintenance/environments-swap`: dedicated
 16 GiB encrypted disks on each of the three workers add 48 GiB of swap. Verified
 totals are approximately 25/17/17 GiB, including earlier swap. Kubernetes LimitedSwap only
 helps eligible Burstable containers and does not increase allocatable RAM.
+
+Harbor's worker also has 64 GiB of additional persistent disk capacity, managed
+by `utility-apps/maintenance/harbor-storage`, because image uploads exhausted its
+original root disk. This storage is separate from swap and is included in VM
+backups. The CI worker in the utility cluster received a separate 64 GiB expansion.

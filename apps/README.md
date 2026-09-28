@@ -36,6 +36,8 @@ digest to this GitOps repository. Production is synchronized only by the manual
 Promote production workflow, which copies release versions while retaining prod
 settings and then checks the live rollout. See [management](../docs/environments.md).
 
-Bootstrap status: discovery currently includes prod only. Dev/staging profiles
-are prepared but will be activated after GitHub App access and the first safe CI
-images are verified. Existing production images and chart pins are preserved.
+Dev/staging profiles are discovered automatically for Shisha backend/frontend,
+CRM, Online Shop and Uptime Monitor. Their images are published by source CI.
+Standalone Telegram bots and Cutline currently have only prod profiles; see
+the management guide for their prerequisites. Existing production images and
+chart pins are preserved until an explicit promotion.
