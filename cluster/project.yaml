@@ -6,31 +6,41 @@ metadata:
 spec:
   description: Unrestricted applications for the General-1 learning cluster.
   sourceRepos:
-    - "*"
+  - '*'
   destinations:
-    - namespace: "*"
-      server: "*"
+  - namespace: '*'
+    server: '*'
   clusterResourceWhitelist:
-    - group: "*"
-      kind: "*"
+  - group: '*'
+    kind: '*'
   namespaceResourceWhitelist:
-    - group: "*"
-      kind: "*"
+  - group: '*'
+    kind: '*'
   roles:
-    - name: ci-status
-      description: Read application status after a GitOps release.
-      policies:
-        - p, proj:gitops-apps:ci-status, applications, get, gitops-apps/*, allow
-    - name: production-promoter
-      description: Synchronize production only from the manual promotion workflow.
-      policies:
-        - p, proj:gitops-apps:production-promoter, applications, get, gitops-apps/*, allow
-        - p, proj:gitops-apps:production-promoter, applications, sync, gitops-apps/apps-*, allow
-    - name: cutline-studio-ci
-      description: Read-only rollout verification for Cutline Studio CI.
-      jwtTokens:
-        - id: cutline-studio-ci-20260909
-          iat: 1788981825
-          exp: 1820517825
-      policies:
-        - p, proj:gitops-apps:cutline-studio-ci, applications, get, gitops-apps/apps-cutline-studio, allow
+  - name: ci-status
+    description: Read application status after a GitOps release.
+    policies:
+    - p, proj:gitops-apps:ci-status, applications, get, gitops-apps/*, allow
+    jwtTokens:
+    - id: gitops-ci-c55c1a9f-671c-4943-b9ff-b35e29a4f49b
+      iat: 1790627885
+      exp: 1822163885
+  - name: production-promoter
+    description: Synchronize production only from the manual promotion workflow.
+    policies:
+    - p, proj:gitops-apps:production-promoter, applications, get, gitops-apps/*, allow
+    - p, proj:gitops-apps:production-promoter, applications, sync, gitops-apps/apps-*,
+      allow
+    jwtTokens:
+    - id: gitops-ci-089f678f-b451-4917-b672-a547c467385d
+      iat: 1790627886
+      exp: 1822163886
+  - name: cutline-studio-ci
+    description: Read-only rollout verification for Cutline Studio CI.
+    jwtTokens:
+    - id: cutline-studio-ci-20260909
+      iat: 1788981825
+      exp: 1820517825
+    policies:
+    - p, proj:gitops-apps:cutline-studio-ci, applications, get, gitops-apps/apps-cutline-studio,
+      allow

@@ -36,7 +36,7 @@ targets:
 - hostname: general-1-worker-3
   machineId: 2da91eddca4d4368bd8a0da3b889bc1b
   operationId: w3-env-v1
-  phase: prepareDependencies
+  phase: activate
   suspended: false
   wave: 3
   expectedKubeletFileHashes:
