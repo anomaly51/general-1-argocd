@@ -1,5 +1,5 @@
 _release:
-  revision: c999f99e94c7befbb1ec000b93eaf464285f8148
+  revision: 51040507e2b116b3cccc94419ad3c6ea1a4ba584
   sourceRepository: anomaly51/shisha-guid-backend
   sourceCommit: b9d6261ad2f403c436f97b8cee1107780719d741
   sourceBranch: main
@@ -17,8 +17,8 @@ images:
     tag: 16-alpine
     pullPolicy: IfNotPresent
   minio:
-    repository: quay.io/minio/minio
-    tag: RELEASE.2025-04-22T22-12-26Z
+    repository: harbor.internal.api-api-api.com/applications/minio
+    tag: RELEASE.2025-04-22T22-12-26Z@sha256:3f97c5651cb6662b880c787a232b6b34fec8d8922e08d6617b25d241a21164bb
     pullPolicy: IfNotPresent
   wait:
     repository: docker.io/library/busybox
