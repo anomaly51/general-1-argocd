@@ -2,7 +2,7 @@ cluster:
   name: shared
   image: rabbitmq:4.3.4-management
   replicas: 3
-  topologyAllowedNamespaces: apps
+  topologyAllowedNamespaces: apps,uptime-monitor-dev,uptime-monitor-staging
 
 persistence:
   storageClassName: local-path
@@ -27,4 +27,7 @@ monitoring:
   namespace: monitoring
 
 clients:
-  namespace: apps
+  namespaces:
+    - apps
+    - uptime-monitor-dev
+    - uptime-monitor-staging

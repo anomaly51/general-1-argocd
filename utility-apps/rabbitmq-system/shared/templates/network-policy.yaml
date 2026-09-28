@@ -24,8 +24,11 @@ spec:
           port: 15672
     - from:
         - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ .Values.clients.namespace }}
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values:
+                  {{- toYaml .Values.clients.namespaces | nindent 18 }}
       ports:
         - protocol: TCP
           port: 5672

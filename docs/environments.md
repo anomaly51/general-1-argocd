@@ -65,12 +65,19 @@ failed workflow. There is no automatic rollback of database migrations or data.
 
 ## Bootstrap progress
 
-The GitOps foundation is being installed before source workflows are activated.
+Source workflows and main/dev branches are installed in all ten repositories.
 Production discovery remains active with existing chart/image revisions.
+Complete isolated dev/staging profiles exist for Shisha backend/frontend, CRM,
+Online Shop and Uptime Monitor. Uptime uses separate RabbitMQ users/vhosts; its
+non-production bot has zero replicas and no Telegram token. Optional production
+email, payment and Google OAuth credentials are excluded from these test profiles.
+Cutline remains prod-only until separate owner-gated OIDC providers are configured.
+Standalone Telegram bots remain prod-only until separate bot tokens are supplied.
 Dev/staging discovery will be added after CI access and initial builds are
 verified, so old browser images cannot accidentally address production APIs.
 GitHub App setup currently requires the owner's GitHub Confirm access step.
 
 Worker swap is managed by `utility-apps/maintenance/environments-swap`: dedicated
-16 GiB encrypted disks supplement existing swap. Kubernetes LimitedSwap only
+16 GiB encrypted disks on each of the three workers add 48 GiB of swap. Verified
+totals are approximately 25/17/17 GiB, including earlier swap. Kubernetes LimitedSwap only
 helps eligible Burstable containers and does not increase allocatable RAM.

@@ -327,7 +327,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicas.bot }}
   revisionHistoryLimit: 2
   strategy:
     type: Recreate

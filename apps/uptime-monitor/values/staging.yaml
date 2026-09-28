@@ -1,8 +1,6 @@
-# Chart version used by Argo CD; the remaining keys are Helm values.
+# Complete isolated environment; activated after the first CI release.
 _release:
-  revision: ccd32793828376539a29048135f6069da9994d6e
-
-# Complete environment configuration; this chart has no shared values.yaml.
+  revision: f786d0cae09f7e93de4c9352543b722eddca8e09
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/uptime-monitor-api
@@ -18,49 +16,49 @@ images:
     pullPolicy: IfNotPresent
 registry:
   server: harbor.internal.api-api-api.com
-  vaultPath: apps/registry
+  vaultPath: apps/uptime-monitor/staging/registry
 vault:
   mount: kv
   authMount: kubernetes
-  role: uptime-monitor
-  envPath: apps/uptime-monitor
+  role: uptime-monitor-staging
+  envPath: apps/uptime-monitor/staging/env
   refreshAfter: 1m
 routes:
   gatewayName: public
   gatewayNamespace: networking
   gatewaySectionName: https
-  frontendHostname: uptime-general1.api-api-api.com
-  apiHostname: uptime-api-general1.api-api-api.com
+  frontendHostname: uptime-staging-general1.api-api-api.com
+  apiHostname: uptime-api-staging-general1.api-api-api.com
 storage:
   className: nfs-csi
-  postgresSize: 5Gi
+  postgresSize: 2Gi
   legacyRabbitmqSize: 2Gi
 resources:
   api:
     requests:
-      cpu: 25m
-      memory: 96Mi
+      cpu: 10m
+      memory: 32Mi
     limits:
       cpu: 250m
       memory: 256Mi
   worker:
     requests:
-      cpu: 25m
-      memory: 96Mi
+      cpu: 10m
+      memory: 32Mi
     limits:
       cpu: 250m
       memory: 256Mi
   scheduler:
     requests:
       cpu: 10m
-      memory: 64Mi
+      memory: 32Mi
     limits:
       cpu: 150m
       memory: 192Mi
   bot:
     requests:
       cpu: 10m
-      memory: 64Mi
+      memory: 32Mi
     limits:
       cpu: 150m
       memory: 192Mi
@@ -73,13 +71,12 @@ resources:
       memory: 128Mi
   postgres:
     requests:
-      cpu: 25m
-      memory: 128Mi
+      cpu: 10m
+      memory: 64Mi
     limits:
       cpu: 250m
       memory: 384Mi
-
 replicas:
-  bot: 1
+  bot: 0
 rabbitmq:
-  vhost: uptime-monitor
+  vhost: uptime-monitor-staging

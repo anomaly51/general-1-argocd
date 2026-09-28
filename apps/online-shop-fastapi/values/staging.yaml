@@ -1,0 +1,74 @@
+# Complete isolated environment; activated after the first CI release.
+_release:
+  revision: f786d0cae09f7e93de4c9352543b722eddca8e09
+replicas:
+  backend: 1
+  frontend: 1
+images:
+  backend:
+    repository: harbor.internal.api-api-api.com/applications/online-shop-fastapi
+    tag: sha-26a13af3f939
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: harbor.internal.api-api-api.com/applications/online-shop-frontend
+    tag: sha-26a13af3f939
+    pullPolicy: IfNotPresent
+  postgres:
+    repository: docker.io/library/postgres
+    tag: 16-alpine
+    pullPolicy: IfNotPresent
+registry:
+  server: harbor.internal.api-api-api.com
+  vaultPath: apps/online-shop-fastapi/staging/registry
+vault:
+  mount: kv
+  authMount: kubernetes
+  role: online-shop-fastapi-staging
+  envPath: apps/online-shop-fastapi/staging/env
+  refreshAfter: 1m
+routes:
+  gatewayName: public
+  gatewayNamespace: networking
+  gatewaySectionName: https
+  frontendHostname: online-shop-staging-general1.api-api-api.com
+  apiHostname: online-shop-api-staging-general1.api-api-api.com
+services:
+  backend:
+    port: 80
+    containerPort: 8000
+  frontend:
+    port: 80
+    containerPort: 80
+storage:
+  className: nfs-csi
+  postgresSize: 2Gi
+  uploadsSize: 2Gi
+resources:
+  backend:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 250m
+      memory: 320Mi
+  migration:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 150m
+      memory: 192Mi
+  frontend:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  postgres:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 384Mi
