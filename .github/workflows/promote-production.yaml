@@ -43,6 +43,7 @@ jobs:
     environment: production
     steps:
       - name: Require explicit release verification
+        if: inputs.dry_run == false
         env:
           VERIFIED: ${{ inputs.release_verified }}
         run: test "$VERIFIED" = true
