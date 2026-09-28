@@ -1,9 +1,15 @@
 _release:
-  revision: ccd32793828376539a29048135f6069da9994d6e
+  revision: 349c862ab314c96bc7bdd11435ec9d1d88b8abf9
+  sourceRepository: anomaly51/shisha-guid-frontend
+  sourceCommit: 2f3a3d37fe84643226a979eb04c8b3746841e50d
+  sourceBranch: dev
+  runUrl: https://github.com/anomaly51/shisha-guid-frontend/actions/runs/36481484333
+  imageKeys:
+  - image
 replicas: 1
 image:
   repository: harbor.internal.api-api-api.com/applications/shisha-guid-frontend
-  tag: sha-758c3dcb78c8
+  tag: sha-2f3a3d37fe84@sha256:113f03f14cdc0b7042ca1723131107062357c5c1afd29ee91bb2f181d41b3076
   pullPolicy: IfNotPresent
 registry:
   server: harbor.internal.api-api-api.com
