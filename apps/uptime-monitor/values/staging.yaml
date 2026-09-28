@@ -1,14 +1,20 @@
-# Complete isolated environment; activated after the first CI release.
 _release:
-  revision: f786d0cae09f7e93de4c9352543b722eddca8e09
+  revision: 03b4f5e834f17b3c9ef4d3733616c9a2f26e4a35
+  sourceRepository: anomaly51/uptime-monitor
+  sourceCommit: 3a4aea887928bdee1d82920dda164e3264edf781
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/uptime-monitor/actions/runs/36481034775
+  imageKeys:
+  - images.api
+  - images.frontend
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/uptime-monitor-api
-    tag: sha-ea2c079c282a
+    tag: sha-3a4aea887928@sha256:c04d99bb567ebb258b880703f8174e1b0e72c9bc8a710aa3dfdc7d5415900f97
     pullPolicy: IfNotPresent
   frontend:
     repository: harbor.internal.api-api-api.com/applications/uptime-monitor-frontend
-    tag: sha-ea2c079c282a
+    tag: sha-3a4aea887928@sha256:b612c4a164cb4b8996400cc45989966ec7021b263f65b753a7e7ca17d12cd6f2
     pullPolicy: IfNotPresent
   postgres:
     repository: docker.io/library/postgres
