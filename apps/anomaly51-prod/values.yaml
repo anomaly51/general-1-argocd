@@ -614,84 +614,6 @@ app:
             ports:
               - protocol: TCP
                 port: 8000
-    - apiVersion: batch/v1
-      kind: Job
-      metadata:
-        name: anomaly51-register-webhook
-        labels:
-          app.kubernetes.io/name: anomaly51-register-webhook
-          app.kubernetes.io/component: telegram
-          app.kubernetes.io/part-of: anomaly51
-        annotations:
-          argocd.argoproj.io/hook: PostSync
-          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
-          argocd.argoproj.io/sync-wave: "1"
-      spec:
-        backoffLimit: 5
-        activeDeadlineSeconds: 300
-        template:
-          metadata:
-            labels:
-              app.kubernetes.io/name: anomaly51-register-webhook
-              app.kubernetes.io/component: telegram
-              app.kubernetes.io/part-of: anomaly51
-          spec:
-            restartPolicy: Never
-            serviceAccountName: anomaly51-prod
-            automountServiceAccountToken: false
-            affinity:
-              nodeAffinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms:
-                    - matchExpressions:
-                        - key: node-role.kubernetes.io/control-plane
-                          operator: DoesNotExist
-            securityContext:
-              seccompProfile:
-                type: RuntimeDefault
-            containers:
-              - name: register
-                image: docker.io/curlimages/curl:8.12.1
-                imagePullPolicy: IfNotPresent
-                command:
-                  - sh
-                  - -ec
-                args:
-                  - |
-                    response="$(curl --silent --show-error --fail-with-body --retry 5 --retry-all-errors \
-                      --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
-                      --data-urlencode "url=https://anomaly51.api-api-api.com/api/telegram/webhook" \
-                      --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}" \
-                      --data-urlencode 'allowed_updates=["message","my_chat_member"]')"
-                    printf '%s' "$response" | grep -q '"ok":true'
-                env:
-                  - name: TELEGRAM_BOT_TOKEN
-                    valueFrom:
-                      secretKeyRef:
-                        name: anomaly51-env
-                        key: TELEGRAM_BOT_TOKEN
-                  - name: TELEGRAM_WEBHOOK_SECRET
-                    valueFrom:
-                      secretKeyRef:
-                        name: anomaly51-env
-                        key: TELEGRAM_WEBHOOK_SECRET
-                resources:
-                  requests:
-                    cpu: 5m
-                    memory: 16Mi
-                  limits:
-                    cpu: 50m
-                    memory: 32Mi
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  runAsNonRoot: true
-                  runAsUser: 101
-                  runAsGroup: 102
-                  capabilities:
-                    drop:
-                      - ALL
-    # Strimzi owns the broker PodSet, Services, certificates and retained PVC.
     - apiVersion: kafka.strimzi.io/v1
       kind: KafkaNodePool
       metadata:
@@ -799,7 +721,7 @@ app:
       spec:
         name: anomaly51
         defaultQueueType: quorum
-        deletionPolicy: retain
+        deletionPolicy: delete
         rabbitmqClusterReference:
           name: shared
           namespace: rabbitmq-system
@@ -912,90 +834,6 @@ app:
             port: 80
             targetPort: http
             appProtocol: http
-    - apiVersion: batch/v1
-      kind: Job
-      metadata:
-        name: anomaly51-user-migrate
-        labels:
-          app.kubernetes.io/name: anomaly51-user-migrate
-          app.kubernetes.io/component: migration
-          app.kubernetes.io/part-of: anomaly51
-        annotations:
-          argocd.argoproj.io/hook: Sync
-          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
-          argocd.argoproj.io/sync-wave: "-3"
-      spec:
-        backoffLimit: 2
-        activeDeadlineSeconds: 900
-        template:
-          metadata:
-            labels:
-              app.kubernetes.io/name: anomaly51-user-migrate
-              app.kubernetes.io/component: migration
-              app.kubernetes.io/part-of: anomaly51
-          spec:
-            restartPolicy: Never
-            serviceAccountName: anomaly51-prod
-            automountServiceAccountToken: false
-            affinity:
-              nodeAffinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms:
-                    - matchExpressions:
-                        - key: node-role.kubernetes.io/control-plane
-                          operator: DoesNotExist
-            imagePullSecrets:
-              - name: anomaly51-registry
-            securityContext:
-              seccompProfile:
-                type: RuntimeDefault
-            containers:
-              - name: migrate
-                image: __IMAGE_user__
-                imagePullPolicy: IfNotPresent
-                command:
-                  - sh
-                  - -ec
-                args:
-                  - |
-                    until node -e 'const u=new URL(process.env.DATABASE_URL);const s=require("node:net").createConnection({host:u.hostname,port:Number(u.port||5432)});s.setTimeout(2000);s.once("connect",()=>{s.end();process.exit(0)});const fail=()=>process.exit(1);s.once("error",fail);s.once("timeout",fail)'; do sleep 2; done
-                    exec node apps/user-service/dist/src/migrate.js
-                env:
-                  - name: NODE_ENV
-                    value: production
-                  - name: ALLOWED_ORIGINS
-                    value: https://anomaly51.api-api-api.com,https://anomaly51-api.api-api-api.com
-                  - name: REDIS_URL
-                    value: redis://anomaly51-redis-managed:6379
-                  - name: ENABLE_DEV_AUTH
-                    value: "false"
-                envFrom:
-                  - secretRef:
-                      name: anomaly51-env
-                resources:
-                  requests:
-                    cpu: 10m
-                    # One-shot hook; keep the limit realistic while allowing it to
-                    # schedule on the request-saturated development cluster.
-                    memory: 16Mi
-                  limits:
-                    cpu: 150m
-                    memory: 192Mi
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  runAsNonRoot: true
-                  runAsUser: 1000
-                  runAsGroup: 1000
-                  capabilities:
-                    drop:
-                      - ALL
-                volumeMounts:
-                  - name: tmp
-                    mountPath: /tmp
-            volumes:
-              - name: tmp
-                emptyDir: {}
     - apiVersion: apps/v1
       kind: Deployment
       metadata:
@@ -1007,7 +845,7 @@ app:
         annotations:
           argocd.argoproj.io/sync-wave: "0"
       spec:
-        replicas: 1
+        replicas: 0
         revisionHistoryLimit: 2
         strategy:
           type: RollingUpdate
@@ -1113,7 +951,7 @@ app:
         annotations:
           argocd.argoproj.io/sync-wave: "0"
       spec:
-        replicas: 1
+        replicas: 0
         revisionHistoryLimit: 2
         strategy:
           type: RollingUpdate
@@ -1234,7 +1072,7 @@ app:
         annotations:
           argocd.argoproj.io/sync-wave: "0"
       spec:
-        replicas: 1
+        replicas: 0
         revisionHistoryLimit: 2
         strategy:
           type: RollingUpdate
@@ -1361,7 +1199,7 @@ app:
         annotations:
           argocd.argoproj.io/sync-wave: "0"
       spec:
-        replicas: 1
+        replicas: 0
         revisionHistoryLimit: 2
         strategy:
           type: RollingUpdate
@@ -1473,192 +1311,6 @@ app:
                     memory: 48Mi
                   limits:
                     cpu: 300m
-                    memory: 256Mi
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  runAsNonRoot: true
-                  runAsUser: 1000
-                  runAsGroup: 1000
-                  capabilities:
-                    drop:
-                      - ALL
-                volumeMounts:
-                  - name: tmp
-                    mountPath: /tmp
-            volumes:
-              - name: tmp
-                emptyDir: {}
-    - apiVersion: batch/v1
-      kind: Job
-      metadata:
-        name: anomaly51-telegram-migrate
-        labels:
-          app.kubernetes.io/name: anomaly51-telegram-migrate
-          app.kubernetes.io/component: migration
-          app.kubernetes.io/part-of: anomaly51
-        annotations:
-          argocd.argoproj.io/hook: Sync
-          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
-          argocd.argoproj.io/sync-wave: "-2"
-      spec:
-        backoffLimit: 2
-        activeDeadlineSeconds: 900
-        template:
-          metadata:
-            labels:
-              app.kubernetes.io/name: anomaly51-telegram-migrate
-              app.kubernetes.io/component: migration
-              app.kubernetes.io/part-of: anomaly51
-          spec:
-            restartPolicy: Never
-            serviceAccountName: anomaly51-prod
-            automountServiceAccountToken: false
-            affinity:
-              nodeAffinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms:
-                    - matchExpressions:
-                        - key: node-role.kubernetes.io/control-plane
-                          operator: DoesNotExist
-            imagePullSecrets:
-              - name: anomaly51-registry
-            securityContext:
-              seccompProfile:
-                type: RuntimeDefault
-            containers:
-              - name: migrate
-                image: __IMAGE_telegram__
-                imagePullPolicy: IfNotPresent
-                command:
-                  - sh
-                  - -ec
-                args:
-                  - |
-                    until node -e 'const u=new URL(process.env.DATABASE_URL);const s=require("node:net").createConnection({host:u.hostname,port:Number(u.port||5432)});s.setTimeout(2000);s.once("connect",()=>{s.end();process.exit(0)});const fail=()=>process.exit(1);s.once("error",fail);s.once("timeout",fail)'; do sleep 2; done
-                    exec node apps/telegram-service/dist/src/migrate.js
-                env:
-                  - name: NODE_ENV
-                    value: production
-                  - name: REDIS_URL
-                    value: redis://anomaly51-redis-managed:6379
-                  - name: REDIS_REQUIRED
-                    value: "true"
-                  - name: KAFKA_BROKERS
-                    value: anomaly51-events-kafka-bootstrap:9092
-                  - name: BROKER_WORKERS_ENABLED
-                    value: "true"
-                  - name: USER_SERVICE_URL
-                    value: http://anomaly51-user-service
-                  - name: CASINO_SERVICE_URL
-                    value: http://anomaly51-casino-service
-                  - name: TELEGRAM_BOT_MODE
-                    value: webhook
-                  - name: TELEGRAM_PLAY_URL
-                    value: https://anomaly51.api-api-api.com
-                  - name: WEB_APP_URL
-                    value: https://anomaly51.api-api-api.com
-                envFrom:
-                  - secretRef:
-                      name: anomaly51-env
-                resources:
-                  requests:
-                    cpu: 10m
-                    # One-shot hook; keep the limit realistic while allowing it to
-                    # schedule on the request-saturated development cluster.
-                    memory: 16Mi
-                  limits:
-                    cpu: 150m
-                    memory: 192Mi
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  runAsNonRoot: true
-                  runAsUser: 1000
-                  runAsGroup: 1000
-                  capabilities:
-                    drop:
-                      - ALL
-                volumeMounts:
-                  - name: tmp
-                    mountPath: /tmp
-            volumes:
-              - name: tmp
-                emptyDir: {}
-    - apiVersion: batch/v1
-      kind: Job
-      metadata:
-        name: anomaly51-casino-migrate
-        labels:
-          app.kubernetes.io/name: anomaly51-casino-migrate
-          app.kubernetes.io/component: migration
-          app.kubernetes.io/part-of: anomaly51
-        annotations:
-          argocd.argoproj.io/hook: Sync
-          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
-          argocd.argoproj.io/sync-wave: "-1"
-      spec:
-        backoffLimit: 2
-        activeDeadlineSeconds: 900
-        template:
-          metadata:
-            labels:
-              app.kubernetes.io/name: anomaly51-casino-migrate
-              app.kubernetes.io/component: migration
-              app.kubernetes.io/part-of: anomaly51
-          spec:
-            restartPolicy: Never
-            serviceAccountName: anomaly51-prod
-            automountServiceAccountToken: false
-            affinity:
-              nodeAffinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms:
-                    - matchExpressions:
-                        - key: node-role.kubernetes.io/control-plane
-                          operator: DoesNotExist
-            imagePullSecrets:
-              - name: anomaly51-registry
-            securityContext:
-              seccompProfile:
-                type: RuntimeDefault
-            containers:
-              - name: migrate
-                image: __IMAGE_casino__
-                imagePullPolicy: IfNotPresent
-                command:
-                  - sh
-                  - -ec
-                args:
-                  - |
-                    until node -e 'const u=new URL(process.env.DATABASE_URL);const s=require("node:net").createConnection({host:u.hostname,port:Number(u.port||5432)});s.setTimeout(2000);s.once("connect",()=>{s.end();process.exit(0)});const fail=()=>process.exit(1);s.once("error",fail);s.once("timeout",fail)'; do sleep 2; done
-                    exec npm run prisma:migrate -w @anomaly51/casino-service
-                env:
-                  - name: NODE_ENV
-                    value: production
-                  - name: ALLOWED_ORIGINS
-                    value: https://anomaly51.api-api-api.com,https://anomaly51-api.api-api-api.com
-                  - name: REDIS_URL
-                    value: redis://anomaly51-redis-managed:6379
-                  - name: REDIS_REQUIRED
-                    value: "true"
-                  - name: BROKER_WORKERS_ENABLED
-                    value: "true"
-                  - name: KAFKA_BROKERS
-                    value: anomaly51-events-kafka-bootstrap:9092
-                  - name: NPM_CONFIG_CACHE
-                    value: /tmp/npm-cache
-                envFrom:
-                  - secretRef:
-                      name: anomaly51-env
-                resources:
-                  requests:
-                    cpu: 10m
-                    # One-shot hook; keep the limit realistic while allowing it to
-                    # schedule on the request-saturated development cluster.
-                    memory: 16Mi
-                  limits:
-                    cpu: 200m
                     memory: 256Mi
                 securityContext:
                   allowPrivilegeEscalation: false
