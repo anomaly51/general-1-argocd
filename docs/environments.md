@@ -12,19 +12,12 @@ products/                              # Actual deployment inventory/configurati
     environments/
       dev/                             # enabled: "false"
         deployment.yaml
-        backend.yaml
-        frontend.yaml
       staging/                         # enabled: "false"
         deployment.yaml
-        backend.yaml
-        frontend.yaml
       prod/                            # Existing production, enabled: "true"
         deployment.yaml
-        backend.yaml
-        frontend.yaml
   weatherbot-for-tg51/environments/prod/
     deployment.yaml
-    app.yaml
 cluster/applicationsets/apps.yaml
 scripts/environments.py
 .github/workflows/promote-production.yaml
@@ -38,9 +31,11 @@ already owned by ApplicationSet `apps`; standalone Juggluco and utility applicat
 keep their existing management.
 
 `deployment.yaml` holds product, environment, enabled state, destination namespace
-and component release versions. Component YAML files hold environment-specific
-settings (hosts, resources, Vault references, storage). `releaseValues` overrides
-chart image defaults. Git charts are pinned to full Git commit SHAs; Cutline's OCI
+and component definitions. Each component separates `environmentValues` (hosts,
+resources, Vault references, storage) from `releaseValues` (images). Argo CD merges
+these into inline Helm values, with release versions taking precedence. This also
+avoids the same-repository cross-revision `$values` limitation in the installed Argo
+CD. `releaseValues` overrides chart image defaults. Git charts are pinned to full Git commit SHAs; Cutline's OCI
 chart is pinned to the already deployed `0.1.12`, replacing the floating `0.1.*`.
 Existing image tags are preserved by this migration; registry tag immutability/digest
 support is not added here.
@@ -86,7 +81,8 @@ GitHub -> Actions -> **Promote production** -> **Run workflow** on `main`:
 
 The workflow copies **only the chart and image version fields** for all product
 components from the selected immutable Git snapshot into the current prod descriptor.
-It preserves prod namespace, domains, resources and Vault configuration. The normal
+It preserves prod namespace, domains, resources and `environmentValues`, including
+all Vault configuration. The normal
 repository `GITHUB_TOKEN` commits this change; no cluster credentials are needed.
 Argo CD auto-sync subsequently applies the desired release. A successful workflow
 commit is not proof of a completed rollout: check Argo CD health afterwards.

@@ -33,7 +33,7 @@ class EnvironmentsTest(unittest.TestCase):
         self.assertEqual(result["namespace"], before["namespace"])
         self.assertEqual(result["environment"], "prod")
         for old, new, source in zip(before["components"], result["components"], self.stage["components"]):
-            for key in ("applicationName", "releaseName", "component"):
+            for key in ("applicationName", "releaseName", "component", "environmentValues"):
                 self.assertEqual(new[key], old[key])
             for key in env.RELEASE_FIELDS:
                 self.assertEqual(new[key], source[key])
@@ -105,6 +105,8 @@ class EnvironmentsTest(unittest.TestCase):
             result = env.read(prod_path)
             self.assertEqual(result["components"][0]["chartRevision"], "a" * 40)
             self.assertEqual(result["promotedFrom"], selected)
+            for old, new in zip(self.prod["components"], result["components"]):
+                self.assertEqual(old["environmentValues"], new["environmentValues"])
             for name, content in settings.items():
                 if name != "deployment.yaml":
                     self.assertEqual(prod_path.with_name(name).read_bytes(), content)

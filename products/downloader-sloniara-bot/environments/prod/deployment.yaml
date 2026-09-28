@@ -1,3 +1,4 @@
+# Preserve existing production identity; promote only chart/image versions.
 product: downloader-sloniara-bot
 environment: prod
 enabled: 'true'
@@ -14,3 +15,11 @@ components:
     image:
       repository: ghcr.io/anomaly51/downloader-sloniara-bot
       tag: sha-8216e6637197547c38469c23ad4ab85c9e351185
+  environmentValues:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '2'
+        memory: 2Gi

@@ -67,7 +67,8 @@ def validate_descriptor(data, path, root):
         require(isinstance(c["releaseValues"], dict)
                 and set(c["releaseValues"]) <= {"image", "images"},
                 f"{path}: releaseValues may contain only image/images")
-        values = read(path.with_name(f"{name}.yaml"))
+        values = c["environmentValues"]
+        require(isinstance(values, dict), f"{path}: environmentValues must be a mapping")
         require(not ({"image", "images"} & set(values)),
                 f"{path}: image versions belong in deployment.yaml")
         if environment != "prod":
