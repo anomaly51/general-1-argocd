@@ -29,6 +29,8 @@ Source CI can read Argo status, but receives no production synchronization token
 Only the manual GitOps production workflow can retrieve that separate Argo
 project token. Vault paths: `ci/github-app`, `ci/harbor-applications`,
 `ci/argocd-status`, `ci/argocd-production`. Runtime app secrets are separately scoped.
+Runtime Vault policies also allow lookup, renewal and revocation of the caller's
+own token; Vault Secrets Operator requires these even with default policy disabled.
 Harbor and Argo credentials expire; rotate them in Vault before expiration.
 
 ## Optional environments
