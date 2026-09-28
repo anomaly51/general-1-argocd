@@ -1,0 +1,26 @@
+product: uptime-monitor
+environment: prod
+enabled: 'true'
+namespace: apps
+components:
+- component: app
+  applicationName: apps-uptime-monitor
+  releaseName: uptime-monitor
+  chartRepo: https://github.com/anomaly51/general-1-argocd.git
+  chartRevision: ccd32793828376539a29048135f6069da9994d6e
+  chartPath: apps/uptime-monitor
+  chartName: ''
+  releaseValues:
+    images:
+      api:
+        repository: harbor.internal.api-api-api.com/applications/uptime-monitor-api
+        tag: sha-ea2c079c282a
+        pullPolicy: IfNotPresent
+      frontend:
+        repository: harbor.internal.api-api-api.com/applications/uptime-monitor-frontend
+        tag: sha-ea2c079c282a
+        pullPolicy: IfNotPresent
+      postgres:
+        repository: docker.io/library/postgres
+        tag: 16-alpine
+        pullPolicy: IfNotPresent

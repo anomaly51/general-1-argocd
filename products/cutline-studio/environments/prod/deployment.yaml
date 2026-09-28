@@ -1,0 +1,28 @@
+product: cutline-studio
+environment: prod
+enabled: 'true'
+namespace: apps
+components:
+- component: app
+  applicationName: apps-cutline-studio
+  releaseName: cutline-studio
+  chartRepo: harbor.internal.api-api-api.com/cutline-studio
+  chartRevision: 0.1.12
+  chartPath: ''
+  chartName: cutline-studio
+  releaseValues:
+    images:
+      api:
+        repository: harbor.internal.api-api-api.com/cutline-studio/api
+        pullPolicy: IfNotPresent
+      frontend:
+        repository: harbor.internal.api-api-api.com/cutline-studio/frontend
+        pullPolicy: IfNotPresent
+      oauth2Proxy:
+        repository: quay.io/oauth2-proxy/oauth2-proxy
+        tag: v7.15.3
+        pullPolicy: IfNotPresent
+      postgres:
+        repository: docker.io/library/postgres
+        tag: 17-bookworm
+        pullPolicy: IfNotPresent
