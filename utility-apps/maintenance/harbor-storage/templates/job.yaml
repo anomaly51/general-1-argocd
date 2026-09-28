@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: harbor-storage
+data:
+  expand.py: |
+{{ .Files.Get "files/expand.py" | indent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: harbor-storage-v1
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      hostPID: true
+      nodeSelector:
+        kubernetes.io/hostname: general-1-worker-3
+      containers:
+        - name: expand
+          image: docker.io/library/debian:13-slim
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              # Execute the checked-in script with the host's existing LVM tools.
+              nsenter --target 1 --mount --uts --ipc --net --pid --root --wd -- /usr/bin/python3 - < /script/expand.py
+          securityContext:
+            privileged: true
+            readOnlyRootFilesystem: true
+          resources:
+            requests: {cpu: 25m, memory: 32Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+          volumeMounts:
+            - {name: script, mountPath: /script, readOnly: true}
+      volumes:
+        - name: script
+          configMap:
+            name: harbor-storage

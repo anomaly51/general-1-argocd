@@ -1,0 +1,5 @@
+apiVersion: v2
+name: harbor-storage
+description: Guarded online capacity expansion for the Harbor worker.
+type: application
+version: 0.1.0
