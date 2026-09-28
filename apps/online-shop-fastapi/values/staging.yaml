@@ -1,17 +1,23 @@
-# Complete isolated environment; activated after the first CI release.
 _release:
-  revision: f786d0cae09f7e93de4c9352543b722eddca8e09
+  revision: c16b25ad154da0e315e0b0875fdc71ce326b7198
+  sourceRepository: anomaly51/Online_SHOP-FastAPI
+  sourceCommit: 03968a62e33ec8737b7dde3accd9546360d166f2
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/Online_SHOP-FastAPI/actions/runs/36480939469
+  imageKeys:
+  - images.backend
+  - images.frontend
 replicas:
   backend: 1
   frontend: 1
 images:
   backend:
     repository: harbor.internal.api-api-api.com/applications/online-shop-fastapi
-    tag: sha-26a13af3f939
+    tag: sha-03968a62e33e@sha256:eb2e7b009b862fc93d696ca3f0ba1a6a4ed62b94bb31ddfffe54ca9230953edf
     pullPolicy: IfNotPresent
   frontend:
     repository: harbor.internal.api-api-api.com/applications/online-shop-frontend
-    tag: sha-26a13af3f939
+    tag: sha-03968a62e33e@sha256:c8b7eef2b38cb2becde873e7e09ffd846886cb9951f5a34362eeca1547965cf7
     pullPolicy: IfNotPresent
   postgres:
     repository: docker.io/library/postgres
