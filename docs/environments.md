@@ -93,3 +93,23 @@ Harbor's worker also has 64 GiB of additional persistent disk capacity, managed
 by `utility-apps/maintenance/harbor-storage`, because image uploads exhausted its
 original root disk. This storage is separate from swap and is included in VM
 backups. The CI worker in the utility cluster received a separate 64 GiB expansion.
+
+
+## Operational notes
+
+Shisha dev/staging pull MinIO from the private Harbor mirror because the original
+external image could not be pulled. The mirror was copied from the existing
+production image cache and verified against its SHA-256 manifest and layer
+digests. The one-time GitOps Job is in `utility-apps/maintenance/minio-mirror`.
+Production's existing MinIO image reference was preserved.
+
+The staging promotion path passed a real GitHub Actions dry run:
+[CRM staging verification](https://github.com/anomaly51/general-1-argocd/actions/runs/36494908785).
+This verifies credentials, the exact healthy staging rollout and the proposed
+production diff; it does not perform a production rollout.
+
+The control plane has also experienced intermittent k3s restarts following etcd
+latency and leader-election timeouts. Argo may report temporary API errors during
+these interruptions, including a misleading HTTP 403 when Kubernetes is not
+ready. A deployment workflow fails rather than claiming a verified release; rerun
+it once the API is healthy. Swap does not resolve control-plane disk latency.
