@@ -1,7 +1,6 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  # Preserve the existing controller and production Application identities.
   name: apps
   namespace: argocd
 spec:
@@ -9,27 +8,19 @@ spec:
   goTemplateOptions:
     - missingkey=error
   generators:
-    - matrix:
-        generators:
-          - git:
-              repoURL: https://github.com/anomaly51/general-1-argocd.git
-              revision: main
-              files:
-                - path: products/*/environments/*/deployment.yaml
-          - list:
-              elements: []
-              elementsYaml: '{{ .components | toJson }}'
-      selector:
-        matchLabels:
-          enabled: "true"
+    - git:
+        repoURL: https://github.com/anomaly51/general-1-argocd.git
+        revision: main
+        files:
+          # Bootstrap: activate dev/staging discovery after their first CI release.
+          - path: apps/*/values/prod.yaml
   template:
     metadata:
-      name: '{{ .applicationName }}'
+      name: '{{ if eq .path.filename "prod.yaml" }}apps-{{ index .path.segments 1 }}{{ else }}{{ index .path.segments 1 }}-{{ trimSuffix ".yaml" .path.filename }}{{ end }}'
       namespace: argocd
       labels:
-        app.kubernetes.io/part-of: '{{ .product }}'
-        app.kubernetes.io/component: '{{ .component }}'
-        gitops.api-api-api.com/environment: '{{ .environment }}'
+        app.kubernetes.io/name: '{{ index .path.segments 1 }}'
+        gitops.api-api-api.com/environment: '{{ trimSuffix ".yaml" .path.filename }}'
       finalizers:
         - resources-finalizer.argocd.argoproj.io
       annotations:
@@ -37,21 +28,28 @@ spec:
     spec:
       project: gitops-apps
       source:
-        repoURL: '{{ .chartRepo }}'
-        targetRevision: '{{ .chartRevision }}'
-        path: '{{ .chartPath }}'
-        chart: '{{ .chartName }}'
+        repoURL: '{{ dig "repository" "https://github.com/anomaly51/general-1-argocd.git" ._release }}'
+        targetRevision: '{{ ._release.revision }}'
+        path: '{{ if not (hasKey ._release "repository") }}apps/{{ index .path.segments 1 }}{{ end }}'
+        chart: '{{ if hasKey ._release "repository" }}{{ index .path.segments 1 }}{{ end }}'
         helm:
-          releaseName: '{{ .releaseName }}'
-          # Inline settings avoid cross-revision $values references to this repo.
-          # Versions are merged last; promotion never copies environment settings.
-          values: '{{ mergeOverwrite (deepCopy .environmentValues) .releaseValues | toJson }}'
+          releaseName: '{{ index .path.segments 1 }}'
+          # Embed values from main while keeping the chart pinned to its release.
+          values: '{{ omit . "_release" "path" | toJson }}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{ .namespace }}'
+        namespace: '{{ dig "namespace" (ternary "apps" (printf "%s-%s" (index .path.segments 1) (trimSuffix ".yaml" .path.filename)) (eq .path.filename "prod.yaml")) ._release }}'
+      syncPolicy:
+        managedNamespaceMetadata:
+          labels:
+            gateway.api-api-api.com/public: "true"
+        syncOptions:
+          - CreateNamespace=true
+  templatePatch: |
+    {{- if ne .path.filename "prod.yaml" }}
+    spec:
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
-        syncOptions:
-          - CreateNamespace=true
+    {{- end }}

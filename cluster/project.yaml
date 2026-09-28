@@ -17,6 +17,15 @@ spec:
     - group: "*"
       kind: "*"
   roles:
+    - name: ci-status
+      description: Read application status after a GitOps release.
+      policies:
+        - p, proj:gitops-apps:ci-status, applications, get, gitops-apps/*, allow
+    - name: production-promoter
+      description: Synchronize production only from the manual promotion workflow.
+      policies:
+        - p, proj:gitops-apps:production-promoter, applications, get, gitops-apps/*, allow
+        - p, proj:gitops-apps:production-promoter, applications, sync, gitops-apps/apps-*, allow
     - name: cutline-studio-ci
       description: Read-only rollout verification for Cutline Studio CI.
       jwtTokens:

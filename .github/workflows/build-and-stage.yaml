@@ -1,0 +1,227 @@
+name: Build images and update GitOps
+
+on:
+  workflow_call:
+    inputs:
+      application:
+        type: string
+        required: true
+      components:
+        description: JSON array of image keys, Dockerfiles, contexts and build arguments.
+        type: string
+        default: '[{"key":"image"}]'
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      environment: ${{ steps.plan.outputs.environment }}
+      tag: ${{ steps.plan.outputs.tag }}
+      branch_tag: ${{ steps.plan.outputs.branch_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: anomaly51/general-1-argocd
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install PyYAML==6.0.2
+      - id: plan
+        env:
+          APPLICATION: ${{ inputs.application }}
+          COMPONENTS: ${{ inputs.components }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          matrix="$(python .github/scripts/gitops_release.py plan --app "$APPLICATION" --components "$COMPONENTS")"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            echo "branch_tag=pr-sha-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+          else
+            echo "branch_tag=${GITHUB_REF_NAME}-sha-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+          fi
+          case "$GITHUB_REF" in
+            refs/heads/main) echo 'environment=staging' >> "$GITHUB_OUTPUT" ;;
+            refs/heads/dev) echo 'environment=dev' >> "$GITHUB_OUTPUT" ;;
+            *)
+              if [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then
+                echo 'Deploy only from main or dev'; exit 1
+              fi
+              ;;
+          esac
+
+  build:
+    needs: plan
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'arc-runner-set' }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Authenticate to Vault with this workflow's GitHub identity
+        id: vault
+        if: github.event_name != 'pull_request' && startsWith(matrix.repository, 'harbor.')
+        uses: hashicorp/vault-action@v3
+        with:
+          url: https://vault.internal.api-api-api.com
+          method: jwt
+          path: github
+          role: gitops-${{ inputs.application }}
+          jwtGithubAudience: gitops-ci
+          exportEnv: false
+          secrets: |
+            kv/data/ci/harbor-applications username | HARBOR_USERNAME ;
+            kv/data/ci/harbor-applications password | HARBOR_PASSWORD ;
+      - name: Login to Harbor
+        if: github.event_name != 'pull_request' && startsWith(matrix.repository, 'harbor.')
+        uses: docker/login-action@v3
+        with:
+          registry: harbor.internal.api-api-api.com
+          username: ${{ steps.vault.outputs.HARBOR_USERNAME }}
+          password: ${{ steps.vault.outputs.HARBOR_PASSWORD }}
+      - name: Login to GHCR for the existing downloader image
+        if: github.event_name != 'pull_request' && startsWith(matrix.repository, 'ghcr.io/')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/setup-buildx-action@v3
+        if: github.event_name == 'pull_request'
+      - uses: docker/setup-buildx-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          driver: remote
+          endpoint: tcp://arc-buildkit.arc-runners.svc.cluster.local:1234
+      - name: Build and publish the immutable source version
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ matrix.repository }}:${{ needs.plan.outputs.tag }}
+            ${{ matrix.repository }}:${{ needs.plan.outputs.branch_tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            io.gitops.source-branch=${{ github.ref_name }}
+          build-args: |
+            ${{ matrix.build_args }}
+            APP_VERSION=${{ needs.plan.outputs.tag }}
+            VCS_REF=${{ github.sha }}
+      - name: Record the pushed image digest
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE_KEY: ${{ matrix.key }}
+          IMAGE_REPOSITORY: ${{ matrix.repository }}
+          IMAGE_TAG: ${{ needs.plan.outputs.tag }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", os.environ["IMAGE_DIGEST"])
+          Path("release-image.json").write_text(json.dumps({
+              "key": os.environ["IMAGE_KEY"], "repository": os.environ["IMAGE_REPOSITORY"],
+              "tag": os.environ["IMAGE_TAG"], "digest": os.environ["IMAGE_DIGEST"]}))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: release-${{ matrix.id }}
+          path: release-image.json
+          retention-days: 30
+
+  publish:
+    needs: [plan, build]
+    if: github.event_name != 'pull_request'
+    environment: ${{ needs.plan.outputs.environment }}
+    runs-on: arc-runner-set
+    timeout-minutes: 30
+    steps:
+      - name: Get the GitHub App credentials and read-only rollout token
+        id: vault
+        uses: hashicorp/vault-action@v3
+        with:
+          url: https://vault.internal.api-api-api.com
+          method: jwt
+          path: github
+          role: gitops-${{ inputs.application }}
+          jwtGithubAudience: gitops-ci
+          exportEnv: false
+          secrets: |
+            kv/data/ci/github-app app_id | APP_ID ;
+            kv/data/ci/github-app private_key | APP_PRIVATE_KEY ;
+            kv/data/ci/argocd-status token | ARGOCD_AUTH_TOKEN ;
+      - name: Issue a short-lived token for only the GitOps repository
+        id: gitops-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ steps.vault.outputs.APP_ID }}
+          private-key: ${{ steps.vault.outputs.APP_PRIVATE_KEY }}
+          owner: anomaly51
+          repositories: general-1-argocd
+          permission-contents: write
+      - uses: actions/checkout@v4
+        with:
+          repository: anomaly51/general-1-argocd
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.gitops-token.outputs.token }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install PyYAML==6.0.2
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: ${{ runner.temp }}/release-images
+      - name: Collect component metadata
+        env:
+          RELEASE_IMAGES: ${{ runner.temp }}/release-images
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          root = Path(os.environ["RELEASE_IMAGES"])
+          for path in root.glob("*/release-image.json"):
+              (root / (path.parent.name + ".json")).write_text(path.read_text())
+          PY
+      - name: Commit only the selected non-production profile
+        id: release
+        env:
+          APPLICATION: ${{ inputs.application }}
+          ENVIRONMENT: ${{ needs.plan.outputs.environment }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          python .github/scripts/gitops_release.py publish \
+            --app "$APPLICATION" --environment "$ENVIRONMENT" \
+            --images "$RUNNER_TEMP/release-images"
+      - name: Wait for this exact release to become healthy
+        if: steps.release.outputs.commit != '' && steps.release.outputs.active == 'true'
+        env:
+          APPLICATION: ${{ inputs.application }}
+          ENVIRONMENT: ${{ needs.plan.outputs.environment }}
+          ARGOCD_SERVER: https://argocd.internal.api-api-api.com
+          ARGOCD_AUTH_TOKEN: ${{ steps.vault.outputs.ARGOCD_AUTH_TOKEN }}
+        run: python .github/scripts/argocd_release.py wait --app "$APPLICATION" --environment "$ENVIRONMENT"
