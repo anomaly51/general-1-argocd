@@ -1,5 +1,0 @@
-apiVersion: v2
-name: anomaly51-retirement
-description: Temporary ownership of seven retained Anomaly51 storage resources for GitOps deletion.
-type: application
-version: 0.1.0
