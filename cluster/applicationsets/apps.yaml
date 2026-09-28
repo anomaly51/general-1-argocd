@@ -1,6 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
+  # Preserve the existing controller and production Application identities.
   name: apps
   namespace: argocd
 spec:
@@ -8,55 +9,53 @@ spec:
   goTemplateOptions:
     - missingkey=error
   generators:
-    - git:
-        repoURL: https://github.com/anomaly51/general-1-argocd.git
-        revision: main
-        directories:
-          - path: apps/*
-        values:
-          # Tested OCI chart versions own API/frontend tags; GitOps owns config.
-          # Only Cutline uses this override; every other app stays Git-sourced.
-          cutlineOCIEnabled: "true"
+    - matrix:
+        generators:
+          - git:
+              repoURL: https://github.com/anomaly51/general-1-argocd.git
+              revision: main
+              files:
+                - path: products/*/environments/*/deployment.yaml
+          - list:
+              elements: []
+              elementsYaml: '{{ .components | toJson }}'
+      selector:
+        matchLabels:
+          enabled: "true"
   template:
     metadata:
-      name: "apps-{{ .path.basenameNormalized }}"
+      name: '{{ .applicationName }}'
       namespace: argocd
+      labels:
+        app.kubernetes.io/part-of: '{{ .product }}'
+        app.kubernetes.io/component: '{{ .component }}'
+        gitops.api-api-api.com/environment: '{{ .environment }}'
       finalizers:
         - resources-finalizer.argocd.argoproj.io
       annotations:
         argocd.argoproj.io/compare-options: ServerSideDiff=true
     spec:
       project: gitops-apps
-      source:
-        repoURL: https://github.com/anomaly51/general-1-argocd.git
-        targetRevision: main
-        path: "{{ .path.path }}"
-        helm:
-          releaseName: "{{ .path.basenameNormalized }}"
+      sources:
+        - repoURL: '{{ .chartRepo }}'
+          targetRevision: '{{ .chartRevision }}'
+          path: '{{ .chartPath }}'
+          chart: '{{ .chartName }}'
+          helm:
+            releaseName: '{{ .releaseName }}'
+            valueFiles:
+              - '$values/{{ .path.path }}/{{ .component }}.yaml'
+            # Release versions override environment settings.
+            values: '{{ .releaseValues | toJson }}'
+        - repoURL: https://github.com/anomaly51/general-1-argocd.git
+          targetRevision: main
+          ref: values
       destination:
         server: https://kubernetes.default.svc
-        namespace: apps
+        namespace: '{{ .namespace }}'
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
-  templatePatch: |
-    {{- if and (eq .path.basenameNormalized "cutline-studio") (eq .values.cutlineOCIEnabled "true") }}
-    spec:
-      source: null
-      sources:
-        - repoURL: harbor.internal.api-api-api.com/cutline-studio
-          chart: cutline-studio
-          targetRevision: "0.1.*"
-          helm:
-            releaseName: cutline-studio
-            valueFiles:
-              - $values/apps/cutline-studio/values.yaml
-        - repoURL: https://github.com/anomaly51/general-1-argocd.git
-          targetRevision: main
-          ref: values
-    {{- else }}
-    {}
-    {{- end }}
