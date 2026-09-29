@@ -1,14 +1,16 @@
-# Chart version used by Argo CD; the remaining keys are Helm values.
 _release:
   policy: prod-only
   sourceRepository: anomaly51/bot_motivation
   revision: ccd32793828376539a29048135f6069da9994d6e
-
-# Complete environment configuration; this chart has no shared values.yaml.
+  sourceCommit: 39d7c6b25d822ed78a8cd7940a139be01b90bff8
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/bot_motivation/actions/runs/36565641954
+  imageKeys:
+  - image
 replicas: 1
 image:
   repository: harbor.internal.api-api-api.com/applications/bot-motivation
-  tag: sha-2b54a1ae7a59
+  tag: sha-39d7c6b25d82@sha256:0f99fc0708d6e16967b723a0a122603d3b46c5c6d2bdad236f575a49c93df85e
   pullPolicy: IfNotPresent
 registry:
   server: harbor.internal.api-api-api.com
