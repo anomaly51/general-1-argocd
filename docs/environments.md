@@ -76,7 +76,7 @@ failed workflow. There is no automatic rollback of database migrations or data.
 ## Configured environments
 
 Source workflows and main/dev branches are installed in all ten repositories.
-Production retains its existing chart/image revisions and manual synchronization.
+Production uses pinned chart/image revisions and manual synchronization.
 Argo discovers isolated dev/staging profiles for Shisha backend/frontend, CRM,
 Online Shop and Uptime Monitor. Uptime uses separate RabbitMQ users/vhosts; its
 non-production bot has zero replicas and no Telegram token. Optional production
@@ -104,6 +104,24 @@ backups. The CI worker in the utility cluster received a separate 64 GiB expansi
 
 
 ## Operational notes
+
+Swear Moderation's developer still works in
+`Gamubells/telegram-SwearModeration-bot` on `master`. The deployment repository
+`anomaly51/telegram-SwearModeration-bot` runs **Sync upstream** every five minutes
+(GitHub scheduling can be delayed), with a manual **Run workflow** option.
+It merges upstream history into `main`, preserves the local `.github/` configuration
+and deployment guide, and fails safely on application-code conflicts. It explicitly
+starts CI after a merge because `GITHUB_TOKEN` pushes do not trigger push workflows.
+Our account has read-only access to the upstream repo, so its webhook cannot be
+installed with the current permissions. Successful synchronization/building is not
+a production deployment: this prod-only bot still uses **Promote production** with
+the full synchronized `anomaly51` source SHA.
+
+The Swear Moderation chart now checks `/app/healthcheck.py` for observed successful
+Telegram polling and a healthy instance lock. Use this chart only with images
+containing upstream commit `426b1107a8f20d1420ce22d89c4cc9382872490c` or later.
+A second copy using the same Telegram token and a different database must be
+stopped separately; the database lock coordinates only copies sharing that database.
 
 Shisha dev/staging pull MinIO from the private Harbor mirror because the original
 external image could not be pulled. The mirror was copied from the existing

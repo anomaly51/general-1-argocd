@@ -328,9 +328,13 @@ spec:
             failureThreshold: 30
             periodSeconds: 2
           readinessProbe:
-            tcpSocket:
-              port: metrics
-            periodSeconds: 10
+            exec:
+              command:
+                - python
+                - /app/healthcheck.py
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 1
           livenessProbe:
             tcpSocket:
               port: metrics
