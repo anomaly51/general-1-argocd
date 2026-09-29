@@ -2,15 +2,15 @@ _release:
   policy: prod-only
   revision: e627f344be66623d0caf54b9f0fbbf6e2c0ce468
   sourceRepository: anomaly51/telegram-SwearModeration-bot
-  sourceCommit: 3ba3335f2d326ce68df1c532ae542d09450e17a0
+  sourceCommit: 61a71cbf61c1b85f29ec2ba4c7fd4bb86e5d5cbd
   sourceBranch: main
-  runUrl: https://github.com/anomaly51/telegram-SwearModeration-bot/commit/3ba3335f2d326ce68df1c532ae542d09450e17a0
+  runUrl: https://github.com/anomaly51/telegram-SwearModeration-bot/actions/runs/36565649436
   imageKeys:
   - image
 replicas: 1
 image:
   repository: harbor.internal.api-api-api.com/applications/telegram-swearmoderation-bot
-  tag: sha-3ba3335f2d32@sha256:2b64a71b8088bc5adab69553e4662341983d37b3cc1dc224a666c69724040fff
+  tag: sha-61a71cbf61c1@sha256:6247395decbd9d773d2119ad2e740a9d9ee011965e5cf07b76e0a828cbb7aa2d
   pullPolicy: IfNotPresent
 resources:
   requests:
