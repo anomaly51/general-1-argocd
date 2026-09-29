@@ -7,6 +7,9 @@ and `utility-apps` Git generators after CI or a user pushes to main. It does not
 grant permission to synchronize production. The normal Git polling remains a
 fallback when a delivery fails.
 
+Repository webhook ID: `688041086`. Delivery status and redelivery are available
+in [GitHub webhook settings](https://github.com/anomaly51/general-1-argocd/settings/hooks/688041086).
+
 The public HTTPRoute accepts only POST on exactly `/api/webhook` and forwards to
 the ApplicationSet controller's existing port 7000. It does not expose Argo's
 UI/API or controller metrics. GitHub signs deliveries using a random shared secret
