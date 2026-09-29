@@ -1,12 +1,15 @@
-# Chart version used by Argo CD; the remaining keys are Helm values.
 _release:
-  revision: ccd32793828376539a29048135f6069da9994d6e
-
-# Complete environment configuration; this chart has no shared values.yaml.
+  revision: 5e4632d2e4394580b92fc2a6c33f3321710a4fed
+  sourceRepository: anomaly51/telegram-SwearModeration-bot
+  sourceCommit: 3ba3335f2d326ce68df1c532ae542d09450e17a0
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/telegram-SwearModeration-bot/commit/3ba3335f2d326ce68df1c532ae542d09450e17a0
+  imageKeys:
+  - image
 replicas: 1
 image:
   repository: harbor.internal.api-api-api.com/applications/telegram-swearmoderation-bot
-  tag: sha-e9324365a465
+  tag: sha-3ba3335f2d32@sha256:2b64a71b8088bc5adab69553e4662341983d37b3cc1dc224a666c69724040fff
   pullPolicy: IfNotPresent
 resources:
   requests:
