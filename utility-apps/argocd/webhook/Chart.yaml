@@ -1,0 +1,5 @@
+apiVersion: v2
+name: webhook
+description: Signed GitHub push events for the ApplicationSet Git generators.
+type: application
+version: 0.1.0

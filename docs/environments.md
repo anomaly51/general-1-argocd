@@ -5,7 +5,9 @@
 1. Push source code to `dev`: CI builds/pushes image(s), obtains registry digests,
    then commits only `apps/<app>/values/dev.yaml` to GitOps main.
 2. Push source code to `main`: same process for `staging.yaml`.
-3. Argo CD discovers profiles and automatically reconciles dev/staging.
+3. A signed GitHub push webhook refreshes the ApplicationSet immediately after
+   the GitOps commit. Argo CD discovers profiles and automatically reconciles
+   dev/staging. The normal polling interval remains a fallback.
 4. Test staging and copy the full GitOps commit SHA from the CI release log.
 5. GitOps → Actions → **Promote production** → **Run workflow**. Enter application
    and staging_commit, check release_verified, review dry_run first, then run with
@@ -16,6 +18,12 @@
 Production has no automatic synchronization. An ordinary commit to GitOps main
 does not deploy production; the manual workflow is the deployment button.
 Authorized Argo administrators can still synchronize manually. No preview envs.
+
+The webhook is configured once on `general-1-argocd`; source repositories need no
+additional webhook because their CI commits the release to GitOps. Its endpoint
+is `https://argocd-webhook-general1.api-api-api.com/api/webhook`. Delivery triggers
+reconciliation, while image download and application readiness still take time.
+See [webhook operations](../utility-apps/argocd/webhook/README.md).
 
 ## GitHub / Vault access
 
