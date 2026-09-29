@@ -1,5 +1,5 @@
 _release:
-  revision: 5e4632d2e4394580b92fc2a6c33f3321710a4fed
+  revision: e627f344be66623d0caf54b9f0fbbf6e2c0ce468
   sourceRepository: anomaly51/telegram-SwearModeration-bot
   sourceCommit: 3ba3335f2d326ce68df1c532ae542d09450e17a0
   sourceBranch: main
