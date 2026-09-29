@@ -1,5 +1,7 @@
 # Chart version used by Argo CD; the remaining keys are Helm values.
 _release:
+  policy: prod-only
+  sourceRepository: anomaly51/WeatherBotForTg51
   revision: ccd32793828376539a29048135f6069da9994d6e
 
 # Complete environment configuration; this chart has no shared values.yaml.

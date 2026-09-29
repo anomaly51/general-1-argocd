@@ -18,6 +18,8 @@ from registry_release import Registry
 
 
 def promoted_values(production: dict, staging: dict, commit: str) -> dict:
+    if production["_release"].get("policy") == "prod-only":
+        raise ValueError("Prod-only bots deploy automatically from main; Promote is not used")
     source, target = staging["_release"], production["_release"]
     if source.get("repository") != target.get("repository"):
         raise ValueError("Changing chart source needs an explicit migration")
@@ -70,6 +72,8 @@ def validate_chart(app: str, values: dict) -> None:
 
 
 def production_only(app: str, production: dict, source_commit: str, chart_version: str | None) -> dict:
+    if production["_release"].get("policy") == "prod-only":
+        raise ValueError("Prod-only bots deploy automatically from main; Promote is not used")
     if profile(app, "staging").exists():
         raise ValueError("This application has staging; promote its healthy staging snapshot")
     if not SHA.fullmatch(source_commit):

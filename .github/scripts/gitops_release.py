@@ -1,4 +1,4 @@
-"""Publish immutable application images to an existing non-production profile."""
+"""Publish immutable images according to the application's deployment policy."""
 from __future__ import annotations
 
 import argparse
@@ -27,6 +27,38 @@ def profile(app: str, environment: str) -> Path:
     if not SLUG.fullmatch(app) or environment not in {"dev", "staging", "prod"}:
         raise ValueError("Invalid application or environment")
     return Path("apps") / app / "values" / f"{environment}.yaml"
+
+
+def deployment_policy(app: str) -> dict:
+    release = yaml.safe_load(profile(app, "prod").read_text())["_release"]
+    if release.get("policy", "promote") not in {"promote", "prod-only"}:
+        raise ValueError("Unknown deployment policy")
+    return release
+
+
+def automatic_environment(app: str, branch: str, event: str) -> str:
+    policy = deployment_policy(app)
+    if event == "pull_request":
+        return ""  # Pull requests build without publishing or deployment credentials.
+    if policy.get("policy") == "prod-only":
+        if branch != "main" or event != "push":
+            raise ValueError("Prod-only bots deploy exclusively from a push to main")
+        return "prod"
+    environment = {"main": "staging", "dev": "dev"}.get(branch)
+    if not environment or event not in {"push", "workflow_dispatch"}:
+        raise ValueError("Only main and dev may publish application environments")
+    return environment
+
+
+def validate_automatic_release(app: str, environment: str, source: dict) -> None:
+    if environment != automatic_environment(app, source["branch"], source["event"]):
+        raise ValueError("The selected environment does not match the deployment policy")
+    policy = deployment_policy(app)
+    if policy.get("policy") == "prod-only":
+        if source["repository"] != policy.get("sourceRepository"):
+            raise ValueError("Only the bot's configured source repository may publish production")
+        if any(profile(app, env).exists() for env in ("dev", "staging")):
+            raise ValueError("Prod-only bots cannot have dev or staging profiles")
 
 
 def image_at(values: dict, key: str) -> dict:
@@ -97,9 +129,7 @@ def release_output(environment: str) -> None:
 
 
 def publish(app: str, environment: str, images: list[dict], source: dict, chart_revision: str | None) -> None:
-    expected_environment = {"main": "staging", "dev": "dev"}.get(source["branch"])
-    if environment != expected_environment:
-        raise ValueError("Automatic CI may only write dev→dev or main→staging; never prod")
+    validate_automatic_release(app, environment, source)
     path = profile(app, environment)
     for attempt in range(5):
         request = urllib.request.Request(
@@ -113,11 +143,16 @@ def publish(app: str, environment: str, images: list[dict], source: dict, chart_
         # This command runs in a disposable CI checkout; retry from current remote main.
         subprocess.run(["git", "fetch", "origin", "main"], check=True)
         subprocess.run(["git", "reset", "--hard", "origin/main"], check=True)
+        validate_automatic_release(app, environment, source)
         if not path.exists():
             print(f"{app}/{environment} has no profile: images were published, no environment was created.")
             return
         values = yaml.safe_load(path.read_text())
-        revision = chart_revision or (values["_release"]["revision"] if "repository" in values["_release"] else git("rev-parse", "HEAD"))
+        # Automatic production updates image digests; chart changes remain explicit GitOps changes.
+        if environment == "prod" and chart_revision and chart_revision != values["_release"]["revision"]:
+            raise ValueError("Automatic production cannot override the configured chart pin")
+        revision = chart_revision or (values["_release"]["revision"]
+            if environment == "prod" or "repository" in values["_release"] else git("rev-parse", "HEAD"))
         updated = updated_profile(values, images, source, revision)
         if updated == values:
             print("This release is already recorded.")
@@ -143,18 +178,25 @@ def main() -> None:
     plan = commands.add_parser("plan")
     plan.add_argument("--app", required=True)
     plan.add_argument("--components", required=True)
+    environment_parser = commands.add_parser("environment")
+    environment_parser.add_argument("--app", required=True)
+    environment_parser.add_argument("--branch", required=True)
+    environment_parser.add_argument("--event", required=True)
     publish_parser = commands.add_parser("publish")
     publish_parser.add_argument("--app", required=True)
-    publish_parser.add_argument("--environment", required=True, choices=["dev", "staging"])
+    publish_parser.add_argument("--environment", required=True, choices=["dev", "staging", "prod"])
     publish_parser.add_argument("--images", type=Path, required=True)
     publish_parser.add_argument("--chart-revision")
     args = parser.parse_args()
     if args.command == "plan":
         print(json.dumps(build_plan(args.app, json.loads(args.components)), separators=(",", ":")))
+    elif args.command == "environment":
+        print(automatic_environment(args.app, args.branch, args.event))
     else:
         images = [json.loads(path.read_text()) for path in sorted(args.images.glob("*.json"))]
         source = {"repository": os.environ["GITHUB_REPOSITORY"], "commit": os.environ["GITHUB_SHA"],
                   "branch": os.environ["GITHUB_REF_NAME"],
+                  "event": os.environ["GITHUB_EVENT_NAME"],
                   "run_url": f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{os.environ["GITHUB_RUN_ID"]}'}
         publish(args.app, args.environment, images, source, args.chart_revision)
 

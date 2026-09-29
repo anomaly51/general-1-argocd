@@ -49,15 +49,9 @@ jobs:
           else
             echo "branch_tag=${GITHUB_REF_NAME}-sha-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
           fi
-          case "$GITHUB_REF" in
-            refs/heads/main) echo 'environment=staging' >> "$GITHUB_OUTPUT" ;;
-            refs/heads/dev) echo 'environment=dev' >> "$GITHUB_OUTPUT" ;;
-            *)
-              if [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then
-                echo 'Deploy only from main or dev'; exit 1
-              fi
-              ;;
-          esac
+          environment="$(python .github/scripts/gitops_release.py environment \
+            --app "$APPLICATION" --branch "$GITHUB_REF_NAME" --event "$GITHUB_EVENT_NAME")"
+          echo "environment=$environment" >> "$GITHUB_OUTPUT"
 
   build:
     needs: plan
@@ -203,7 +197,7 @@ jobs:
           for path in root.glob("*/release-image.json"):
               (root / (path.parent.name + ".json")).write_text(path.read_text())
           PY
-      - name: Commit only the selected non-production profile
+      - name: Commit the profile allowed by the application deployment policy
         id: release
         env:
           APPLICATION: ${{ inputs.application }}

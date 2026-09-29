@@ -15,6 +15,11 @@ spec:
           - path: apps/*/values/prod.yaml
           - path: apps/*/values/dev.yaml
           - path: apps/*/values/staging.yaml
+          # Standalone bot chart names contain "bot". Never discover their non-prod profiles.
+          - path: apps/*bot*/values/dev.yaml
+            exclude: true
+          - path: apps/*bot*/values/staging.yaml
+            exclude: true
   template:
     metadata:
       name: '{{ if eq .path.filename "prod.yaml" }}apps-{{ index .path.segments 1 }}{{ else }}{{ index .path.segments 1 }}-{{ trimSuffix ".yaml" .path.filename }}{{ end }}'
@@ -44,12 +49,14 @@ spec:
         syncOptions:
           - CreateNamespace=true
   templatePatch: |
-    {{- if ne .path.filename "prod.yaml" }}
+    {{- if or (ne .path.filename "prod.yaml") (eq (dig "policy" "promote" ._release) "prod-only") }}
     spec:
       syncPolicy:
+        {{- if ne .path.filename "prod.yaml" }}
         managedNamespaceMetadata:
           labels:
             gateway.api-api-api.com/public: "true"
+        {{- end }}
         automated:
           prune: true
           selfHeal: true

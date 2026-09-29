@@ -2,6 +2,15 @@
 
 ## Deployment flow
 
+Standalone Telegram bots use **main → CI → prod.yaml commit → automatic Argo CD sync**.
+They have only `values/prod.yaml`, with `_release.policy: prod-only` and the exact
+`sourceRepository`. Only a push to that repository's `main` may publish production.
+CI retains the configured chart pin, updates immutable image digests, then waits
+for the actual rollout. Pull requests run checks/builds only. There is no Promote
+step and no dev/staging environment for these bots.
+
+Other applications keep this flow:
+
 1. Push source code to `dev`: CI builds/pushes image(s), obtains registry digests,
    then commits only `apps/<app>/values/dev.yaml` to GitOps main.
 2. Push source code to `main`: same process for `staging.yaml`.
@@ -15,8 +24,8 @@
    configuration, commits prod.yaml, explicitly synchronizes production and waits
    for the current live deployments to have the expected image digests.
 
-Production has no automatic synchronization. An ordinary commit to GitOps main
-does not deploy production; the manual workflow is the deployment button.
+Production for other applications has no automatic synchronization. For them,
+the manual workflow is the deployment button.
 Authorized Argo administrators can still synchronize manually. No preview envs.
 
 The webhook is configured once on `general-1-argocd`; source repositories need no
@@ -28,7 +37,8 @@ See [webhook operations](../utility-apps/argocd/webhook/README.md).
 ## GitHub / Vault access
 
 Source jobs obtain a short-lived Vault token through GitHub OIDC. Vault checks
-the source repository, main/dev ref, event and trusted workflow identity. No
+the source repository, allowed ref, event and trusted workflow identity. Bot roles
+accept only main/push; other source roles accept main/dev. No
 repository contains a personal access token. A GitHub App installed only on
 `general-1-argocd` grants Contents write. Its private key is kept in Vault; Actions
 creates a short-lived installation token and revokes it after the job.
@@ -43,13 +53,16 @@ Harbor and Argo credentials expire; rotate them in Vault before expiration.
 
 ## Optional environments
 
-An absent values profile means build/publish only. To add an environment, create
+For applications other than standalone bots, an absent values profile means
+build/publish only. To add an environment, create
 its complete values profile, namespace/Vault role and isolated secrets first.
-The ApplicationSet uses three glob patterns, never an application list. Do not
-reuse a production database or Telegram token. Standalone Telegram bots stay
-prod-only until separate dev/staging bot identities are supplied.
+The ApplicationSet uses glob patterns, never an application list. Standalone bot
+chart directories contain `bot`; their dev/staging paths are explicitly excluded
+from discovery. CI also rejects these profiles and any bot deployment from dev.
+Separate development tokens do not enable additional environments for these bots.
 
-For a prod-only app, use source_commit instead of staging_commit in Promote.
+For a manual-production app without staging (such as Cutline), use source_commit
+instead of staging_commit in Promote. Automatic prod-only bots reject Promote.
 The workflow verifies immutable images published under main-sha-<12 characters>
 and their full source revision. For prod-only OCI charts, also supply chart_version;
 its source annotations and component digests must match. This path is rejected
@@ -75,14 +88,15 @@ failed workflow. There is no automatic rollback of database migrations or data.
 
 ## Configured environments
 
-Source workflows and main/dev branches are installed in all ten repositories.
-Production uses pinned chart/image revisions and manual synchronization.
+Source workflows are installed in all ten repositories. Standalone bot workflows
+trigger only for main and pull requests targeting main; their sole GitHub
+Environment is prod. Production uses pinned chart/image revisions.
 Argo discovers isolated dev/staging profiles for Shisha backend/frontend, CRM,
 Online Shop and Uptime Monitor. Uptime uses separate RabbitMQ users/vhosts; its
 non-production bot has zero replicas and no Telegram token. Optional production
 email, payment and Google OAuth credentials are excluded from these test profiles.
 Cutline remains prod-only until separate owner-gated OIDC providers are configured.
-Standalone Telegram bots remain prod-only until separate bot tokens are supplied.
+Standalone Telegram bots are permanently prod-only under the current policy.
 The GitHub App `anomaly51-gitops-ci` is installed only on `general-1-argocd`;
 its validated private key is stored in Vault. Initial profile images are pinned
 to digests published by the source CI workflows.

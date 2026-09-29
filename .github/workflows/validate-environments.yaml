@@ -34,7 +34,10 @@ jobs:
           appset = yaml.safe_load(Path("cluster/applicationsets/apps.yaml").read_text())
           generators = appset["spec"]["generators"]
           assert len(generators) == 1 and set(generators[0]) == {"git"}, "Use automatic Git discovery"
-          patterns = [entry["path"] for entry in generators[0]["git"]["files"]]
+          entries = generators[0]["git"]["files"]
+          patterns = [entry["path"] for entry in entries if not entry.get("exclude")]
+          exclusions = {entry["path"] for entry in entries if entry.get("exclude")}
+          assert exclusions == {f"apps/*bot*/values/{env}.yaml" for env in ("dev", "staging")}
           assert patterns and len(patterns) == len(set(patterns)), "Duplicate discovery pattern"
           assert set(patterns) <= {f"apps/*/values/{env}.yaml" for env in ("dev", "staging", "prod")}
           for pattern in patterns:
@@ -47,6 +50,15 @@ jobs:
               assert not (folder / "values.yaml").exists(), "No shared values.yaml"
               profiles = list((folder / "values").glob("*.yaml"))
               assert profiles, f"No environment profiles for {folder}"
+              production = yaml.safe_load((folder / "values/prod.yaml").read_text())
+              policy = production["_release"].get("policy", "promote")
+              assert policy in {"promote", "prod-only"}
+              if "bot" in folder.name:
+                  assert policy == "prod-only", "Standalone bots must be prod-only"
+              if policy == "prod-only":
+                  assert "bot" in folder.name, "Prod-only bot names must match the AppSet exclusion"
+                  assert {path.stem for path in profiles} == {"prod"}, "Bots cannot have dev/staging"
+                  assert re.fullmatch(r"anomaly51/[A-Za-z0-9_.-]+", production["_release"]["sourceRepository"])
               for path in profiles:
                   assert path.stem in {"dev", "staging", "prod"}
                   values = yaml.safe_load(path.read_text())
@@ -54,7 +66,7 @@ jobs:
                   assert "path" not in values, "path is reserved by the Git generator"
                   release = values["_release"]
                   assert isinstance(release, dict), f"Missing chart release in {path}"
-                  assert set(release) <= {"revision", "repository", "namespace", "promotedFrom", "sourceRepository", "sourceCommit", "sourceBranch", "runUrl", "imageKeys"}
+                  assert set(release) <= {"revision", "repository", "namespace", "promotedFrom", "sourceRepository", "sourceCommit", "sourceBranch", "runUrl", "imageKeys", "policy"}
                   pattern = r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?" if "repository" in release else r"[0-9a-f]{40}"
                   assert re.fullmatch(pattern, str(release["revision"])), f"Pin an exact chart version in {path}"
                   if "repository" in release:
