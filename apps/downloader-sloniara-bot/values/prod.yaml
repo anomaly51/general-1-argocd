@@ -1,13 +1,15 @@
-# Chart version used by Argo CD; the remaining keys are Helm values.
 _release:
   policy: prod-only
   sourceRepository: anomaly51/downloader_sloniara_bot
   revision: ccd32793828376539a29048135f6069da9994d6e
-
-# Complete environment configuration; this chart has no shared values.yaml.
+  sourceCommit: 6c902174be562f6ce4e1bb87c80db0fcd8c98b72
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/downloader_sloniara_bot/actions/runs/36565646694
+  imageKeys:
+  - image
 image:
   repository: ghcr.io/anomaly51/downloader-sloniara-bot
-  tag: sha-8216e6637197547c38469c23ad4ab85c9e351185
+  tag: sha-6c902174be56@sha256:4eb5ecbff027165f516d3ca9afda820de7ad8fd0c1bffa699a531e30f2981210
 resources:
   requests:
     cpu: 100m
