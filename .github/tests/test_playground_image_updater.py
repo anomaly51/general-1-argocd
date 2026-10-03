@@ -1,7 +1,10 @@
 from pathlib import Path
+import shlex
 import subprocess
 import tarfile
+import tempfile
 import unittest
+from unittest.mock import patch
 
 import yaml
 
@@ -16,19 +19,83 @@ REGISTRY = "harbor.internal.api-api-api.com"
 GIT_REPOSITORY = "https://github.com/anomaly51/general-1-argocd.git"
 
 
+def run_helm(*arguments):
+    command = ["helm", *map(str, arguments)]
+    try:
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(
+            f"Helm command failed ({error.returncode}): {shlex.join(command)}\n"
+            f"stdout:\n{error.stdout or '<empty>'}\n"
+            f"stderr:\n{error.stderr or '<empty>'}"
+        ) from error
+    return result.stdout
+
+
+def ensure_chart_dependency(chart):
+    archive = chart / "charts/argocd-image-updater-1.3.1.tgz"
+    if archive.is_file():
+        return archive
+    # Fresh CI runners have no Helm repositories. Keep bootstrap independent of
+    # the developer's repository list and avoid refreshing unrelated repositories.
+    with tempfile.TemporaryDirectory(prefix="playground-image-updater-helm-") as directory:
+        configuration = [
+            "--repository-config", str(Path(directory) / "repositories.yaml"),
+            "--repository-cache", str(Path(directory) / "repository"),
+        ]
+        run_helm("repo", "add", "playground-test-argo",
+                 "https://argoproj.github.io/argo-helm", *configuration)
+        run_helm("dependency", "build", chart, "--skip-refresh", *configuration)
+    return archive
+
+
+class HelmBootstrapTests(unittest.TestCase):
+    def test_existing_dependency_needs_no_repository_access(self):
+        with tempfile.TemporaryDirectory() as directory:
+            chart = Path(directory)
+            archive = chart / "charts/argocd-image-updater-1.3.1.tgz"
+            archive.parent.mkdir()
+            archive.touch()
+            with patch(__name__ + ".run_helm") as helm:
+                self.assertEqual(ensure_chart_dependency(chart), archive)
+            helm.assert_not_called()
+
+    def test_missing_dependency_bootstraps_an_isolated_repository(self):
+        with tempfile.TemporaryDirectory() as directory:
+            chart = Path(directory)
+            with patch(__name__ + ".run_helm") as helm:
+                archive = ensure_chart_dependency(chart)
+            self.assertEqual(archive, chart / "charts/argocd-image-updater-1.3.1.tgz")
+            self.assertEqual(helm.call_count, 2)
+            add, build = [call.args for call in helm.call_args_list]
+            self.assertEqual(add[:4], ("repo", "add", "playground-test-argo",
+                                      "https://argoproj.github.io/argo-helm"))
+            self.assertEqual(build[:4], ("dependency", "build", chart, "--skip-refresh"))
+            self.assertEqual(add[4:], build[4:])
+            self.assertEqual(add[4], "--repository-config")
+            self.assertEqual(add[6], "--repository-cache")
+            self.assertEqual(Path(add[5]).parent, Path(add[7]).parent)
+            self.assertFalse(Path(add[5]).parent.exists(), "Temporary Helm configuration leaked")
+
+    def test_failure_reports_command_and_captured_helm_diagnostics(self):
+        failure = subprocess.CalledProcessError(
+            1, ["helm", "dependency", "build"],
+            output="Resolving chart dependencies", stderr="Error: no repository definition",
+        )
+        with patch.object(subprocess, "run", side_effect=failure):
+            with self.assertRaises(RuntimeError) as result:
+                run_helm("dependency", "build", "/tmp/example-chart")
+        message = str(result.exception)
+        self.assertIn("helm dependency build /tmp/example-chart", message)
+        self.assertIn("Resolving chart dependencies", message)
+        self.assertIn("Error: no repository definition", message)
+
+
 class PlaygroundImageUpdaterTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.archive = CHART / "charts/argocd-image-updater-1.3.1.tgz"
-        if not cls.archive.is_file():
-            subprocess.run(
-                ["helm", "dependency", "build", str(CHART)],
-                check=True, capture_output=True, text=True,
-            )
-        rendered = subprocess.check_output(
-            ["helm", "template", "image-updater", str(CHART), "--namespace", "argocd"],
-            text=True,
-        )
+        cls.archive = ensure_chart_dependency(CHART)
+        rendered = run_helm("template", "image-updater", CHART, "--namespace", "argocd")
         cls.documents = [doc for doc in yaml.safe_load_all(rendered) if doc]
         cls.updater = next(doc for doc in cls.documents if doc["kind"] == "ImageUpdater")
         cls.references = cls.updater["spec"]["applicationRefs"]
