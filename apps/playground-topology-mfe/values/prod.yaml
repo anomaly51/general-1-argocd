@@ -1,6 +1,6 @@
 # Complete prod-only configuration; there is no shared values.yaml.
 _release:
-  revision: f9ba47af9a0eac80f46994471008ea1858f67f9e
+  revision: e87769933b7bec6ad26803d5bdc39cca40148127
   policy: prod-only
   namespace: playground-prod
   sourceRepository: anomaly51/playground-topology-mfe
