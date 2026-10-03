@@ -2,15 +2,15 @@ _release:
   policy: prod-only
   sourceRepository: anomaly51/bot_motivation
   revision: ccd32793828376539a29048135f6069da9994d6e
-  sourceCommit: 8e6edda5b0b8900606c6a7f1d5f86b47351a7f4f
+  sourceCommit: 178a8ef8cf9235b2b0b8cbbc65117ba26accf441
   sourceBranch: main
-  runUrl: https://github.com/anomaly51/bot_motivation/actions/runs/37092923160
+  runUrl: https://github.com/anomaly51/bot_motivation/actions/runs/37094639366
   imageKeys:
   - image
 replicas: 1
 image:
   repository: harbor.internal.api-api-api.com/applications/bot-motivation
-  tag: sha-8e6edda5b0b8@sha256:361d48acdc7816b494843398b99d0c9dcf3af3e8c8c64544d8a49caf9c53d801
+  tag: sha-178a8ef8cf92@sha256:0463926b36000336c2efe996fb3211c50c4d8e01dfa7d991f753e4db4ed2e1dc
   pullPolicy: IfNotPresent
 registry:
   server: harbor.internal.api-api-api.com
