@@ -1,6 +1,6 @@
 # Complete prod-only configuration; there is no shared values.yaml.
 _release:
-  revision: 099e94b57239733bf44e0df1f1c255b4a5cf0193
+  revision: f9ba47af9a0eac80f46994471008ea1858f67f9e
   policy: prod-only
   namespace: playground-prod
   sourceRepository: anomaly51/playground-inventory-service
