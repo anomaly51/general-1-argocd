@@ -176,6 +176,11 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
                 self.assertEqual(doc["metadata"].get("namespace"), "argocd")
         pod = self.document("Deployment", "playground-image-updater-controller")["spec"]["template"]["spec"]
         self.assertEqual(pod["serviceAccountName"], "playground-image-updater")
+        self.assertEqual(pod["affinity"]["nodeAffinity"]["requiredDuringSchedulingIgnoredDuringExecution"], {
+            "nodeSelectorTerms": [{"matchExpressions": [{
+                "key": "node-role.kubernetes.io/control-plane", "operator": "DoesNotExist",
+            }]}],
+        })
         resources = pod["containers"][0]["resources"]
         self.assertEqual(resources["requests"]["memory"], "128Mi")
         self.assertEqual(resources["limits"]["memory"], "256Mi")

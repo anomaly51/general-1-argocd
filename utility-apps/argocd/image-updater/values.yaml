@@ -43,6 +43,13 @@ argocd-image-updater:
     limits:
       cpu: 500m
       memory: 256Mi
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
   service:
     enabled: false
   ingress:
