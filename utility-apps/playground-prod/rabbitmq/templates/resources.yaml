@@ -83,6 +83,9 @@ spec:
         nodeSelectorTerms:
           - matchExpressions:
               - {key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}
+              - key: kubernetes.io/hostname
+                operator: In
+                values: [{{ required "storage.nodeName is required for local-path placement" .Values.storage.nodeName | quote }}]
   rabbitmq:
     additionalPlugins: [rabbitmq_management]
     additionalConfig: |

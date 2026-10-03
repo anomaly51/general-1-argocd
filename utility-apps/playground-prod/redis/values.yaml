@@ -1,6 +1,8 @@
 image: quay.io/opstree/redis:v8.10.1
 storage:
   className: local-path
+  # Local-path capacity was verified on worker 3; changing this needs data migration.
+  nodeName: general-1-worker-3
   size: 2Gi
 resources:
   requests: {cpu: 50m, memory: 256Mi}

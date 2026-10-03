@@ -275,6 +275,38 @@ class PlaygroundDependencyTests(unittest.TestCase):
         self.assertEqual(redis["spec"]["kubernetesConfig"]["persistentVolumeClaimRetentionPolicy"], {
             "whenDeleted": "Retain", "whenScaled": "Retain"})
 
+    def test_all_five_local_path_dependencies_require_worker_3_and_exclude_control_plane(self):
+        pod_specs = {
+            "kafka": self.document("kafka", "KafkaNodePool", "combined")["spec"]["template"]["pod"],
+            "rabbitmq": self.document("rabbitmq", "RabbitmqCluster", "rabbitmq")["spec"],
+            "postgres": self.document("postgres", "Cluster", "playground-postgres")["spec"],
+            "mysql": self.document("mysql", "StatefulSet", "mysql")["spec"]["template"]["spec"],
+            "redis": self.document("redis", "Redis", "playground-redis")["spec"],
+        }
+        expected = [
+            {"key": "node-role.kubernetes.io/control-plane", "operator": "DoesNotExist"},
+            {"key": "kubernetes.io/hostname", "operator": "In", "values": ["general-1-worker-3"]},
+        ]
+        for chart, pod_spec in pod_specs.items():
+            with self.subTest(chart=chart):
+                values = yaml.safe_load((UTILITIES / chart / "values.yaml").read_text())
+                self.assertEqual(values["storage"]["className"], "local-path")
+                self.assertEqual(values["storage"]["nodeName"], "general-1-worker-3")
+                # Multiple terms are ORed: no alternative term may allow worker 2.
+                required = pod_spec["affinity"]["nodeAffinity"]["requiredDuringSchedulingIgnoredDuringExecution"]
+                self.assertEqual(required["nodeSelectorTerms"], [{"matchExpressions": expected}])
+
+    def test_empty_local_path_node_pin_is_rejected_by_every_persistent_chart(self):
+        for chart in ("kafka", "rabbitmq", "postgres", "mysql", "redis"):
+            with self.subTest(chart=chart):
+                result = subprocess.run(
+                    ["helm", "template", chart, str(UTILITIES / chart), "--namespace", NAMESPACE,
+                     "--set-string", "storage.nodeName="],
+                    capture_output=True, text=True,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("storage.nodeName is required for local-path placement", result.stderr)
+
     def test_redis_is_password_protected_and_preserves_idempotency_records(self):
         redis = self.document("redis", "Redis", "playground-redis")["spec"]
         self.assertEqual(redis["kubernetesConfig"]["redisSecret"], {

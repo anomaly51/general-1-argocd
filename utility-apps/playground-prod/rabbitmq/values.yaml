@@ -1,6 +1,8 @@
 image: rabbitmq:4.3.5-management
 storage:
   className: local-path
+  # Local-path capacity was verified on worker 3; changing this needs data migration.
+  nodeName: general-1-worker-3
   size: 5Gi
 resources:
   requests: {cpu: 100m, memory: 512Mi}
