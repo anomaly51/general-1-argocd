@@ -1,0 +1,68 @@
+# Complete prod-only configuration; there is no shared values.yaml.
+_release:
+  revision: 099e94b57239733bf44e0df1f1c255b4a5cf0193
+  policy: prod-only
+  namespace: playground-prod
+  sourceRepository: anomaly51/playground-analytics-service
+
+replicaCount: 1
+component: backend
+appService:
+  name: analytics-service
+  port: 8002
+image:
+  repository: harbor.internal.api-api-api.com/playground/analytics-service
+  tag: prod@sha256:e5f4959a92f886753edc21779195ea891816ae7efb09eaa001b4bcb28116be57
+  pullPolicy: IfNotPresent
+serviceAccountName: playground-runtime
+imagePullSecret: playground-registry
+envSecret: playground-env
+probes:
+  livenessPath: /healthz
+  readinessPath: /readyz
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+  fsGroup: 10001
+  fsGroupChangePolicy: OnRootMismatch
+securityContext:
+  runAsUser: 10001
+  runAsGroup: 10001
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+    ephemeral-storage: 16Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+    ephemeral-storage: 128Mi
+scratchVolumes:
+  - name: tmp
+    mountPath: /tmp
+    sizeLimit: 32Mi
+env:
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  FLASHDROP_ANALYTICS_HOST: "0.0.0.0"
+  LAB_ANALYTICS_PORT: "8002"
+  LAB_KAFKA_ENABLED: "true"
+  FLASHDROP_KAFKA_BOOTSTRAP_SERVERS: "playground-kafka-kafka-bootstrap:9092"
+  FLASHDROP_KAFKA_ORDERS_TOPIC: "flashdrop.orders.v1"
+  FLASHDROP_KAFKA_ANALYTICS_TOPIC: "flashdrop.analytics.v1"
+  FLASHDROP_KAFKA_TRACE_TOPIC: "flashdrop.traces.v1"
+  FLASHDROP_ANALYTICS_GROUP_ID: "flashdrop-analytics-v1"
+  FLASHDROP_ANALYTICS_KAFKA_CLIENT_ID: "flashdrop-analytics"
+  LAB_KAFKA_PUBLISH_TIMEOUT_SECONDS: "3.0"
+  LAB_KAFKA_PROBE_INTERVAL_SECONDS: "2.0"
+  LAB_KAFKA_PROBE_TIMEOUT_SECONDS: "1.0"
+  FLASHDROP_ANALYTICS_RETRY_MAX_SECONDS: "10.0"
+  LAB_ANALYTICS_POSTGRES_OPERATION_TIMEOUT_SECONDS: "3.0"
+  LAB_ANALYTICS_POSTGRES_PROBE_INTERVAL_SECONDS: "2.0"
+  LAB_ANALYTICS_POSTGRES_PROBE_TIMEOUT_SECONDS: "1.0"

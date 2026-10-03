@@ -1,0 +1,65 @@
+argocd-image-updater:
+  fullnameOverride: playground-image-updater
+  namespaceOverride: argocd
+  replicaCount: 1
+  createClusterRoles: false
+  # The wrapper supplies read-only Application access for Git-only write-back.
+  rbac:
+    enabled: false
+  serviceAccount:
+    create: true
+    name: playground-image-updater
+    annotations:
+      argocd.argoproj.io/sync-wave: "-2"
+  image:
+    tag: v1.3.0
+    pullPolicy: IfNotPresent
+  crds:
+    install: true
+    keep: true
+    annotations:
+      argocd.argoproj.io/sync-wave: "-3"
+  config:
+    name: playground-image-updater-config
+    argocd.namespace: argocd
+    watch.namespaces: argocd
+    interval: 2m
+    webhook.enable: false
+    kube.events: false
+    max_concurrent_apps: 1
+    max_concurrent_reconciles: 1
+    registries:
+      - name: Harbor playground
+        prefix: harbor.internal.api-api-api.com
+        api_url: https://harbor.internal.api-api-api.com
+        credentials: pullsecret:argocd/playground-image-updater-registry
+        insecure: false
+    sshConfig:
+      name: playground-image-updater-ssh-config
+  resources:
+    requests:
+      cpu: 20m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  service:
+    enabled: false
+  ingress:
+    enabled: false
+  metrics:
+    enabled: false
+    serviceMonitor:
+      enabled: false
+  certificateSecret:
+    enabled: false
+
+applications:
+  - order-service
+  - pricing-service
+  - inventory-service
+  - event-hub
+  - analytics-service
+  - shell
+  - topology-mfe
+  - traffic-mfe

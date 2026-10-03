@@ -1,0 +1,15 @@
+name: playground-kafka
+version: 4.3.1
+storage:
+  className: local-path
+  size: 10Gi
+resources:
+  requests: {cpu: 250m, memory: 1Gi}
+  limits: {cpu: "2", memory: 2Gi}
+topicOperatorResources:
+  requests: {cpu: 50m, memory: 256Mi}
+  limits: {cpu: 500m, memory: 512Mi}
+topics:
+  - {name: flashdrop.orders.v1, partitions: 6, retentionMs: 86400000}
+  - {name: flashdrop.traces.v1, partitions: 6, retentionMs: 3600000}
+  - {name: flashdrop.analytics.v1, partitions: 3, retentionMs: 86400000}

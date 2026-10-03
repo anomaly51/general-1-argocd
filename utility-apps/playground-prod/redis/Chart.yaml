@@ -1,0 +1,5 @@
+apiVersion: v2
+name: redis
+description: Isolated playground production redis resources.
+type: application
+version: 0.1.0

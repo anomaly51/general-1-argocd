@@ -1,0 +1,5 @@
+apiVersion: v2
+name: mysql
+description: Isolated playground production mysql resources.
+type: application
+version: 0.1.0

@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: playground-edge
+data:
+  nginx.conf: |
+    worker_processes auto;
+    pid /tmp/nginx.pid;
+    error_log /dev/stderr warn;
+    events { worker_connections 1024; }
+    http {
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+      access_log /dev/stdout;
+      sendfile on;
+      server_tokens off;
+      resolver {{ .Values.clusterDns }} valid=10s ipv6=off;
+      resolver_timeout 2s;
+      map $http_x_forwarded_proto $forwarded_proto {
+        default $http_x_forwarded_proto;
+        "" $scheme;
+      }
+      server {
+        listen 8080;
+        server_name _;
+        client_max_body_size 64k;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 15s;
+
+        location = /healthz {
+          access_log off;
+          default_type application/json;
+          return 200 '{"status":"ok","service":"edge"}';
+        }
+        location = /api/healthz {
+          set $target http://order-service.{{ .Release.Namespace }}.svc.cluster.local:3000/healthz;
+          proxy_pass $target;
+        }
+        location = /api/readyz {
+          set $target http://order-service.{{ .Release.Namespace }}.svc.cluster.local:3000/readyz;
+          proxy_pass $target;
+        }
+        location = /openapi.json {
+          set $target http://order-service.{{ .Release.Namespace }}.svc.cluster.local:3000;
+          proxy_pass $target$request_uri;
+          add_header Cache-Control "no-store" always;
+        }
+        location = /events/healthz {
+          set $target http://event-hub.{{ .Release.Namespace }}.svc.cluster.local:3003/healthz;
+          proxy_pass $target;
+        }
+        location = /events/readyz {
+          set $target http://event-hub.{{ .Release.Namespace }}.svc.cluster.local:3003/readyz;
+          proxy_pass $target;
+        }
+        location = /operations/snapshot {
+          set $target http://event-hub.{{ .Release.Namespace }}.svc.cluster.local:3003;
+          proxy_pass $target$request_uri;
+          proxy_read_timeout 5s;
+          add_header Cache-Control "no-store" always;
+        }
+        location = /ops/processor/readyz {
+          set $target http://pricing-service.{{ .Release.Namespace }}.svc.cluster.local:8001/readyz;
+          proxy_pass $target;
+        }
+        location = /ops/analytics/readyz {
+          set $target http://analytics-service.{{ .Release.Namespace }}.svc.cluster.local:8002/readyz;
+          proxy_pass $target;
+        }
+        location = /ops/rabbit-worker/readyz {
+          set $target http://inventory-service.{{ .Release.Namespace }}.svc.cluster.local:3004/readyz;
+          proxy_pass $target;
+        }
+        # Admin tools and Airflow are deliberately not deployed or exposed.
+        location /ops/tools/ { return 404; }
+        location /api/ {
+          set $target http://order-service.{{ .Release.Namespace }}.svc.cluster.local:3000;
+          proxy_pass $target$request_uri;
+        }
+        location /events/ {
+          set $target http://event-hub.{{ .Release.Namespace }}.svc.cluster.local:3003;
+          proxy_pass $target$request_uri;
+          proxy_set_header Host $host;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $forwarded_proto;
+          proxy_set_header Connection "";
+          proxy_buffering off;
+          proxy_cache off;
+          proxy_read_timeout 1h;
+          add_header X-Accel-Buffering "no" always;
+        }
+        location ~ ^/mfe/topology/(?<topology_asset>.*)$ {
+          set $target http://topology-mfe.{{ .Release.Namespace }}.svc.cluster.local:80;
+          proxy_pass $target/$topology_asset$is_args$args;
+        }
+        location ~ ^/mfe/traffic/(?<traffic_asset>.*)$ {
+          set $target http://traffic-mfe.{{ .Release.Namespace }}.svc.cluster.local:80;
+          proxy_pass $target/$traffic_asset$is_args$args;
+        }
+        location / {
+          set $target http://shell.{{ .Release.Namespace }}.svc.cluster.local:80;
+          proxy_pass $target$request_uri;
+        }
+      }
+    }

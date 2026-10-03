@@ -1,0 +1,5 @@
+apiVersion: v2
+name: playground-event-hub
+description: FlashDrop event-hub production workload.
+type: application
+version: 0.1.0

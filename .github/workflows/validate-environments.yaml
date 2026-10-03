@@ -56,9 +56,13 @@ jobs:
               if "bot" in folder.name:
                   assert policy == "prod-only", "Standalone bots must be prod-only"
               if policy == "prod-only":
-                  assert "bot" in folder.name, "Prod-only bot names must match the AppSet exclusion"
-                  assert {path.stem for path in profiles} == {"prod"}, "Bots cannot have dev/staging"
+                  playground = {f"playground-{name}" for name in ("order-service", "pricing-service", "inventory-service", "event-hub", "analytics-service", "shell", "topology-mfe", "traffic-mfe")}
+                  assert "bot" in folder.name or folder.name in playground, "Only approved bots and playground apps may auto-deploy prod"
+                  assert {path.stem for path in profiles} == {"prod"}, "Prod-only apps cannot have dev/staging"
                   assert re.fullmatch(r"anomaly51/[A-Za-z0-9_.-]+", production["_release"]["sourceRepository"])
+                  if folder.name in playground:
+                      assert production["_release"]["sourceRepository"] == f"anomaly51/{folder.name}"
+                      assert production["_release"]["namespace"] == "playground-prod"
               for path in profiles:
                   assert path.stem in {"dev", "staging", "prod"}
                   values = yaml.safe_load(path.read_text())

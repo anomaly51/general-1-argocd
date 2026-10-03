@@ -1,0 +1,5 @@
+apiVersion: v2
+name: playground-traffic-mfe
+description: FlashDrop traffic-mfe production workload.
+type: application
+version: 0.1.0

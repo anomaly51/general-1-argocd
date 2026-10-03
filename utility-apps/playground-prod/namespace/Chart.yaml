@@ -1,0 +1,5 @@
+apiVersion: v2
+name: namespace
+description: Isolated playground production namespace resources.
+type: application
+version: 0.1.0

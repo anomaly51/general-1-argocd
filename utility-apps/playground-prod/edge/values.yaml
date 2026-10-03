@@ -1,0 +1,6 @@
+image: nginx:1.28.0-alpine
+hostname: playground.internal.api-api-api.com
+clusterDns: 10.43.0.10
+resources:
+  requests: {cpu: 25m, memory: 32Mi}
+  limits: {cpu: 250m, memory: 128Mi}

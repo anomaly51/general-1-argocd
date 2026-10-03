@@ -1,0 +1,10 @@
+name: playground-postgres
+image: ghcr.io/cloudnative-pg/postgresql:17.6-standard-bookworm
+database: playground
+owner: playground
+storage:
+  className: local-path
+  size: 5Gi
+resources:
+  requests: {cpu: 100m, memory: 256Mi}
+  limits: {cpu: "1", memory: 768Mi}

@@ -1,0 +1,8 @@
+image: quay.io/opstree/redis:v8.10.1
+storage:
+  className: local-path
+  size: 2Gi
+resources:
+  requests: {cpu: 50m, memory: 256Mi}
+  limits: {cpu: 500m, memory: 512Mi}
+maxMemory: 256mb

@@ -1,0 +1,66 @@
+# Complete prod-only configuration; there is no shared values.yaml.
+_release:
+  revision: 099e94b57239733bf44e0df1f1c255b4a5cf0193
+  policy: prod-only
+  namespace: playground-prod
+  sourceRepository: anomaly51/playground-inventory-service
+
+replicaCount: 1
+component: backend
+appService:
+  name: inventory-service
+  port: 3004
+image:
+  repository: harbor.internal.api-api-api.com/playground/inventory-service
+  tag: prod@sha256:693b9ef33f91b44b8e0d30f06e87f5620556be068b1b7021f272f20afd653c06
+  pullPolicy: IfNotPresent
+serviceAccountName: playground-runtime
+imagePullSecret: playground-registry
+envSecret: playground-env
+probes:
+  livenessPath: /healthz
+  readinessPath: /readyz
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+    ephemeral-storage: 16Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+    ephemeral-storage: 128Mi
+scratchVolumes:
+  - name: tmp
+    mountPath: /tmp
+    sizeLimit: 32Mi
+env:
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  HOST: "0.0.0.0"
+  PORT: "3004"
+  KAFKA_BROKERS: "playground-kafka-kafka-bootstrap:9092"
+  KAFKA_CLIENT_ID: "flashdrop-inventory-worker"
+  KAFKA_TRACE_TOPIC: "flashdrop.traces.v1"
+  MYSQL_POOL_SIZE: "5"
+  MYSQL_CONNECTION_TIMEOUT_MS: "5000"
+  READINESS_TIMEOUT_MS: "500"
+  RABBIT_QUEUE_TYPE: "quorum"
+  RABBITMQ_PREFETCH: "10"
+  RABBITMQ_MAX_ATTEMPTS: "3"
+  RABBITMQ_RETRY_DELAY_MS: "3000"
+  PROCESSING_DELAY_MS: "150"
+  LAB_INVENTORY_RESET_ENABLED: "false"

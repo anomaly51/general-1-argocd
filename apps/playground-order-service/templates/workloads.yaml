@@ -1,0 +1,209 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.appService.name }}
+  namespace: {{ .Values._release.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.appService.name }}
+    app.kubernetes.io/part-of: playground
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 2
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.appService.name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Values.appService.name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: playground
+        app.kubernetes.io/component: {{ .Values.component }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret }}
+      terminationGracePeriodSeconds: 30
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+                  - key: node-role.kubernetes.io/master
+                    operator: DoesNotExist
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Values.appService.name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.envSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.envSecret }}
+          {{- end }}
+          {{- $environment := .Values.env }}
+          {{- if $environment }}
+          env:
+            {{- range $name, $value := $environment }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.appService.port }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.livenessPath }}
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readinessPath }}
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.livenessPath }}
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            {{- range .Values.scratchVolumes }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+            {{- end }}
+      volumes:
+        {{- range .Values.scratchVolumes }}
+        - name: {{ .name }}
+          emptyDir:
+            sizeLimit: {{ .sizeLimit }}
+        {{- end }}
+---
+{{- if .Values.relay.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.relayService.name }}
+  namespace: {{ .Values._release.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.relayService.name }}
+    app.kubernetes.io/part-of: playground
+spec:
+  replicas: {{ .Values.relay.replicaCount }}
+  revisionHistoryLimit: 2
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.relayService.name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Values.relayService.name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: playground
+        app.kubernetes.io/component: {{ .Values.component }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret }}
+      terminationGracePeriodSeconds: 30
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+                  - key: node-role.kubernetes.io/master
+                    operator: DoesNotExist
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Values.relayService.name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - node
+            - --enable-source-maps
+            - dist/relay.js
+          {{- if .Values.envSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.envSecret }}
+          {{- end }}
+          {{- $environment := mergeOverwrite (deepCopy .Values.env) .Values.relay.env }}
+          {{- if $environment }}
+          env:
+            {{- range $name, $value := $environment }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.relayService.port }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.livenessPath }}
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readinessPath }}
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.livenessPath }}
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.relay.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            {{- range .Values.scratchVolumes }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+            {{- end }}
+      volumes:
+        {{- range .Values.scratchVolumes }}
+        - name: {{ .name }}
+          emptyDir:
+            sizeLimit: {{ .sizeLimit }}
+        {{- end }}
+{{- end }}

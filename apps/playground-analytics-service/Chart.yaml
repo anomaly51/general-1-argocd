@@ -1,0 +1,5 @@
+apiVersion: v2
+name: playground-analytics-service
+description: FlashDrop analytics-service production workload.
+type: application
+version: 0.1.0
