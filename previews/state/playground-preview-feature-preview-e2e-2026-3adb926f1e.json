@@ -747,7 +747,7 @@
   },
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
   "phase": "starting",
-  "plan_hash": "5c237fef00db12e277dcd87efaef232583952fae57a72f09736fd622f87893bf",
+  "plan_hash": "d1b9ab8e360b0c184c7bbe4661378ae62bf4705f8c80764d9f986501848b5e68",
   "prs": {
     "order-service": {
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
@@ -771,7 +771,7 @@
     }
   },
   "ready_at": "2026-10-04T23:22:01Z",
-  "revision": "deb6460a76bf35b257d9427fedba94489c00ac18",
+  "revision": "e04285291f1686cb5e4d091e22b0c48aafcc9584",
   "schema": 1,
   "startup_deadline": "2026-10-04T23:50:03Z",
   "url": "https://playground-preview-feature-preview-e2e-2026-3adb926f1e.internal.api-api-api.com",

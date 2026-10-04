@@ -120,7 +120,7 @@
       },
       "path": "apps/playground-order-service",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -207,7 +207,7 @@
       },
       "path": "apps/playground-pricing-service",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -295,7 +295,7 @@
       },
       "path": "apps/playground-inventory-service",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -392,7 +392,7 @@
       },
       "path": "apps/playground-event-hub",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -482,7 +482,7 @@
       },
       "path": "apps/playground-analytics-service",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -569,7 +569,7 @@
       },
       "path": "apps/playground-shell",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -656,7 +656,7 @@
       },
       "path": "apps/playground-topology-mfe",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -743,7 +743,7 @@
       },
       "path": "apps/playground-traffic-mfe",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -764,7 +764,7 @@
       },
       "path": "utility-apps/playground-staging/namespace",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -820,7 +820,7 @@
       },
       "path": "utility-apps/playground-staging/kafka",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -851,7 +851,7 @@
       },
       "path": "utility-apps/playground-staging/postgres",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -879,7 +879,7 @@
       },
       "path": "utility-apps/playground-staging/mysql",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -907,7 +907,7 @@
       },
       "path": "utility-apps/playground-staging/rabbitmq",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -936,7 +936,7 @@
       },
       "path": "utility-apps/playground-staging/redis",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     },
     {
       "helm": {
@@ -960,7 +960,7 @@
       },
       "path": "utility-apps/playground-staging/edge",
       "repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-      "targetRevision": "deb6460a76bf35b257d9427fedba94489c00ac18"
+      "targetRevision": "e04285291f1686cb5e4d091e22b0c48aafcc9584"
     }
   ],
   "url": "https://playground-preview-feature-preview-e2e-2026-3adb926f1e.internal.api-api-api.com"
