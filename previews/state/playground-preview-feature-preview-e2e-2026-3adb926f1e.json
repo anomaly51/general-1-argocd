@@ -722,6 +722,7 @@
   "branch": "feature/preview-e2e-20261004",
   "created_at": "2026-10-04T22:54:04Z",
   "expires_at": null,
+  "failure_reason": "Initial integration test superseded after fixing combined sync ordering",
   "generation": "488d77c8-14bb-4fff-a20a-9173968b184b",
   "images": {
     "shell": {
@@ -731,7 +732,7 @@
     }
   },
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
-  "phase": "starting",
+  "phase": "failed",
   "plan_hash": "fa3089c93a84d9e20cb413b56f3e8f62f5edd7f1d1406063a73d3950f74dd2f1",
   "prs": {
     "shell": {
@@ -744,6 +745,7 @@
   "revision": "4c35e7f2feb52888a34f7d9215ff43e8e36cfd8e",
   "schema": 1,
   "startup_deadline": "2026-10-04T23:24:04Z",
+  "terminated_at": "2026-10-04T23:06:28Z",
   "url": "https://playground-preview-feature-preview-e2e-2026-3adb926f1e.internal.api-api-api.com",
   "utilities": {
     "edge": {
