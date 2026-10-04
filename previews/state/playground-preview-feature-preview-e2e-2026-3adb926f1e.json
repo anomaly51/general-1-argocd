@@ -728,26 +728,16 @@
       "digest": "sha256:fe8c6c364057ab67d93cb80d74eb830884236bcfa20eb5fabf5b88b0c3ef6a47",
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
       "run_id": 37243667669
-    },
-    "shell": {
-      "digest": "sha256:ef8038bb3bda85c79dd2fa33dac5dec36faedd09c5de05536bfde2a83d65a182",
-      "head": "5cb975cbb2e404c102ab6e3ff22b10513683b2dd",
-      "run_id": 37241486981
     }
   },
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
-  "phase": "ready",
-  "plan_hash": "a356e49a9782bf8f92c47be0b55f5db981be4c6128d71ec45e0dc8a08c186d24",
+  "phase": "starting",
+  "plan_hash": "758f6516ba25a095101d6d095d1628181f59b079e96c55f5eb538a6c6e956391",
   "prs": {
     "order-service": {
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
       "number": 1,
       "repository": "anomaly51/playground-order-service"
-    },
-    "shell": {
-      "head": "5cb975cbb2e404c102ab6e3ff22b10513683b2dd",
-      "number": 1,
-      "repository": "anomaly51/playground-shell"
     }
   },
   "ready_at": "2026-10-04T23:22:01Z",

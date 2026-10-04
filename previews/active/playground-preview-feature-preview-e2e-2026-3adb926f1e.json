@@ -499,7 +499,7 @@
           "image": {
             "pullPolicy": "IfNotPresent",
             "repository": "harbor.internal.api-api-api.com/playground/shell",
-            "tag": "preview@sha256:ef8038bb3bda85c79dd2fa33dac5dec36faedd09c5de05536bfde2a83d65a182"
+            "tag": "staging@sha256:96b5bf793f81d8fdcf7c067364e4ceabc4a98a4e2dc08449757ed7d43351f79a"
           },
           "imagePullSecret": "playground-registry",
           "nodeSelector": {
