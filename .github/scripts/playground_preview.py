@@ -436,10 +436,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--operation", choices=["reconcile", "refresh"], default="reconcile")
     parser.add_argument("--branch", default="")
+    parser.add_argument("--wait-namespace")
+    parser.add_argument("--generation")
     args = parser.parse_args()
     if (os.environ.get("GITHUB_REPOSITORY") != REPOSITORY or os.environ.get("GITHUB_REF") != "refs/heads/main"
             or os.environ.get("GITHUB_EVENT_NAME") not in {"repository_dispatch", "workflow_dispatch"}):
         raise ValueError("Preview orchestration must execute from the trusted GitOps main workflow")
+    if args.wait_namespace:
+        if not re.fullmatch(r"playground-preview-[a-z0-9-]{1,24}-[0-9a-f]{10}", args.wait_namespace) or not args.generation:
+            raise ValueError("Invalid preview readiness identity")
+        state = wait_ready(args.wait_namespace, args.generation)
+        summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary:
+            with open(summary, "a") as stream:
+                stream.write(f"## Preview ready\n\n{state['url']}\n\nExpires: `{state['expires_at']}`\n")
+        return
     notification = None
     branch = args.branch
     if os.environ["GITHUB_EVENT_NAME"] == "repository_dispatch":
@@ -447,12 +458,14 @@ def main():
         branch, service, head = event_branch(GitHub(os.environ["GH_TOKEN"]), event)
         notification = service, head
     state, deployed = configure_preview(branch, args.operation == "refresh", notification)
-    if deployed:
-        state = wait_ready(state["namespace"], state["generation"])
+    output = os.environ.get("GITHUB_OUTPUT")
+    if output:
+        with open(output, "a") as stream:
+            stream.write(f"deployed={str(deployed).lower()}\nnamespace={state['namespace']}\ngeneration={state['generation']}\n")
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a") as stream:
-            stream.write(f"## Preview {'ready' if deployed else 'pending'}\n\n{state['url']}\n\n"
+            stream.write(f"## Preview {'deploying' if deployed else 'pending'}\n\n{state['url']}\n\n"
                          f"Branch: `{branch}`\n\nTTL: 15 minutes from readiness; refresh in this workflow.\n")
 
 

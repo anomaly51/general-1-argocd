@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, mock_open, patch
 
 import yaml
 
@@ -403,6 +403,69 @@ class PreviewRuntimeCredentialTests(unittest.TestCase):
 
 
 class PreviewOrchestrationGuardTests(unittest.TestCase):
+    def test_readiness_job_is_hosted_read_only_and_has_no_vault_or_build_access(self):
+        workflow = yaml.safe_load((ROOT / ".github/workflows/preview-playground.yaml").read_text())
+        build, ready = workflow["jobs"]["preview"], workflow["jobs"]["ready"]
+        self.assertEqual(build["runs-on"], "arc-runner-set")
+        self.assertEqual(ready["runs-on"], "ubuntu-latest")
+        self.assertNotIn("concurrency", workflow)
+        self.assertEqual(build["concurrency"]["group"], "playground-preview-orchestration")
+        self.assertNotIn("concurrency", ready)
+        self.assertEqual(ready["needs"], "preview")
+        self.assertEqual(ready["if"], "needs.preview.outputs.deployed == 'true'")
+        self.assertEqual(ready["permissions"], {"contents": "read"})
+        for key in ("deployed", "namespace", "generation"):
+            self.assertEqual(build["outputs"][key], "${{ steps.compose.outputs." + key + " }}")
+        text = yaml.safe_dump(ready)
+        for forbidden in ("vault-action", "create-github-app-token", "setup-buildx", "id-token", "REGISTRY_PASSWORD"):
+            self.assertNotIn(forbidden, text)
+        step = ready["steps"][-1]
+        self.assertEqual(step["env"]["GH_TOKEN"], "${{ github.token }}")
+        self.assertIn('--wait-namespace "$PREVIEW_NAMESPACE" --generation "$PREVIEW_GENERATION"', step["run"])
+
+    def test_compose_exports_readiness_identity_without_waiting_on_arc(self):
+        state = new_state()
+        environment = {"GITHUB_REPOSITORY": preview.REPOSITORY, "GITHUB_REF": "refs/heads/main",
+                       "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_OUTPUT": "/fake/job-output"}
+        writer = mock_open()
+        with patch.dict(os.environ, environment, clear=True), \
+                patch.object(sys, "argv", ["preview.py", "--branch", BRANCH]), \
+                patch.object(preview, "configure_preview", return_value=(state, True)) as compose, \
+                patch.object(preview, "wait_ready") as wait, patch("builtins.open", writer):
+            preview.main()
+        compose.assert_called_once_with(BRANCH, False, None)
+        wait.assert_not_called()
+        writer.assert_called_once_with("/fake/job-output", "a")
+        writer().write.assert_called_once_with(
+            f"deployed=true\nnamespace={state['namespace']}\ngeneration={state['generation']}\n")
+
+    def test_wait_identity_is_validated_before_git_access_and_never_provisions_secrets(self):
+        state = new_state()
+        environment = {"GITHUB_REPOSITORY": preview.REPOSITORY, "GITHUB_REF": "refs/heads/main",
+                       "GITHUB_EVENT_NAME": "workflow_dispatch"}
+        for namespace, generation in (("playground-prod", "valid"), ("../../state", "valid"),
+                                      (state["namespace"], "")):
+            with self.subTest(namespace=namespace, generation=generation), \
+                    patch.dict(os.environ, environment, clear=True), \
+                    patch.object(sys, "argv", ["preview.py", "--wait-namespace", namespace,
+                                               "--generation", generation]), \
+                    patch.object(preview, "GitHub") as github, \
+                    patch.object(preview, "configure_preview") as compose, patch.object(preview, "Vault") as vault:
+                with self.assertRaisesRegex(ValueError, "readiness identity"):
+                    preview.main()
+                github.assert_not_called()
+                compose.assert_not_called()
+                vault.assert_not_called()
+        with patch.dict(os.environ, environment, clear=True), \
+                patch.object(sys, "argv", ["preview.py", "--wait-namespace", state["namespace"],
+                                           "--generation", state["generation"]]), \
+                patch.object(preview, "wait_ready", return_value=state) as wait, \
+                patch.object(preview, "configure_preview") as compose, patch.object(preview, "Vault") as vault:
+            preview.main()
+        wait.assert_called_once_with(state["namespace"], state["generation"])
+        compose.assert_not_called()
+        vault.assert_not_called()
+
     def test_pending_component_blocks_all_builds_and_active_publication(self):
         prs = {"shell": pr_identity(), "order-service": pr_identity("order-service")}
         state = new_state(prs)
