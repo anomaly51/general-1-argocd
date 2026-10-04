@@ -14,7 +14,7 @@ appService:
   port: 3003
 image:
   repository: harbor.internal.api-api-api.com/playground/event-hub
-  tag: dev@sha256:da6dec159c5ab46da95a47c770da484ee3cf20e092ba385aa3d7d6e4f3d4b793
+  tag: dev@sha256:82941fa221c1a4bc0b0b3f09ea372bfe2aea0d765e3962bc76d124deb574a54b
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 imagePullSecret: playground-registry
