@@ -731,13 +731,28 @@
     }
   },
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
-  "phase": "ready",
+  "phase": "starting",
   "plan_hash": "2d53472fb2021396226784b8621fed7807188532df4be81c5e5d02ab585f6f3d",
   "prs": {
+    "order-service": {
+      "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
+      "number": 1,
+      "repository": "anomaly51/playground-order-service"
+    },
+    "pricing-service": {
+      "head": "b785e9daa7a5bfc647dd0f03b0907c2b0bbd02b2",
+      "number": 1,
+      "repository": "anomaly51/playground-pricing-service"
+    },
     "shell": {
       "head": "5cb975cbb2e404c102ab6e3ff22b10513683b2dd",
       "number": 1,
       "repository": "anomaly51/playground-shell"
+    },
+    "traffic-mfe": {
+      "head": "b7bc600d66d1286eab778a0810b819a1796c1a8f",
+      "number": 1,
+      "repository": "anomaly51/playground-traffic-mfe"
     }
   },
   "ready_at": "2026-10-04T23:22:01Z",
