@@ -55,9 +55,6 @@ spec:
   storage:
     keepAfterDelete: true
     volumeClaimTemplate:
-      metadata:
-        annotations:
-          argocd.argoproj.io/sync-options: Prune=false,Delete=false
       spec:
         accessModes: [ReadWriteOnce]
         storageClassName: {{ .Values.storage.className }}

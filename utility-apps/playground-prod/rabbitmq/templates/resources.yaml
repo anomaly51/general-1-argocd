@@ -51,6 +51,8 @@ spec:
   destination:
     create: true
     name: rabbitmq-app-user
+    labels:
+      rabbitmq.com/topology-operator: "true"
     transformation:
       excludeRaw: true
       excludes: [".*"]

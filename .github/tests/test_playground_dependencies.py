@@ -218,6 +218,7 @@ class PlaygroundDependencyTests(unittest.TestCase):
         for secret_name, prefix in (("rabbitmq-default-user", "RABBITMQ_ADMIN"),
                                     ("rabbitmq-app-user", "RABBITMQ")):
             secret = self.document("rabbitmq", "VaultStaticSecret", secret_name)["spec"]
+            self.assertEqual(secret["destination"]["labels"]["rabbitmq.com/topology-operator"], "true")
             templates = secret["destination"]["transformation"]["templates"]
             for field in ("username", "password"):
                 self.assertEqual(templates[field]["text"],
@@ -271,7 +272,9 @@ class PlaygroundDependencyTests(unittest.TestCase):
         redis = self.document("redis", "Redis", "playground-redis")
         self.assert_retained(redis["metadata"])
         self.assertTrue(redis["spec"]["storage"]["keepAfterDelete"])
-        self.assert_retained(redis["spec"]["storage"]["volumeClaimTemplate"]["metadata"])
+        # The installed Redis CRD rejects nested PVC metadata annotations.
+        # Operator-owned PVCs retain through keepAfterDelete and StatefulSet policy.
+        self.assertNotIn("metadata", redis["spec"]["storage"]["volumeClaimTemplate"])
         self.assertEqual(redis["spec"]["kubernetesConfig"]["persistentVolumeClaimRetentionPolicy"], {
             "whenDeleted": "Retain", "whenScaled": "Retain"})
 
