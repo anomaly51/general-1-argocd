@@ -70,6 +70,10 @@ argocd-image-updater:
 webhook:
   vaultPath: ci/playground-image-updater-webhook
 
+# Only non-production channels may be managed by Image Updater. Kept empty
+# during the production safety cutover, before dev/staging are provisioned.
+environments: []
+
 applications:
   - order-service
   - pricing-service

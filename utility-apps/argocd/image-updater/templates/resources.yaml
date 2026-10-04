@@ -105,22 +105,26 @@ subjects:
   - kind: ServiceAccount
     name: playground-image-updater
     namespace: argocd
+{{- range $environment := .Values.environments }}
+{{- if not (has $environment (list "dev" "staging")) }}
+{{- fail "Image Updater may only manage dev and staging" }}
+{{- end }}
 ---
 apiVersion: argocd-image-updater.argoproj.io/v1alpha1
 kind: ImageUpdater
 metadata:
-  name: playground-prod
+  name: playground-{{ $environment }}
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "1"
 spec:
   applicationRefs:
-    {{- range .Values.applications }}
-    - namePattern: apps-playground-{{ . }}
+    {{- range $.Values.applications }}
+    - namePattern: playground-{{ . }}-{{ $environment }}
       useAnnotations: false
       images:
         - alias: {{ . }}
-          imageName: harbor.internal.api-api-api.com/playground/{{ . }}:prod
+          imageName: harbor.internal.api-api-api.com/playground/{{ . }}:{{ $environment }}
           commonUpdateSettings:
             updateStrategy: digest
             platforms: [linux/amd64]
@@ -134,5 +138,6 @@ spec:
         gitConfig:
           repository: https://github.com/anomaly51/general-1-argocd.git
           branch: main
-          writeBackTarget: helmvalues:/apps/playground-{{ . }}/values/prod.yaml
+          writeBackTarget: helmvalues:/apps/playground-{{ . }}/values/{{ $environment }}.yaml
     {{- end }}
+{{- end }}

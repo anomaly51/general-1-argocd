@@ -100,8 +100,9 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
         cls.archive = ensure_chart_dependency(CHART)
         rendered = run_helm("template", "image-updater", CHART, "--namespace", "argocd")
         cls.documents = [doc for doc in yaml.safe_load_all(rendered) if doc]
-        cls.updater = next(doc for doc in cls.documents if doc["kind"] == "ImageUpdater")
-        cls.references = cls.updater["spec"]["applicationRefs"]
+        cls.config = yaml.safe_load((CHART / "values.yaml").read_text())
+        cls.updaters = [doc for doc in cls.documents if doc["kind"] == "ImageUpdater"]
+        cls.references = [ref for updater in cls.updaters for ref in updater["spec"]["applicationRefs"]]
         cls.deployment = next(doc for doc in cls.documents if doc["kind"] == "Deployment")
         cls.pod = cls.deployment["spec"]["template"]["spec"]
         cls.pod_labels = cls.deployment["spec"]["template"]["metadata"]["labels"]
@@ -131,17 +132,21 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
         image = deployment["spec"]["template"]["spec"]["containers"][0]["image"]
         self.assertEqual(image, "quay.io/argoprojlabs/argocd-image-updater:v1.3.0")
 
-    def test_only_eight_exact_playground_applications_are_selected(self):
-        self.assertEqual(len(self.references), 8)
+    def test_only_exact_nonproduction_playground_applications_are_selected(self):
+        environments = self.config["environments"]
+        self.assertLessEqual(set(environments), {"dev", "staging"})
+        self.assertEqual(len(environments), len(set(environments)))
+        self.assertEqual(len(self.references), 8 * len(environments))
         self.assertEqual({ref["namePattern"] for ref in self.references},
-                         {"apps-playground-" + name for name in COMPONENTS})
+                         {f"playground-{name}-{environment}" for name in COMPONENTS
+                          for environment in environments})
         for ref in self.references:
             self.assertFalse(ref["useAnnotations"])
             self.assertNotIn("labelSelectors", ref)
-            name = ref["namePattern"].removeprefix("apps-playground-")
+            name, environment = ref["namePattern"].removeprefix("playground-").rsplit("-", 1)
             self.assertEqual(ref["images"], [{
                 "alias": name,
-                "imageName": f"{REGISTRY}/playground/{name}:prod",
+                "imageName": f"{REGISTRY}/playground/{name}:{environment}",
                 "commonUpdateSettings": {
                     "updateStrategy": "digest",
                     "platforms": ["linux/amd64"],
@@ -150,26 +155,38 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
                 "manifestTargets": {"helm": {"name": "image.repository", "tag": "image.tag"}},
             }])
 
-    def test_every_application_writes_only_its_authoritative_prod_values(self):
-        self.assertNotIn("writeBackConfig", self.updater["spec"])
+    def test_every_application_writes_only_its_authoritative_nonproduction_values(self):
+        for updater in self.updaters:
+            self.assertNotIn("writeBackConfig", updater["spec"])
         for ref in self.references:
-            name = ref["namePattern"].removeprefix("apps-playground-")
+            name, environment = ref["namePattern"].removeprefix("playground-").rsplit("-", 1)
             self.assertEqual(ref["writeBackConfig"], {
                 "method": "git:secret:playground-image-updater-git",
                 "gitConfig": {
                     "repository": GIT_REPOSITORY,
                     "branch": "main",
-                    "writeBackTarget": f"helmvalues:/apps/playground-{name}/values/prod.yaml",
+                    "writeBackTarget": f"helmvalues:/apps/playground-{name}/values/{environment}.yaml",
                 },
             })
-            values_path = ROOT / f"apps/playground-{name}/values/prod.yaml"
+            values_path = ROOT / f"apps/playground-{name}/values/{environment}.yaml"
             values = yaml.safe_load(values_path.read_text())
             self.assertEqual(values["image"]["repository"], f"{REGISTRY}/playground/{name}")
             self.assertIsInstance(values["image"]["tag"], str)
-            self.assertEqual(values["_release"]["policy"], "prod-only")
+            self.assertEqual(values["_release"]["namespace"], f"playground-{environment}")
             self.assertRegex(values["_release"]["revision"], r"^[0-9a-f]{40}$")
-            self.assertEqual({path.name for path in values_path.parent.glob("*.yaml")}, {"prod.yaml"})
-        self.assertNotIn(".argocd-source", yaml.safe_dump(self.updater))
+        self.assertNotIn(".argocd-source", yaml.safe_dump(self.updaters))
+
+    def test_production_is_manual_and_never_an_updater_target(self):
+        for name in COMPONENTS:
+            values = yaml.safe_load((ROOT / f"apps/playground-{name}/values/prod.yaml").read_text())
+            self.assertEqual(values["_release"]["policy"], "promote")
+            self.assertEqual(values["_release"]["namespace"], "playground-prod")
+            self.assertRegex(values["image"]["tag"], r"^[^@]+@sha256:[0-9a-f]{64}$")
+        self.assertNotIn("/values/prod.yaml", yaml.safe_dump(self.updaters))
+        self.assertFalse(any(ref["namePattern"].startswith("apps-") for ref in self.references))
+        with self.assertRaisesRegex(RuntimeError, "Image Updater may only manage dev and staging"):
+            run_helm("template", "image-updater", CHART, "--namespace", "argocd",
+                     "--set", "environments[0]=prod")
 
     def test_appset_keeps_main_values_separate_from_pinned_chart(self):
         appset = yaml.safe_load((ROOT / "cluster/applicationsets/apps.yaml").read_text())
@@ -387,7 +404,8 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
                 for index, child in enumerate(value):
                     check(child, schema["items"], path + f"[{index}]")
 
-        check(self.updater, version["schema"]["openAPIV3Schema"], "ImageUpdater")
+        for updater in self.updaters:
+            check(updater, version["schema"]["openAPIV3Schema"], "ImageUpdater")
 
 
 if __name__ == "__main__":

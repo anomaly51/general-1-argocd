@@ -1,7 +1,7 @@
-# Complete prod-only configuration; there is no shared values.yaml.
+# Complete production configuration; releases require explicit promotion.
 _release:
   revision: e87769933b7bec6ad26803d5bdc39cca40148127
-  policy: prod-only
+  policy: promote
   namespace: playground-prod
   sourceRepository: anomaly51/playground-pricing-service
 
