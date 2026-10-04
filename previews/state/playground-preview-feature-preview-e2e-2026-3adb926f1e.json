@@ -748,6 +748,7 @@
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
   "phase": "starting",
   "plan_hash": "d1b9ab8e360b0c184c7bbe4661378ae62bf4705f8c80764d9f986501848b5e68",
+  "provisioning_until": "2026-10-04T23:37:53Z",
   "prs": {
     "order-service": {
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
