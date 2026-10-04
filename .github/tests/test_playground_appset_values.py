@@ -38,6 +38,30 @@ class PlaygroundApplicationSetValuesTests(unittest.TestCase):
                 for document in documents:
                     self.assertEqual(document["metadata"]["namespace"], namespace)
 
+    def test_optional_worker_selection_does_not_change_production_defaults(self):
+        for component in COMPONENTS:
+            chart = ROOT / f"apps/playground-{component}"
+            values = yaml.safe_load((chart / "values/prod.yaml").read_text())
+            for selected in (False, True):
+                with self.subTest(component=component, selected=selected):
+                    inline = {key: value for key, value in values.items() if key != "_release"}
+                    if selected:
+                        inline["nodeSelector"] = {"kubernetes.io/hostname": "general-1-worker-2"}
+                    rendered = subprocess.run(
+                        ["helm", "template", f"playground-{component}", str(chart),
+                         "--namespace", "playground-dev", "--values", "-"],
+                        input=yaml.safe_dump(inline), text=True, capture_output=True, check=True,
+                    )
+                    deployments = [doc for doc in yaml.safe_load_all(rendered.stdout)
+                                   if doc and doc["kind"] == "Deployment"]
+                    self.assertEqual(len(deployments), 2 if component == "order-service" else 1)
+                    for deployment in deployments:
+                        pod = deployment["spec"]["template"]["spec"]
+                        if selected:
+                            self.assertEqual(pod["nodeSelector"], inline["nodeSelector"])
+                        else:
+                            self.assertNotIn("nodeSelector", pod)
+
 
 if __name__ == "__main__":
     unittest.main()

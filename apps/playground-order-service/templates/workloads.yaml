@@ -29,6 +29,10 @@ spec:
     spec:
       serviceAccountName: {{ .Values.serviceAccountName }}
       automountServiceAccountToken: false
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       imagePullSecrets:
         - name: {{ .Values.imagePullSecret }}
       terminationGracePeriodSeconds: 30
@@ -132,6 +136,10 @@ spec:
     spec:
       serviceAccountName: {{ .Values.serviceAccountName }}
       automountServiceAccountToken: false
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       imagePullSecrets:
         - name: {{ .Values.imagePullSecret }}
       terminationGracePeriodSeconds: 30
