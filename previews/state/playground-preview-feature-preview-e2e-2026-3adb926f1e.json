@@ -723,9 +723,16 @@
   "created_at": "2026-10-04T23:20:03Z",
   "expires_at": null,
   "generation": "2b1a115b-d1e9-4686-aa3e-b21cb5f9148e",
-  "images": {},
+  "images": {
+    "shell": {
+      "digest": "sha256:ef8038bb3bda85c79dd2fa33dac5dec36faedd09c5de05536bfde2a83d65a182",
+      "head": "5cb975cbb2e404c102ab6e3ff22b10513683b2dd",
+      "run_id": 37241486981
+    }
+  },
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
   "phase": "starting",
+  "plan_hash": "2d53472fb2021396226784b8621fed7807188532df4be81c5e5d02ab585f6f3d",
   "prs": {
     "shell": {
       "head": "5cb975cbb2e404c102ab6e3ff22b10513683b2dd",
