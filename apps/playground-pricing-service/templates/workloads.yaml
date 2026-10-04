@@ -3,6 +3,10 @@ kind: Deployment
 metadata:
   name: {{ .Values.appService.name }}
   namespace: {{ .Release.Namespace }}
+  {{- if .Values.ephemeral }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  {{- end }}
   labels:
     app.kubernetes.io/name: {{ .Values.appService.name }}
     app.kubernetes.io/part-of: playground

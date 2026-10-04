@@ -252,6 +252,7 @@ def sources_for(state, revision):
     for service in SERVICES:
         values = copy.deepcopy(state["baseline"][service])
         values.pop("_release", None)
+        values["ephemeral"] = True
         if service in state["images"]:
             digest = state["images"][service]["digest"]
             if not DIGEST.fullmatch(digest):

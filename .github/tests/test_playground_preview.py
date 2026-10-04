@@ -323,6 +323,46 @@ class PreviewSourceIsolationTests(unittest.TestCase):
         self.assertNotIn("Delete=false", text)
         self.assertNotIn("Retain", text)
 
+    def test_application_deployments_wait_for_topics_and_rabbit_permissions(self):
+        deployments = [doc for doc in self.documents if doc["kind"] == "Deployment"
+                       and doc["metadata"]["name"] != "edge"]
+        self.assertEqual(len(deployments), 9, "Eight services plus the order outbox relay")
+        for deployment in deployments:
+            self.assertEqual(deployment["metadata"]["annotations"]["argocd.argoproj.io/sync-wave"], "3")
+        for document in self.documents:
+            if document["kind"] in {"KafkaTopic", "User"}:
+                self.assertEqual(document["metadata"]["annotations"]["argocd.argoproj.io/sync-wave"], "1")
+            elif document["kind"] == "Permission":
+                self.assertEqual(document["metadata"]["annotations"]["argocd.argoproj.io/sync-wave"], "2")
+            elif document["kind"] == "Deployment" and document["metadata"]["name"] == "edge":
+                self.assertNotIn("argocd.argoproj.io/sync-wave", document["metadata"].get("annotations", {}))
+
+    def test_optional_workload_wave_is_the_only_render_difference_and_defaults_remain_unchanged(self):
+        for service in preview.SERVICES:
+            chart = ROOT / f"apps/playground-{service}"
+            baseline = copy.deepcopy(self.state["baseline"][service])
+            rendered = {}
+            for mode in ("omitted", False, True):
+                values = copy.deepcopy(baseline)
+                if mode != "omitted":
+                    values["ephemeral"] = mode
+                output = subprocess.run(
+                    ["helm", "template", service, str(chart), "--namespace", "playground-staging", "--values", "-"],
+                    input=yaml.safe_dump(values), text=True, capture_output=True, check=True,
+                ).stdout
+                rendered[mode] = [doc for doc in yaml.safe_load_all(output) if doc]
+            with self.subTest(service=service):
+                self.assertEqual(rendered["omitted"], rendered[False])
+                ephemeral = copy.deepcopy(rendered[True])
+                count = 0
+                for document in ephemeral:
+                    if document["kind"] == "Deployment":
+                        count += 1
+                        self.assertEqual(document["metadata"].pop("annotations"),
+                                         {"argocd.argoproj.io/sync-wave": "3"})
+                self.assertEqual(count, 2 if service == "order-service" else 1)
+                self.assertEqual(ephemeral, rendered["omitted"])
+
     def test_mutable_revision_and_mutable_override_digest_are_rejected(self):
         with self.assertRaises(ValueError):
             preview.sources_for(self.state, "main")
