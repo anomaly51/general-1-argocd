@@ -14,7 +14,7 @@ appService:
   port: 8002
 image:
   repository: harbor.internal.api-api-api.com/playground/analytics-service
-  tag: staging@sha256:bdff30579ee3b3a196d138a0f1cde7f562a08bbe2d9979a27103b69a4242488f
+  tag: staging@sha256:b51d01085902b261af0d6e070c63cecc5bdc90e6b398be44c4af18e23c48b2d4
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 imagePullSecret: playground-registry
