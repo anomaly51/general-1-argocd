@@ -29,6 +29,8 @@ argo-workflows:
       create: false
 
   controller:
+    nodeSelector:
+      kubernetes.io/hostname: general-1-worker-2
     replicas: 1
     revisionHistoryLimit: 2
     workflowNamespaces: []
@@ -59,6 +61,8 @@ argo-workflows:
       format: json
 
   server:
+    nodeSelector:
+      kubernetes.io/hostname: general-1-worker-2
     enabled: true
     replicas: 1
     revisionHistoryLimit: 2

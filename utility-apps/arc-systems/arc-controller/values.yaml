@@ -1,5 +1,12 @@
 gha-runner-scale-set-controller:
   replicaCount: 2
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
   serviceAccount:
     name: arc-controller-gha-rs-controller
   flags:

@@ -112,6 +112,8 @@ spec:
         app.kubernetes.io/name: minio
     spec:
       automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: general-1-worker-1
       imagePullSecrets:
         - name: minio-registry
       securityContext:
