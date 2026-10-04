@@ -14,7 +14,7 @@ appService:
   port: 3000
 image:
   repository: harbor.internal.api-api-api.com/playground/order-service
-  tag: staging@sha256:cf348f4ed521e7bde1b3e71fd4f8fc4fd475cb5f23f43146daf8edf60c4df3ca
+  tag: staging@sha256:0ebe8ff744fbcc85d15052748f5b8bd597911353ec8e9ddbbc1c4b9798431dd8
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 imagePullSecret: playground-registry
