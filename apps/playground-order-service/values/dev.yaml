@@ -14,7 +14,7 @@ appService:
   port: 3000
 image:
   repository: harbor.internal.api-api-api.com/playground/order-service
-  tag: dev@sha256:6dd229fcdb7ef3cc34ea66e4cb9d9a755da2e80e27e1353a02813c77727a55bc
+  tag: dev@sha256:315d01aaf35eae66915a70f52921fe6c502edf95007411a055431a9890b77ebe
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 imagePullSecret: playground-registry
