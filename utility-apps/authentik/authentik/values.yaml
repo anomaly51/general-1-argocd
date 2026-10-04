@@ -5,6 +5,8 @@ authentik:
 
   server:
     replicas: 1
+    nodeSelector:
+      kubernetes.io/hostname: general-1-worker-1
     ingress:
       enabled: false
     resources:
