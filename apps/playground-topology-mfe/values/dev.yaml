@@ -14,7 +14,7 @@ appService:
   port: 80
 image:
   repository: harbor.internal.api-api-api.com/playground/topology-mfe
-  tag: dev@sha256:2b495762a64eeb26980929889bec56822303a0303e68a498a15bf4287c4ec568
+  tag: dev@sha256:b48da4b38059d08997930daee31f580fef7dfb1d490eab4adc2773d91251280c
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 imagePullSecret: playground-registry
