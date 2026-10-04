@@ -720,6 +720,7 @@
     }
   },
   "branch": "feature/preview-parallel-20261004",
+  "cleanup_completed_at": "2026-10-04T23:43:01Z",
   "cleanup_started_at": "2026-10-04T23:41:01Z",
   "created_at": "2026-10-04T23:36:52Z",
   "expires_at": null,
