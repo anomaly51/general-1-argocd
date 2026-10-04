@@ -253,19 +253,24 @@ def application_ready(application, active):
             and not application.get("operation"))
 
 
-def closed_prs(github, state):
+def inspect_prs(github, state):
     closed = set()
+    current_heads_match = True
     for service, expected in sorted(state["prs"].items()):
         pr = github.request(f"/repos/{expected['repository']}/pulls/{expected['number']}")
         if (pr.get("number") != expected["number"]
                 or pr.get("base", {}).get("repo", {}).get("full_name") != expected["repository"]):
             raise ValueError("GitHub pull request identity mismatch")
         if pr.get("state") == "open":
+            current_heads_match = current_heads_match and (
+                pr.get("head", {}).get("repo", {}).get("full_name") == expected["repository"]
+                and pr.get("head", {}).get("ref") == state["branch"]
+                and pr.get("head", {}).get("sha") == expected["head"])
             continue
         if pr.get("state") != "closed":
             raise ValueError("Unexpected GitHub pull request state")
         closed.add(service)
-    return closed
+    return closed, current_heads_match
 
 
 def other_branch_prs_open(github, state):
@@ -457,6 +462,7 @@ def plan_changes(states, actives, github, kubernetes, now, check_http=http_ready
         else:
             reason = None
             membership_pending = False
+            current_heads_match = True
             # Updates can be starting while an earlier usable generation's
             # lease is running. Only explicit Refresh may extend that lease.
             if state.get("expires_at") and parse_date(state["expires_at"]) <= now:
@@ -465,7 +471,12 @@ def plan_changes(states, actives, github, kubernetes, now, check_http=http_ready
                   and parse_date(state["startup_deadline"]) <= now):
                 reason = "failed"
             else:
-                closed = closed_prs(github, state)
+                closed, current_heads_match = inspect_prs(github, state)
+                if not current_heads_match:
+                    # A push can race the central workflow's final membership
+                    # check. Keep the existing deployment, but do not call it
+                    # ready for the new PR head or renew its lease.
+                    state["phase"] = "starting"
                 if len(closed) == len(state["prs"]):
                     if not other_branch_prs_open(github, state):
                         reason = "closed"
@@ -480,7 +491,8 @@ def plan_changes(states, actives, github, kubernetes, now, check_http=http_ready
                 state["terminated_at"] = format_date(now)
                 if active:
                     changes[active_path] = None
-            elif (not membership_pending and state["phase"] == "starting" and active and images_match_pr_heads(state)
+            elif (not membership_pending and current_heads_match and state["phase"] == "starting"
+                  and active and images_match_pr_heads(state)
                   and application_ready(kubernetes.application(state["namespace"]), active)
                   and check_http(state)):
                 state["phase"] = "ready"

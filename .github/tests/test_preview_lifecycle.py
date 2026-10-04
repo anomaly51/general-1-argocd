@@ -133,7 +133,9 @@ class LeaseLifecycle(unittest.TestCase):
                                 "operationState": {"phase": "Succeeded"}}}
         self.github = Mock()
         self.github.request.return_value = {"number": 10, "state": "open",
-                                             "base": {"repo": {"full_name": "anomaly51/playground-shell"}}}
+                                             "base": {"repo": {"full_name": "anomaly51/playground-shell"}},
+                                             "head": {"ref": self.state["branch"], "sha": "b" * 40,
+                                                      "repo": {"full_name": "anomaly51/playground-shell"}}}
         self.kubernetes = Mock()
         self.kubernetes.application.return_value = self.application
         self.kubernetes.namespace_exists.return_value = True
@@ -223,6 +225,22 @@ class LeaseLifecycle(unittest.TestCase):
         self.assertEqual(self.plan(), {})
         self.kubernetes.application.assert_not_called()
         self.check_http.assert_not_called()
+
+    def test_unrecorded_new_live_pr_head_cannot_mark_old_deployment_ready(self):
+        self.github.request.return_value["head"]["sha"] = "f" * 40
+        self.assertEqual(self.plan(), {})
+        self.kubernetes.application.assert_not_called()
+        self.check_http.assert_not_called()
+
+    def test_ready_preview_with_new_live_head_becomes_pending_without_lease_extension(self):
+        self.ready_state(expires_delta=7)
+        self.github.request.return_value["head"]["sha"] = "f" * 40
+        changes = self.plan()
+        self.assertEqual(changes[self.state_path]["phase"], "starting")
+        self.assertEqual(changes[self.state_path]["expires_at"], self.state["expires_at"])
+        self.assertEqual(changes[self.state_path]["ready_at"], self.state["ready_at"])
+        self.assertEqual(changes[self.state_path]["prs"], self.state["prs"])
+        self.assertNotIn(self.active_path, changes)
 
     def test_http_dependencies_must_be_usable_before_initial_ready(self):
         self.check_http.return_value = False
