@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arc-buildkit
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: arc-buildkit
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              ci.api-api-api.com/buildkit-client: "true"
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.port }}

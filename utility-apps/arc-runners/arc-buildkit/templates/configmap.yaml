@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arc-buildkit
+data:
+  buildkitd.toml: |
+    [worker.oci]
+      enabled = true
+      max-parallelism = {{ .Values.buildkit.maxParallelism }}
+      gc = true
+      reservedSpace = {{ .Values.buildkit.reservedSpace | quote }}
+      maxUsedSpace = {{ .Values.buildkit.maxUsedSpace | quote }}
+      minFreeSpace = {{ .Values.buildkit.minFreeSpace | quote }}
+    [[worker.oci.gcpolicy]]
+      all = true
+      reservedSpace = {{ .Values.buildkit.reservedSpace | quote }}
+      maxUsedSpace = {{ .Values.buildkit.maxUsedSpace | quote }}
+      minFreeSpace = {{ .Values.buildkit.minFreeSpace | quote }}
+    [worker.containerd]
+      enabled = false

@@ -1,0 +1,119 @@
+gha-runner-scale-set:
+  githubConfigUrl: https://github.com/anomaly51
+  githubConfigSecret: arc-github-token
+  runnerScaleSetName: arc-runner-set
+  scaleSetLabels:
+    - arc-runner-set
+  minRunners: 1
+  maxRunners: 2
+  controllerServiceAccount:
+    namespace: arc-systems
+    name: arc-controller-gha-rs-controller
+  listenerTemplate:
+    spec:
+      containers:
+        - name: listener
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+  # Explicit DinD configuration permits image/resource/storage pins. The chart's
+  # containerMode=dind hardcodes an unversioned Docker image and unbounded DinD.
+  containerMode: {}
+  template:
+    metadata:
+      labels:
+        ci.api-api-api.com/buildkit-client: "true"
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: general-1-worker-1
+      initContainers:
+        - name: init-dind-externals
+          image: ghcr.io/actions/actions-runner:2.337.0@sha256:5036480998280bb21e32ade9fe1b02b493861ac314b62ba1aea320b94f56ec97
+          command: [cp, -r, /home/runner/externals/., /home/runner/tmpDir/]
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+              ephemeral-storage: 100Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+              ephemeral-storage: 1Gi
+          volumeMounts:
+            - name: dind-externals
+              mountPath: /home/runner/tmpDir
+        - name: dind
+          image: docker:29.8.2-dind@sha256:dcac6f16dc25ddec91e2d467605775b95a035ab884b94cb4c2cc7cbef6fd726d
+          args: [dockerd, --host=unix:///var/run/docker.sock, --group=$(DOCKER_GROUP_GID)]
+          env:
+            - name: DOCKER_GROUP_GID
+              value: "123"
+            - name: DOCKER_TLS_CERTDIR
+              value: ""
+          securityContext:
+            privileged: true
+          restartPolicy: Always
+          startupProbe:
+            exec:
+              command: [docker, info]
+            failureThreshold: 24
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+              ephemeral-storage: 7Gi
+          volumeMounts:
+            - name: work
+              mountPath: /home/runner/_work
+            - name: dind-sock
+              mountPath: /var/run
+            - name: dind-externals
+              mountPath: /home/runner/externals
+            - name: dind-data
+              mountPath: /var/lib/docker
+      containers:
+        - name: runner
+          image: ghcr.io/actions/actions-runner:2.337.0@sha256:5036480998280bb21e32ade9fe1b02b493861ac314b62ba1aea320b94f56ec97
+          command: [/home/runner/run.sh]
+          env:
+            - name: DOCKER_HOST
+              value: unix:///var/run/docker.sock
+            - name: RUNNER_WAIT_FOR_DOCKER_IN_SECONDS
+              value: "120"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+              ephemeral-storage: 5Gi
+          volumeMounts:
+            - name: work
+              mountPath: /home/runner/_work
+            - name: dind-sock
+              mountPath: /var/run
+      volumes:
+        - name: work
+          emptyDir:
+            sizeLimit: 4Gi
+        - name: dind-sock
+          emptyDir:
+            sizeLimit: 10Mi
+        - name: dind-externals
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: dind-data
+          emptyDir:
+            sizeLimit: 6Gi

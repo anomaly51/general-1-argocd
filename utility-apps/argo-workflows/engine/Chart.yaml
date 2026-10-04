@@ -1,0 +1,10 @@
+apiVersion: v2
+name: engine
+description: Namespace-scoped Argo Workflows runtime restored from utility-k3s.
+type: application
+version: 0.1.0
+appVersion: "3.5.5"
+dependencies:
+  - name: argo-workflows
+    version: 0.41.1
+    repository: https://argoproj.github.io/argo-helm

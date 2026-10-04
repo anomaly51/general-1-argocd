@@ -1,0 +1,195 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-secrets
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+automountServiceAccountToken: false
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: minio
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: minio
+    serviceAccount: vault-secrets
+    audiences: [vault]
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: minio-root
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: minio
+  mount: kv
+  type: kv-v2
+  path: platform/minio
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: minio-root
+    transformation:
+      excludes: [".*"]
+      templates:
+        root_user:
+          text: '{{ `{{ get .Secrets "root_user" }}` }}'
+        root_password:
+          text: '{{ `{{ get .Secrets "root_password" }}` }}'
+  rolloutRestartTargets:
+    - kind: StatefulSet
+      name: minio
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: minio-registry
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: minio
+  mount: kv
+  type: kv-v2
+  path: apps/registry
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: minio-registry
+    type: kubernetes.io/dockerconfigjson
+    transformation:
+      excludes: [".*"]
+      templates:
+        .dockerconfigjson:
+          text: |
+            {"auths":{"{{ `{{ get .Secrets "registry" }}` }}":{"username":"{{ `{{ get .Secrets "username" }}` }}","password":"{{ `{{ get .Secrets "password" }}` }}"}}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-minio-0
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false,Prune=false
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: {{ .Values.storage.className }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: minio
+  ports:
+    - {name: api, port: 9000, targetPort: api}
+    - {name: console, port: 9001, targetPort: console}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+spec:
+  serviceName: minio
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: minio
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: minio
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: minio-registry
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      initContainers:
+        - name: restore-retained-data
+          image: {{ .Values.restoreImage }}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              if test -f /data/.utility-restore-complete; then
+                echo "Existing restored volume; skipping copy."
+                exit 0
+              fi
+              test -s /source/.minio.sys/format.json
+              test -d /source/terraform-state
+              if test -n "$(find /data -mindepth 1 -maxdepth 1 -print -quit)"; then
+                echo "Destination is not empty; refusing to overwrite data." >&2
+                exit 1
+              fi
+              (cd /source && find . -type f -exec sha256sum '{}' +) > /tmp/source.sha256
+              cp -R /source/. /data/
+              (cd /data && sha256sum -c /tmp/source.sha256 >/dev/null)
+              touch /data/.utility-restore-complete
+              echo "Retained MinIO files copied and SHA-256 verified; source mounted read-only."
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: retained-source, mountPath: /source, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      containers:
+        - name: minio
+          image: {{ .Values.image }}
+          args: [server, /data, --console-address, ":9001"]
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef: {name: minio-root, key: root_user}
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: minio-root, key: root_password}
+          ports:
+            - {name: api, containerPort: 9000}
+            - {name: console, containerPort: 9001}
+          startupProbe:
+            httpGet: {path: /minio/health/live, port: api}
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet: {path: /minio/health/ready, port: api}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /minio/health/live, port: api}
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: data-minio-0}
+        - name: retained-source
+          nfs:
+            server: {{ .Values.restore.server }}
+            path: {{ .Values.restore.path }}
+            readOnly: true
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}

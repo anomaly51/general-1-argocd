@@ -1,0 +1,113 @@
+# Record the restored endpoint without configuring a Terraform backend or
+# artifact bucket. An operator must review a bucket and its access policy first.
+restoredMinioEndpoint: minio.minio-system.svc.cluster.local:9000
+
+argo-workflows:
+  fullnameOverride: argo
+  namespaceOverride: argo-workflows
+  singleNamespace: true
+  createAggregateRoles: false
+
+  images:
+    tag: v3.5.5
+    pullPolicy: IfNotPresent
+
+  crds:
+    install: true
+    keep: true
+    annotations:
+      argocd.argoproj.io/sync-wave: "-10"
+      argocd.argoproj.io/sync-options: Delete=false,Prune=false
+
+  workflow:
+    serviceAccount:
+      create: true
+      name: argo-workflow
+    # Supply the minimal v3.5 executor role locally. The pinned chart's legacy
+    # role also grants pods/exec, which the Emissary executor does not need.
+    rbac:
+      create: false
+
+  controller:
+    replicas: 1
+    revisionHistoryLimit: 2
+    workflowNamespaces: []
+    clusterWorkflowTemplates:
+      enabled: false
+    rbac:
+      accessAllSecrets: false
+      writeConfigMaps: false
+    parallelism: 2
+    namespaceParallelism: 2
+    resourceRateLimit:
+      limit: 2
+      burst: 4
+    workflowWorkers: 4
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+    workflowDefaults:
+      spec:
+        serviceAccountName: argo-workflow
+        ttlStrategy:
+          secondsAfterCompletion: 604800
+    logging:
+      format: json
+
+  server:
+    enabled: true
+    replicas: 1
+    revisionHistoryLimit: 2
+    authModes:
+      - client
+    secure: true
+    serviceType: ClusterIP
+    ingress:
+      enabled: false
+    clusterWorkflowTemplates:
+      enabled: false
+    securityContext:
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    logging:
+      format: json
+
+  mainContainer:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+
+  executor:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  # The former installation used MinIO for Terraform state, not an Argo artifact
+  # repository. Do not enable artifact writes against the recovered state bucket.
+  artifactRepository:
+    archiveLogs: false
+    s3: {}
+  artifactRepositoryRef: {}

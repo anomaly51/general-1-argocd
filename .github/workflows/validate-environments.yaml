@@ -87,6 +87,11 @@ jobs:
                       assert release["imageKeys"] and len(set(release["imageKeys"])) == len(release["imageKeys"])
                       assert all(re.fullmatch(r"image|images\.[A-Za-z][A-Za-z0-9]*", key) for key in release["imageKeys"])
           PYCODE
+      - name: Fetch pinned utility chart dependencies
+        run: |
+          for chart in utility-apps/arc-systems/arc-controller utility-apps/arc-runners/arc-runner-set utility-apps/arc-runners/juggluco-runner-set utility-apps/argo-workflows/engine; do
+            helm dependency build --skip-refresh "$chart"
+          done
       - name: Test release and promotion guards
         run: python -m unittest discover -s .github/tests -v
       - name: Render every declared values profile

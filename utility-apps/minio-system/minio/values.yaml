@@ -1,0 +1,13 @@
+# The old upstream tag no longer resolves. This retained image is already used
+# successfully by General1 and is pinned to the existing Harbor mirror digest.
+image: harbor.internal.api-api-api.com/applications/minio:RELEASE.2025-04-22T22-12-26Z@sha256:3f97c5651cb6662b880c787a232b6b34fec8d8922e08d6617b25d241a21164bb
+restoreImage: docker.io/library/busybox:1.37.0
+storage:
+  className: nfs-csi
+  size: 10Gi
+restore:
+  server: 192.168.1.9
+  path: /export/test/minio-system-data-minio-0-pvc-7d67ee2a-42bb-41dd-8f3b-1f9eb82acef5
+resources:
+  requests: {cpu: 50m, memory: 128Mi}
+  limits: {cpu: "1", memory: 512Mi}

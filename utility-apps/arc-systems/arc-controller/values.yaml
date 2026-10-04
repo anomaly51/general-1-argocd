@@ -1,0 +1,16 @@
+gha-runner-scale-set-controller:
+  replicaCount: 2
+  serviceAccount:
+    name: arc-controller-gha-rs-controller
+  flags:
+    logLevel: info
+    logFormat: json
+    runnerMaxConcurrentReconciles: 4
+    updateStrategy: eventual
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
