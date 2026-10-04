@@ -130,6 +130,8 @@ class PreviewApplicationSetTests(unittest.TestCase):
         sync = spec["template"]["spec"]["syncPolicy"]
         self.assertEqual(sync["automated"], {"prune": True, "selfHeal": True, "allowEmpty": True})
         self.assertEqual(sync["syncOptions"], ["CreateNamespace=true", "ServerSideApply=true"])
+        self.assertEqual(sync["retry"], {"limit": 1,
+                         "backoff": {"duration": "5s", "factor": 1, "maxDuration": "5s"}})
         self.assertNotIn("Prune=false", yaml.safe_dump(spec))
         self.assertNotIn("Delete=false", yaml.safe_dump(spec))
 
