@@ -729,45 +729,25 @@
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
       "run_id": 37243667669
     },
-    "pricing-service": {
-      "digest": "sha256:0b83544f47ba7339664788fcb85bc15dae612b2ecdbb9921f3e2346a5a4080a9",
-      "head": "b785e9daa7a5bfc647dd0f03b0907c2b0bbd02b2",
-      "run_id": 37243668072
-    },
     "shell": {
       "digest": "sha256:ef8038bb3bda85c79dd2fa33dac5dec36faedd09c5de05536bfde2a83d65a182",
       "head": "5cb975cbb2e404c102ab6e3ff22b10513683b2dd",
       "run_id": 37241486981
-    },
-    "traffic-mfe": {
-      "digest": "sha256:0217c566392d89ea5a227cfe7ef904f94c73373ebedf2735d7edfd08c5c52a93",
-      "head": "b7bc600d66d1286eab778a0810b819a1796c1a8f",
-      "run_id": 37243667862
     }
   },
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
   "phase": "starting",
-  "plan_hash": "d1b9ab8e360b0c184c7bbe4661378ae62bf4705f8c80764d9f986501848b5e68",
+  "plan_hash": "a356e49a9782bf8f92c47be0b55f5db981be4c6128d71ec45e0dc8a08c186d24",
   "prs": {
     "order-service": {
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
       "number": 1,
       "repository": "anomaly51/playground-order-service"
     },
-    "pricing-service": {
-      "head": "b785e9daa7a5bfc647dd0f03b0907c2b0bbd02b2",
-      "number": 1,
-      "repository": "anomaly51/playground-pricing-service"
-    },
     "shell": {
       "head": "5cb975cbb2e404c102ab6e3ff22b10513683b2dd",
       "number": 1,
       "repository": "anomaly51/playground-shell"
-    },
-    "traffic-mfe": {
-      "head": "b7bc600d66d1286eab778a0810b819a1796c1a8f",
-      "number": 1,
-      "repository": "anomaly51/playground-traffic-mfe"
     }
   },
   "ready_at": "2026-10-04T23:22:01Z",
