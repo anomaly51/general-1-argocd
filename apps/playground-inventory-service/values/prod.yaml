@@ -12,7 +12,7 @@ appService:
   port: 3004
 image:
   repository: harbor.internal.api-api-api.com/playground/inventory-service
-  tag: prod@sha256:693b9ef33f91b44b8e0d30f06e87f5620556be068b1b7021f272f20afd653c06
+  tag: prod@sha256:53f27fb681c3477ad3df41a0e529cd020b573fc1320abcd56f21aa2b81d715be
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 imagePullSecret: playground-registry
