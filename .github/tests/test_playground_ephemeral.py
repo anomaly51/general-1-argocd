@@ -82,7 +82,8 @@ class PlaygroundEphemeralTests(unittest.TestCase):
                 self.assertNotIn("Retain", text)
                 self.assertNotIn("keepAfterDelete: true", text)
                 self.assertNotIn("deleteClaim: false", text)
-                self.assertEqual(len(documents), len(self.staging[chart]))
+                extra = 2 if chart == "namespace" else 0
+                self.assertEqual(len(documents), len(self.staging[chart]) + extra)
 
     def test_namespace_remains_internal_isolated_and_is_deleted_last(self):
         namespace = self.document("namespace", "Namespace", PREVIEW_NAMESPACE)

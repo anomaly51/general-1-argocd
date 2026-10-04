@@ -288,8 +288,37 @@ class PreviewSourceIsolationTests(unittest.TestCase):
         identities = [(doc["apiVersion"], doc["kind"], doc["metadata"]["name"]) for doc in self.documents]
         self.assertEqual(len(identities), len(set(identities)))
         for doc in self.documents:
-            if doc["kind"] != "Namespace":
+            if doc["kind"] in {"Role", "RoleBinding"}:
+                self.assertEqual(doc["apiVersion"], "rbac.authorization.k8s.io/v1")
+                self.assertEqual(doc["metadata"]["name"], self.state["namespace"])
+                self.assertEqual(doc["metadata"]["namespace"], "argocd")
+            elif doc["kind"] != "Namespace":
                 self.assertEqual(doc["metadata"].get("namespace", self.state["namespace"]), self.state["namespace"])
+
+    def test_lifecycle_operation_permission_is_exactly_one_preview_and_only_ephemeral(self):
+        roles = [doc for doc in self.documents if doc["kind"] == "Role"]
+        bindings = [doc for doc in self.documents if doc["kind"] == "RoleBinding"]
+        self.assertEqual(len(roles), 1)
+        self.assertEqual(len(bindings), 1)
+        self.assertEqual(roles[0]["rules"], [{
+            "apiGroups": ["argoproj.io"], "resources": ["applications"],
+            "resourceNames": [self.state["namespace"]], "verbs": ["get", "patch"],
+        }])
+        self.assertEqual(bindings[0]["roleRef"], {
+            "apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": self.state["namespace"],
+        })
+        self.assertEqual(bindings[0]["subjects"], [{
+            "kind": "ServiceAccount", "name": "playground-preview-lifecycle", "namespace": "playground-previews",
+        }])
+        for doc in roles + bindings:
+            self.assertEqual(doc["metadata"]["namespace"], "argocd")
+            self.assertEqual(doc["metadata"]["annotations"], {"argocd.argoproj.io/sync-wave": "-2"})
+        self.assertFalse({"ClusterRole", "ClusterRoleBinding"} & {doc["kind"] for doc in self.documents})
+        default = subprocess.check_output(
+            ["helm", "template", "namespace", str(ROOT / "utility-apps/playground-staging/namespace"),
+             "--namespace", "playground-staging"], text=True,
+        )
+        self.assertFalse({"Role", "RoleBinding"} & {doc["kind"] for doc in yaml.safe_load_all(default) if doc})
 
     def test_only_selected_components_change_and_snapshots_are_not_mutated(self):
         for source in self.sources[:8]:

@@ -353,7 +353,7 @@ def http_ready(state):
 
 
 class Kubernetes:
-    """Read-only discovery; no workload mutation methods exist in this controller."""
+    """Discover workloads; only cancel an already-retired Argo operation's status."""
 
     def __init__(self, token_path="/kubernetes/token", ca_path="/kubernetes/ca.crt"):
         self.token_path = token_path
@@ -386,6 +386,53 @@ class Kubernetes:
         if not re.fullmatch(r"playground-preview-[a-z0-9-]{1,24}-[0-9a-f]{10}", namespace):
             raise ValueError("Invalid preview namespace")
         return self._get(f"/api/v1/namespaces/{namespace}") is not None
+
+    def terminate_retired_operation(self, state):
+        """Unblock Argo cascading deletion without changing any desired workload.
+
+        Argo CD's TerminateOperation sets operationState.phase on the main
+        Application resource (its CRD has no status subresource). Per-preview
+        RBAC permits this patch for this application's exact name only.
+        """
+        namespace = validate_state(f"{STATE_PREFIX}{state['namespace']}.json", state)
+        if state["phase"] not in TERMINAL_PHASES or state.get("cleanup_completed_at"):
+            return False
+        application = self.application(namespace)
+        if not application:
+            return False
+        metadata = application.get("metadata", {})
+        if (metadata.get("name") != namespace or metadata.get("namespace") != "argocd"
+                or metadata.get("labels", {}).get("gitops.api-api-api.com/environment") != "preview"
+                or application.get("spec", {}).get("destination", {}).get("namespace") != namespace):
+            raise ValueError("Retired application identity does not match preview")
+        if (not metadata.get("deletionTimestamp") or not application.get("operation")
+                or application.get("status", {}).get("operationState", {}).get("phase") != "Running"):
+            return False
+        if not metadata.get("uid") or not metadata.get("resourceVersion"):
+            raise ValueError("Retired application lacks concurrency identity")
+        operations = [
+            {"op": "test", "path": "/metadata/uid", "value": metadata["uid"]},
+            {"op": "test", "path": "/metadata/resourceVersion", "value": metadata["resourceVersion"]},
+            {"op": "test", "path": "/status/operationState/phase", "value": "Running"},
+            {"op": "replace", "path": "/status/operationState/phase", "value": "Terminating"},
+        ]
+        token = Path(self.token_path).read_text().strip()
+        request = urllib.request.Request(
+            f"{KUBERNETES_ORIGIN}/apis/argoproj.io/v1alpha1/namespaces/argocd/applications/{namespace}",
+            data=compact_json(operations).encode(), method="PATCH",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json-patch+json"})
+        try:
+            with self.opener.open(request, timeout=15):
+                pass
+        except urllib.error.HTTPError as exc:
+            if exc.code in (404, 409, 422):
+                # Gone or changed after our GET: a fresh Cron invocation must
+                # re-read Git state and the resource before another attempt.
+                return False
+            raise RuntimeError(f"Argo operation termination failed (HTTP {exc.code})") from None
+        except urllib.error.URLError:
+            raise RuntimeError("Argo operation termination connection failed") from None
+        return True
 
 
 class Vault:
@@ -455,9 +502,10 @@ def plan_changes(states, actives, github, kubernetes, now, check_http=http_ready
         if state["phase"] in TERMINAL_PHASES:
             if active:
                 changes[active_path] = None
-            if (not state.get("cleanup_completed_at") and not state.get("cleanup_started_at")
+            if (not active and not state.get("cleanup_completed_at") and not state.get("cleanup_started_at")
                     and provisioning_finished(state, now)
-                    and not kubernetes.namespace_exists(state["namespace"])):
+                    and not kubernetes.namespace_exists(state["namespace"])
+                    and kubernetes.application(state["namespace"]) is None):
                 state["cleanup_started_at"] = format_date(now)
         else:
             reason = None
@@ -510,6 +558,12 @@ def reconcile(database, github, kubernetes, vault, now=None):
         head, tree_sha, paths = database.snapshot()
         states, actives = load_previews(database, paths)
         allowed = set(states) | {f"{ACTIVE_PREFIX}{state['namespace']}.json" for state in states.values()}
+        for previous in states.values():
+            if (previous["phase"] in TERMINAL_PHASES and not previous.get("cleanup_completed_at")
+                    and f"{ACTIVE_PREFIX}{previous['namespace']}.json" not in actives):
+                # Only after desired removal is durable in Git and Argo has
+                # begun deletion may a stuck Running operation be terminated.
+                kubernetes.terminate_retired_operation(previous)
         changes = plan_changes(states, actives, github, kubernetes, moment)
         if not changes:
             for path, previous in sorted(states.items()):
@@ -517,7 +571,8 @@ def reconcile(database, github, kubernetes, vault, now=None):
                         and not previous.get("cleanup_completed_at")
                         and provisioning_finished(previous, moment)
                         and f"{ACTIVE_PREFIX}{previous['namespace']}.json" not in actives
-                        and not kubernetes.namespace_exists(previous["namespace"])):
+                        and not kubernetes.namespace_exists(previous["namespace"])
+                        and kubernetes.application(previous["namespace"]) is None):
                     # Reactivation must wait for cleanup_completed_at; the durable
                     # cleanup claim protects a refreshed generation's credentials.
                     vault.cleanup(previous)

@@ -323,8 +323,29 @@ class LeaseLifecycle(unittest.TestCase):
         self.state["phase"] = "closed"
         self.assertEqual(self.plan(active=False), {})
         self.kubernetes.namespace_exists.return_value = False
+        self.assertEqual(self.plan(active=False), {})
+        self.kubernetes.application.return_value = None
         changes = self.plan(active=False)
         self.assertEqual(changes[self.state_path]["cleanup_started_at"], lifecycle.format_date(self.now))
+
+    def test_absent_namespace_is_not_enough_while_manifest_still_exists_in_git(self):
+        self.state["phase"] = "expired"
+        self.kubernetes.namespace_exists.return_value = False
+        self.kubernetes.application.return_value = None
+        self.assertEqual(self.plan(), {self.active_path: None})
+
+    def test_claimed_cleanup_waits_for_application_to_disappear_too(self):
+        self.state.update(phase="expired", cleanup_started_at=lifecycle.format_date(self.now))
+        self.kubernetes.namespace_exists.return_value = False
+        database = Mock()
+        database.snapshot.return_value = ("head", "tree", {self.state_path: {"path": self.state_path}})
+        database.read_json.return_value = self.state
+        vault = Mock()
+        self.assertFalse(lifecycle.reconcile(database, self.github, self.kubernetes, vault, self.now))
+        vault.cleanup.assert_not_called()
+        self.kubernetes.application.return_value = None
+        self.assertTrue(lifecycle.reconcile(database, self.github, self.kubernetes, vault, self.now))
+        vault.cleanup.assert_called_once_with(self.state)
 
     def test_vault_provisioning_defers_cleanup_but_not_environment_expiration(self):
         self.ready_state(expires_delta=0)
@@ -334,10 +355,97 @@ class LeaseLifecycle(unittest.TestCase):
         self.assertIsNone(changes[self.active_path])
         self.state = changes[self.state_path]
         self.kubernetes.namespace_exists.return_value = False
+        self.kubernetes.application.return_value = None
         self.assertEqual(self.plan(active=False), {})
         self.state["provisioning_until"] = lifecycle.format_date(self.now)
         changes = self.plan(active=False)
         self.assertEqual(changes[self.state_path]["cleanup_started_at"], lifecycle.format_date(self.now))
+
+    def test_operation_termination_requires_durable_terminal_state_without_active_manifest(self):
+        database = Mock()
+        paths = {self.state_path: {"path": self.state_path}, self.active_path: {"path": self.active_path}}
+        database.snapshot.return_value = ("head", "tree", paths)
+        self.ready_state(expires_delta=0)
+        database.read_json.side_effect = [self.state, self.active]
+        lifecycle.reconcile(database, self.github, self.kubernetes, Mock(), self.now)
+        self.kubernetes.terminate_retired_operation.assert_not_called()
+        self.state["phase"] = "expired"
+        database.read_json.side_effect = [self.state, self.active]
+        lifecycle.reconcile(database, self.github, self.kubernetes, Mock(), self.now)
+        self.kubernetes.terminate_retired_operation.assert_not_called()
+        database.snapshot.return_value = ("head", "tree", {self.state_path: {"path": self.state_path}})
+        database.read_json.side_effect = [self.state]
+        lifecycle.reconcile(database, self.github, self.kubernetes, Mock(), self.now)
+        self.kubernetes.terminate_retired_operation.assert_called_once_with(self.state)
+
+    def retired_application(self):
+        value = copy.deepcopy(self.application)
+        value.update(metadata={"name": self.namespace, "namespace": "argocd", "uid": "old-uid",
+                               "resourceVersion": "123", "deletionTimestamp": lifecycle.format_date(self.now),
+                               "labels": {"gitops.api-api-api.com/environment": "preview"}},
+                     operation={"sync": {}})
+        value["spec"]["destination"] = {"namespace": self.namespace}
+        value["status"]["operationState"]["phase"] = "Running"
+        return value
+
+    def termination_client(self, application):
+        client = lifecycle.Kubernetes.__new__(lifecycle.Kubernetes)
+        client.token_path = "/unused-token"
+        client.application = Mock(return_value=application)
+        client.opener = Mock()
+        client.opener.open.return_value = MagicMock()
+        return client
+
+    def test_retired_operation_patch_only_changes_status_with_uid_and_version_guards(self):
+        self.state["phase"] = "expired"
+        client = self.termination_client(self.retired_application())
+        with patch.object(lifecycle.Path, "read_text", return_value="not-a-real-token"):
+            self.assertTrue(client.terminate_retired_operation(self.state))
+        request = client.opener.open.call_args.args[0]
+        self.assertEqual(request.method, "PATCH")
+        self.assertEqual(request.full_url, f"https://kubernetes.default.svc/apis/argoproj.io/v1alpha1/namespaces/argocd/applications/{self.namespace}")
+        self.assertEqual(request.get_header("Content-type"), "application/json-patch+json")
+        operations = json.loads(request.data)
+        self.assertEqual(operations[:2], [{"op": "test", "path": "/metadata/uid", "value": "old-uid"},
+                                         {"op": "test", "path": "/metadata/resourceVersion", "value": "123"}])
+        self.assertEqual(operations[-2:], [{"op": "test", "path": "/status/operationState/phase", "value": "Running"},
+                                          {"op": "replace", "path": "/status/operationState/phase", "value": "Terminating"}])
+
+    def test_operation_termination_never_touches_active_or_already_finished_application(self):
+        application = self.retired_application()
+        client = self.termination_client(application)
+        self.assertFalse(client.terminate_retired_operation(self.state))
+        client.application.assert_not_called()
+        self.state["phase"] = "expired"
+        variants = [None]
+        for phase in ("Succeeded", "Failed", "Terminating"):
+            value = copy.deepcopy(application)
+            value["status"]["operationState"]["phase"] = phase
+            variants.append(value)
+        value = copy.deepcopy(application)
+        del value["metadata"]["deletionTimestamp"]
+        variants.append(value)
+        value = copy.deepcopy(application)
+        del value["operation"]
+        variants.append(value)
+        for value in variants:
+            client.application.return_value = value
+            self.assertFalse(client.terminate_retired_operation(self.state))
+        client.opener.open.assert_not_called()
+
+    def test_termination_rejects_foreign_application_and_handles_concurrent_completion(self):
+        self.state["phase"] = "expired"
+        application = self.retired_application()
+        application["spec"]["destination"]["namespace"] = "playground-prod"
+        client = self.termination_client(application)
+        with self.assertRaisesRegex(ValueError, "identity"):
+            client.terminate_retired_operation(self.state)
+        client.opener.open.assert_not_called()
+        client.application.return_value = self.retired_application()
+        for status in (404, 409, 422):
+            client.opener.open.side_effect = lifecycle.urllib.error.HTTPError("redacted", status, "", {}, None)
+            with patch.object(lifecycle.Path, "read_text", return_value="not-a-real-token"):
+                self.assertFalse(client.terminate_retired_operation(self.state))
 
     def test_cas_retry_rereads_refreshed_expiry_instead_of_replaying_deletion(self):
         self.ready_state(expires_delta=-1)
