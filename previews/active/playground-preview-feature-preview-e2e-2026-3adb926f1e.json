@@ -41,7 +41,7 @@
           "image": {
             "pullPolicy": "IfNotPresent",
             "repository": "harbor.internal.api-api-api.com/playground/order-service",
-            "tag": "staging@sha256:0ebe8ff744fbcc85d15052748f5b8bd597911353ec8e9ddbbc1c4b9798431dd8"
+            "tag": "preview@sha256:fe8c6c364057ab67d93cb80d74eb830884236bcfa20eb5fabf5b88b0c3ef6a47"
           },
           "imagePullSecret": "playground-registry",
           "nodeSelector": {
@@ -153,7 +153,7 @@
           "image": {
             "pullPolicy": "IfNotPresent",
             "repository": "harbor.internal.api-api-api.com/playground/pricing-service",
-            "tag": "staging@sha256:3c49adb7cca05542f9adea2aa1e966cff082e0ad61949def705e51388907362e"
+            "tag": "preview@sha256:0b83544f47ba7339664788fcb85bc15dae612b2ecdbb9921f3e2346a5a4080a9"
           },
           "imagePullSecret": "playground-registry",
           "nodeSelector": {
@@ -673,7 +673,7 @@
           "image": {
             "pullPolicy": "IfNotPresent",
             "repository": "harbor.internal.api-api-api.com/playground/traffic-mfe",
-            "tag": "staging@sha256:20cf87915978bc190702a9de90b87e3538026e977ccafdd5ce5010bd7ebb3a0c"
+            "tag": "preview@sha256:0217c566392d89ea5a227cfe7ef904f94c73373ebedf2735d7edfd08c5c52a93"
           },
           "imagePullSecret": "playground-registry",
           "nodeSelector": {

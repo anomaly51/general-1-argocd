@@ -724,15 +724,30 @@
   "expires_at": "2026-10-04T23:37:01Z",
   "generation": "2b1a115b-d1e9-4686-aa3e-b21cb5f9148e",
   "images": {
+    "order-service": {
+      "digest": "sha256:fe8c6c364057ab67d93cb80d74eb830884236bcfa20eb5fabf5b88b0c3ef6a47",
+      "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
+      "run_id": 37243667669
+    },
+    "pricing-service": {
+      "digest": "sha256:0b83544f47ba7339664788fcb85bc15dae612b2ecdbb9921f3e2346a5a4080a9",
+      "head": "b785e9daa7a5bfc647dd0f03b0907c2b0bbd02b2",
+      "run_id": 37243668072
+    },
     "shell": {
       "digest": "sha256:ef8038bb3bda85c79dd2fa33dac5dec36faedd09c5de05536bfde2a83d65a182",
       "head": "5cb975cbb2e404c102ab6e3ff22b10513683b2dd",
       "run_id": 37241486981
+    },
+    "traffic-mfe": {
+      "digest": "sha256:0217c566392d89ea5a227cfe7ef904f94c73373ebedf2735d7edfd08c5c52a93",
+      "head": "b7bc600d66d1286eab778a0810b819a1796c1a8f",
+      "run_id": 37243667862
     }
   },
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
   "phase": "starting",
-  "plan_hash": "2d53472fb2021396226784b8621fed7807188532df4be81c5e5d02ab585f6f3d",
+  "plan_hash": "5c237fef00db12e277dcd87efaef232583952fae57a72f09736fd622f87893bf",
   "prs": {
     "order-service": {
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
