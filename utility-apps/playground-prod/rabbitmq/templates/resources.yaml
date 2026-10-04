@@ -12,7 +12,9 @@ spec:
   refreshAfter: 1m
   destination:
     create: true
-    name: rabbitmq-default-user
+    # Keep the VSO resource identity, but avoid the cluster operator's reserved
+    # <cluster>-default-user name: it rewrites labels even with externalSecret.
+    name: playground-rabbitmq-admin
     labels:
       rabbitmq.com/topology-operator: "true"
     transformation:
@@ -73,7 +75,7 @@ spec:
   replicas: 1
   secretBackend:
     externalSecret:
-      name: rabbitmq-default-user
+      name: playground-rabbitmq-admin
   persistence:
     storageClassName: {{ .Values.storage.className }}
     storage: {{ .Values.storage.size }}

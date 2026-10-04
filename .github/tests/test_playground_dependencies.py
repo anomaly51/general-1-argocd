@@ -214,7 +214,11 @@ class PlaygroundDependencyTests(unittest.TestCase):
 
     def test_rabbit_separates_operator_admin_from_scoped_application_user(self):
         cluster = self.document("rabbitmq", "RabbitmqCluster", "rabbitmq")
-        self.assertEqual(cluster["spec"]["secretBackend"]["externalSecret"]["name"], "rabbitmq-default-user")
+        admin_name = cluster["spec"]["secretBackend"]["externalSecret"]["name"]
+        self.assertEqual(admin_name, "playground-rabbitmq-admin")
+        self.assertNotEqual(admin_name, cluster["metadata"]["name"] + "-default-user")
+        admin_secret = self.document("rabbitmq", "VaultStaticSecret", "rabbitmq-default-user")
+        self.assertEqual(admin_secret["spec"]["destination"]["name"], admin_name)
         for secret_name, prefix in (("rabbitmq-default-user", "RABBITMQ_ADMIN"),
                                     ("rabbitmq-app-user", "RABBITMQ")):
             secret = self.document("rabbitmq", "VaultStaticSecret", secret_name)["spec"]
