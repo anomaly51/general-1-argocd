@@ -12,7 +12,7 @@ appService:
   port: 80
 image:
   repository: harbor.internal.api-api-api.com/playground/traffic-mfe
-  tag: prod@sha256:37ad42c5064e8195e40c50624ff7a4d0d262e10a0b74dd30298986179b4790f5
+  tag: prod@sha256:10f571457f705af9001590e3c5e11daf4fc743be34f6b7bef5ff82be80073efd
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 imagePullSecret: playground-registry
