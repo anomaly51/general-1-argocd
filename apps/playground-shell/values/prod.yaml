@@ -12,7 +12,7 @@ appService:
   port: 80
 image:
   repository: harbor.internal.api-api-api.com/playground/shell
-  tag: prod@sha256:01017d5f524c97131488f8379077904ecfdde96f881fa5860224d05f19498eba
+  tag: prod@sha256:53e9556f38b4f068e53498cd3aa556fefb7f74467bc3bdf9ba03791703a1d015
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 imagePullSecret: playground-registry
