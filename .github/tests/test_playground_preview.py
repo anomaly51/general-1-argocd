@@ -358,6 +358,8 @@ class PreviewSourceIsolationTests(unittest.TestCase):
         self.assertEqual(len(deployments), 9, "Eight services plus the order outbox relay")
         for deployment in deployments:
             self.assertEqual(deployment["metadata"]["annotations"]["argocd.argoproj.io/sync-wave"], "3")
+            self.assertEqual(deployment["spec"]["strategy"]["rollingUpdate"],
+                             {"maxUnavailable": 1, "maxSurge": 0})
         for document in self.documents:
             if document["kind"] in {"KafkaTopic", "User"}:
                 self.assertEqual(document["metadata"]["annotations"]["argocd.argoproj.io/sync-wave"], "1")
@@ -366,7 +368,7 @@ class PreviewSourceIsolationTests(unittest.TestCase):
             elif document["kind"] == "Deployment" and document["metadata"]["name"] == "edge":
                 self.assertNotIn("argocd.argoproj.io/sync-wave", document["metadata"].get("annotations", {}))
 
-    def test_optional_workload_wave_is_the_only_render_difference_and_defaults_remain_unchanged(self):
+    def test_preview_wave_and_no_surge_leave_default_renders_unchanged(self):
         for service in preview.SERVICES:
             chart = ROOT / f"apps/playground-{service}"
             baseline = copy.deepcopy(self.state["baseline"][service])
@@ -389,6 +391,9 @@ class PreviewSourceIsolationTests(unittest.TestCase):
                         count += 1
                         self.assertEqual(document["metadata"].pop("annotations"),
                                          {"argocd.argoproj.io/sync-wave": "3"})
+                        self.assertEqual(document["spec"]["strategy"]["rollingUpdate"],
+                                         {"maxUnavailable": 1, "maxSurge": 0})
+                        document["spec"]["strategy"]["rollingUpdate"] = {"maxUnavailable": 0, "maxSurge": 1}
                 self.assertEqual(count, 2 if service == "order-service" else 1)
                 self.assertEqual(ephemeral, rendered["omitted"])
 

@@ -133,13 +133,30 @@ class LeaseLifecycle(unittest.TestCase):
                                 "operationState": {"phase": "Succeeded"}}}
         self.github = Mock()
         self.github.request.return_value = {"number": 10, "state": "open",
-                                             "base": {"repo": {"full_name": "anomaly51/playground-shell"}},
+                                             "author_association": "MEMBER",
+                                             "base": {"ref": "main", "repo": {"full_name": "anomaly51/playground-shell"}},
                                              "head": {"ref": self.state["branch"], "sha": "b" * 40,
                                                       "repo": {"full_name": "anomaly51/playground-shell"}}}
+        self.github.request.side_effect = self.github_response
         self.kubernetes = Mock()
         self.kubernetes.application.return_value = self.application
         self.kubernetes.namespace_exists.return_value = True
         self.check_http = Mock(return_value=True)
+
+    def github_response(self, path):
+        if "/pulls?" in path:
+            return [self.github.request.return_value] if "/playground-shell/" in path else []
+        return self.github.request.return_value
+
+    def open_pr(self, service, number=20, head="c" * 40):
+        repository = f"anomaly51/playground-{service}"
+        return {"number": number, "state": "open", "author_association": "MEMBER",
+                "head": {"ref": self.state["branch"], "sha": head, "repo": {"full_name": repository}},
+                "base": {"ref": "main", "repo": {"full_name": repository}}}
+
+    def listings(self, *pulls):
+        return [[pr for pr in pulls if pr["base"]["repo"]["full_name"] == f"anomaly51/playground-{service}"]
+                for service in sorted(lifecycle.SERVICES)]
 
     def plan(self, active=True):
         return lifecycle.plan_changes({self.state_path: self.state},
@@ -242,6 +259,108 @@ class LeaseLifecycle(unittest.TestCase):
         self.assertEqual(changes[self.state_path]["prs"], self.state["prs"])
         self.assertNotIn(self.active_path, changes)
 
+    def test_new_same_branch_member_blocks_ready_before_its_ci_notification(self):
+        self.ready_state(expires_delta=7)
+        joining = self.open_pr("pricing-service")
+        self.github.request.side_effect = lambda path: (
+            [joining] if "/playground-pricing-service/pulls?" in path else self.github_response(path))
+        changes = self.plan()
+        self.assertEqual(changes[self.state_path]["phase"], "starting")
+        for field in ("ready_at", "expires_at", "prs", "images"):
+            self.assertEqual(changes[self.state_path][field], self.state[field])
+        self.assertNotIn(self.active_path, changes)
+        self.kubernetes.application.assert_not_called()
+        self.check_http.assert_not_called()
+        self.state = changes[self.state_path]
+        self.assertEqual(self.plan(), {}, "Polling a pending join must not create repeated no-op commits")
+
+    def test_initial_preview_does_not_start_ttl_while_an_unrecorded_member_is_pending(self):
+        joining = self.open_pr("order-service")
+        self.github.request.side_effect = lambda path: (
+            [joining] if "/playground-order-service/pulls?" in path else self.github_response(path))
+        self.assertEqual(self.plan(), {})
+        self.assertIsNone(self.state["ready_at"])
+        self.assertIsNone(self.state["expires_at"])
+        self.kubernetes.application.assert_not_called()
+
+    def test_live_membership_ignores_forks_other_branches_wrong_bases_and_untrusted_authors(self):
+        candidates = []
+        for field in ("fork", "branch", "base", "author", "closed"):
+            pr = self.open_pr("pricing-service")
+            if field == "fork":
+                pr["head"]["repo"]["full_name"] = "outsider/playground-pricing-service"
+            elif field == "branch":
+                pr["head"]["ref"] = "feature/another"
+            elif field == "base":
+                pr["base"]["ref"] = "release/old"
+            elif field == "author":
+                pr["author_association"] = "CONTRIBUTOR"
+            else:
+                pr["state"] = "closed"
+            candidates.append(pr)
+        self.github.request.side_effect = lambda path: (
+            candidates if "/playground-pricing-service/pulls?" in path else self.github_response(path))
+        live = lifecycle.open_branch_prs(self.github, self.state)
+        self.assertEqual(live, self.state["prs"])
+        self.assertEqual(self.github.request.call_count, 8)
+
+    def test_duplicate_or_invalid_eligible_live_pr_identity_is_rejected(self):
+        first = self.open_pr("pricing-service")
+        second = self.open_pr("pricing-service", number=21)
+        for candidates in ([first, second], [{**first, "number": 0}],
+                           [{**first, "head": {**first["head"], "sha": "main"}}]):
+            with self.subTest(candidates=len(candidates)), self.assertRaises(ValueError):
+                client = Mock(request=Mock(side_effect=lambda path: (
+                    candidates if "/playground-pricing-service/pulls?" in path else [])))
+                lifecycle.open_branch_prs(client, self.state)
+
+    def test_one_group_membership_failure_does_not_block_other_groups_expiry(self):
+        self.ready_state(expires_delta=7)
+        expired = copy.deepcopy(self.state)
+        expired.update(branch="feature/zzz-expired", namespace=lifecycle.preview_namespace("feature/zzz-expired"),
+                       expires_at=lifecycle.format_date(self.now))
+        expired_path = f"previews/state/{expired['namespace']}.json"
+        expired_active_path = f"previews/active/{expired['namespace']}.json"
+        for error in (lifecycle.APIError(403), ValueError("ambiguous with secret-value")):
+            with self.subTest(error=type(error).__name__):
+                self.github.request.side_effect = error
+                changes = lifecycle.plan_changes(
+                    {self.state_path: self.state, expired_path: expired},
+                    {self.active_path: self.active, expired_active_path: {"still": "active"}},
+                    self.github, self.kubernetes, self.now, check_http=self.check_http,
+                )
+                pending = changes[self.state_path]
+                self.assertEqual(pending["phase"], "starting")
+                self.assertEqual(pending["membership_error"], "Pull request membership could not be verified")
+                self.assertNotIn("secret-value", json.dumps(changes))
+                for field in ("ready_at", "expires_at", "prs", "images"):
+                    self.assertEqual(pending[field], self.state[field])
+                self.assertNotIn(self.active_path, changes)
+                self.assertEqual(changes[expired_path]["phase"], "expired")
+                self.assertIsNone(changes[expired_active_path])
+
+    def test_membership_failure_does_not_create_repeat_commits_or_hide_deadline(self):
+        self.ready_state(expires_delta=7)
+        self.github.request.side_effect = lifecycle.APIError(403)
+        self.state = self.plan()[self.state_path]
+        self.assertEqual(self.plan(), {})
+        self.now += timedelta(minutes=7)
+        self.github.request.reset_mock()
+        changes = self.plan()
+        self.assertEqual(changes[self.state_path]["phase"], "expired")
+        self.assertIsNone(changes[self.active_path])
+        self.github.request.assert_not_called()
+
+    def test_recovered_membership_clears_sanitized_error_without_renewing_lease(self):
+        self.ready_state(expires_delta=7)
+        self.github.request.side_effect = lifecycle.APIError(403)
+        self.state = self.plan()[self.state_path]
+        self.github.request.side_effect = self.github_response
+        changes = self.plan()
+        self.assertEqual(changes[self.state_path]["phase"], "ready")
+        self.assertNotIn("membership_error", changes[self.state_path])
+        self.assertEqual(changes[self.state_path]["expires_at"], self.state["expires_at"])
+
     def test_http_dependencies_must_be_usable_before_initial_ready(self):
         self.check_http.return_value = False
         self.assertEqual(self.plan(), {})
@@ -274,6 +393,7 @@ class LeaseLifecycle(unittest.TestCase):
         self.github.request.side_effect = [
             {"number": 11, "state": "closed", "base": {"repo": {"full_name": "anomaly51/playground-pricing-service"}}},
             {"number": 10, "state": "open", "base": {"repo": {"full_name": "anomaly51/playground-shell"}}},
+            *self.listings(self.github.request.return_value),
         ]
         changes = self.plan()
         self.assertEqual(changes[self.state_path]["phase"], "starting")
@@ -289,6 +409,7 @@ class LeaseLifecycle(unittest.TestCase):
         self.github.request.side_effect = [
             {"number": 11, "state": "closed", "base": {"repo": {"full_name": "anomaly51/playground-pricing-service"}}},
             {"number": 10, "state": "open", "base": {"repo": {"full_name": "anomaly51/playground-shell"}}},
+            *self.listings(self.github.request.return_value),
         ]
         changes = self.plan(active=False)
         self.assertEqual(set(changes[self.state_path]["prs"]), {"shell"})
@@ -307,11 +428,12 @@ class LeaseLifecycle(unittest.TestCase):
         self.ready_state()
         self.github.request.side_effect = [
             {"number": 10, "state": "closed", "base": {"repo": {"full_name": "anomaly51/playground-shell"}}},
-            [{"state": "open", "head": {"ref": self.state["branch"], "repo": {
-                "full_name": "anomaly51/playground-analytics-service"}},
-                "base": {"repo": {"full_name": "anomaly51/playground-analytics-service"}}}],
+            *self.listings(self.open_pr("analytics-service")),
         ]
-        self.assertEqual(self.plan(), {})
+        changes = self.plan()
+        self.assertEqual(changes[self.state_path]["phase"], "starting")
+        self.assertEqual(changes[self.state_path]["expires_at"], self.state["expires_at"])
+        self.assertNotIn(self.active_path, changes)
 
     def test_expired_state_never_recreates_active_manifest_or_renews(self):
         self.state["phase"] = "expired"

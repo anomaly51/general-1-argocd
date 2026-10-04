@@ -273,21 +273,35 @@ def inspect_prs(github, state):
     return closed, current_heads_match
 
 
-def other_branch_prs_open(github, state):
-    # A new PR may have opened since the central workflow wrote this state.
-    # Do not tear down a shared branch while its membership update is queued.
+def open_branch_prs(github, state):
+    # CI completion notifications arrive too late to notice a newly opened PR
+    # whose checks are still pending or failing. Scan the complete eligible
+    # feature group before declaring its previously published plan ready.
     head = urllib.parse.quote("anomaly51:" + state["branch"], safe="")
+    result = {}
     for service in sorted(SERVICES):
         repository = f"anomaly51/playground-{service}"
-        prs = github.request(f"/repos/{repository}/pulls?state=open&head={head}&per_page=100")
-        if not isinstance(prs, list):
-            raise ValueError("Unexpected GitHub pull request listing")
-        for pr in prs:
-            if (pr.get("state") == "open" and pr.get("head", {}).get("ref") == state["branch"]
-                    and pr.get("head", {}).get("repo", {}).get("full_name") == repository
-                    and pr.get("base", {}).get("repo", {}).get("full_name") == repository):
-                return True
-    return False
+        for page in range(1, 11):
+            prs = github.request(f"/repos/{repository}/pulls?state=open&head={head}&per_page=100&page={page}")
+            if not isinstance(prs, list):
+                raise ValueError("Unexpected GitHub pull request listing")
+            for pr in prs:
+                pr_head, base = pr.get("head") or {}, pr.get("base") or {}
+                if (pr.get("state") != "open" or pr_head.get("ref") != state["branch"]
+                        or (pr_head.get("repo") or {}).get("full_name") != repository
+                        or (base.get("repo") or {}).get("full_name") != repository
+                        or base.get("ref") not in {"main", "dev"}
+                        or pr.get("author_association") not in {"OWNER", "MEMBER", "COLLABORATOR"}):
+                    continue
+                if (service in result or type(pr.get("number")) is not int or pr["number"] < 1
+                        or not re.fullmatch(r"[0-9a-f]{40}", str(pr_head.get("sha", "")))):
+                    raise ValueError("Ambiguous or invalid live preview PR membership")
+                result[service] = {"number": pr["number"], "head": pr_head["sha"], "repository": repository}
+            if len(prs) < 100:
+                break
+        else:
+            raise ValueError("Preview PR pagination limit exceeded")
+    return result
 
 
 def restore_closed_components(state, active, services):
@@ -519,21 +533,40 @@ def plan_changes(states, actives, github, kubernetes, now, check_http=http_ready
                   and parse_date(state["startup_deadline"]) <= now):
                 reason = "failed"
             else:
-                closed, current_heads_match = inspect_prs(github, state)
-                if not current_heads_match:
-                    # A push can race the central workflow's final membership
-                    # check. Keep the existing deployment, but do not call it
-                    # ready for the new PR head or renew its lease.
+                try:
+                    closed, current_heads_match = inspect_prs(github, state)
+                    live_prs = open_branch_prs(github, state)
+                except (APIError, RuntimeError, ValueError, KeyError, TypeError):
+                    # One ambiguous group or failed API read must not prevent
+                    # unrelated expired previews from being removed. Never
+                    # mistake an unavailable membership list for a closed PR.
                     state["phase"] = "starting"
-                if len(closed) == len(state["prs"]):
-                    if not other_branch_prs_open(github, state):
-                        reason = "closed"
-                    else:
+                    state["membership_error"] = "Pull request membership could not be verified"
+                    membership_pending = True
+                    current_heads_match = False
+                    print("Preview membership check unavailable:", state["namespace"], flush=True)
+                else:
+                    state.pop("membership_error", None)
+                    if not current_heads_match:
+                        # A push can race the central workflow's final membership
+                        # check. Keep the existing deployment, but do not call it
+                        # ready for the new PR head or renew its lease.
+                        state["phase"] = "starting"
+                    if len(closed) == len(state["prs"]):
+                        if not live_prs:
+                            reason = "closed"
+                        else:
+                            membership_pending = True
+                    elif closed:
+                        active = restore_closed_components(state, active, closed)
+                        if active:
+                            changes[active_path] = active
+                    if live_prs != state["prs"]:
                         membership_pending = True
-                elif closed:
-                    active = restore_closed_components(state, active, closed)
-                    if active:
-                        changes[active_path] = active
+                    if membership_pending:
+                        # Preserve the existing deployment and original lease;
+                        # the central builder alone adds verified PR images.
+                        state["phase"] = "starting"
             if reason:
                 state["phase"] = reason
                 state["terminated_at"] = format_date(now)

@@ -17,8 +17,8 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
+      maxUnavailable: {{ if .Values.ephemeral }}1{{ else }}0{{ end }}
+      maxSurge: {{ if .Values.ephemeral }}0{{ else }}1{{ end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ .Values.appService.name }}
