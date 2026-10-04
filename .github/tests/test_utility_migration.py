@@ -94,6 +94,13 @@ class ArcMigrationTests(unittest.TestCase):
                 if name == "juggluco-runner-set":
                     self.assertEqual(spec["runnerGroup"], "Juggluco Deploy")
 
+    def test_controller_does_not_wait_on_warm_runners_to_replace_listener(self):
+        deployment = resource("arc-controller", "Deployment", "arc-controller-gha-rs-controller")
+        containers = deployment["spec"]["template"]["spec"]["containers"]
+        manager = next(container for container in containers if container["name"] == "manager")
+        self.assertIn("--update-strategy=immediate", manager["args"])
+        self.assertNotIn("--update-strategy=eventual", manager["args"])
+
     def test_runner_work_uses_expanded_worker_one_and_one_gib_memory_ceiling(self):
         for name in ("arc-runner-set", "juggluco-runner-set"):
             with self.subTest(chart=name):

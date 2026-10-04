@@ -13,7 +13,9 @@ gha-runner-scale-set-controller:
     logLevel: info
     logFormat: json
     runnerMaxConcurrentReconciles: 4
-    updateStrategy: eventual
+    # ARC 0.14.2 can deadlock listener replacement with warm idle runners.
+    # Reconfigure scale sets while idle: immediate can briefly overlap sets.
+    updateStrategy: immediate
   resources:
     requests:
       cpu: 50m
