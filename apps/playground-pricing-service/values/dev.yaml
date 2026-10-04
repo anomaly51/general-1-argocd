@@ -14,7 +14,7 @@ appService:
   port: 8001
 image:
   repository: harbor.internal.api-api-api.com/playground/pricing-service
-  tag: dev@sha256:6c534d187028a808d805fbee6750849da425714805bd07d379a9ba3a03e2f177
+  tag: dev@sha256:0965177bef716981c36ddbe674c2f0a4b5f47f986ea597d77423db62035e3a1c
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 imagePullSecret: playground-registry
