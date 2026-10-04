@@ -1,10 +1,14 @@
-# Complete production configuration; releases require explicit promotion.
 _release:
-  revision: e87769933b7bec6ad26803d5bdc39cca40148127
+  revision: 5d94a90dd687b19e3e24f25a6cfdeea292b83137
   policy: promote
   namespace: playground-prod
   sourceRepository: anomaly51/playground-shell
-
+  promotedFrom: e4ed1a7d140311f31bb9be1c4783e33b94fdadb7
+  sourceCommit: 060ec532e8adc061131582eb4692b371d86e6d67
+  sourceBranch: main
+  imageKeys:
+  - image
+  runUrl: https://github.com/anomaly51/playground-shell/commit/060ec532e8adc061131582eb4692b371d86e6d67
 replicaCount: 1
 component: frontend
 appService:
@@ -12,11 +16,11 @@ appService:
   port: 80
 image:
   repository: harbor.internal.api-api-api.com/playground/shell
-  tag: prod@sha256:b5af75bc341741fb2501fe3eea3feb068fdca01b0072d0a7769178c434d855ec
+  tag: staging@sha256:9c90aa730916133f7b2ed291177102917d7e570fabff53c5e7029eee5a2b3fea
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 imagePullSecret: playground-registry
-envSecret: ""
+envSecret: ''
 probes:
   livenessPath: /healthz
   readinessPath: /healthz
@@ -33,12 +37,12 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-      - ALL
+    - ALL
     add:
-      - CHOWN
-      - NET_BIND_SERVICE
-      - SETGID
-      - SETUID
+    - CHOWN
+    - NET_BIND_SERVICE
+    - SETGID
+    - SETUID
 resources:
   requests:
     cpu: 10m
@@ -49,14 +53,13 @@ resources:
     memory: 96Mi
     ephemeral-storage: 192Mi
 scratchVolumes:
-  - name: tmp
-    mountPath: /tmp
-    sizeLimit: 32Mi
-  - name: nginx-cache
-    mountPath: /var/cache/nginx
-    sizeLimit: 64Mi
-  - name: nginx-run
-    mountPath: /var/run
-    sizeLimit: 16Mi
-# URLs are compiled into these same-origin static assets; no runtime VITE_* override.
+- name: tmp
+  mountPath: /tmp
+  sizeLimit: 32Mi
+- name: nginx-cache
+  mountPath: /var/cache/nginx
+  sizeLimit: 64Mi
+- name: nginx-run
+  mountPath: /var/run
+  sizeLimit: 16Mi
 env: {}
