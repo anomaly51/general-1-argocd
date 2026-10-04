@@ -1,0 +1,4 @@
+nodeName: general-1-worker-2
+requests:
+  cpu: 100m
+  memory: 512Mi
