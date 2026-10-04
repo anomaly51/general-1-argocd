@@ -76,6 +76,17 @@ class HarborPolicyTests(unittest.TestCase):
         self.assertEqual(harbor.policies[0]["targets"][0]["auth_header"], token)
         self.assertEqual(len(harbor.policies), 1)
 
+    def test_migrates_existing_proxy_target_in_place_with_same_token(self):
+        policy = self.desired()
+        policy["targets"][0]["address"] = (
+            "https://playground-image-updater-webhook.internal.api-api-api.com/webhook")
+        harbor = FakeHarbor([policy])
+        self.assertEqual(webhook.configure(harbor.request, CONFIG, TOKEN), "updated")
+        self.assertEqual(harbor.writes[0][:2], ("PUT", webhook.POLICIES + "/7"))
+        self.assertEqual(harbor.policies[0]["targets"][0]["address"], webhook.ENDPOINT)
+        self.assertEqual(harbor.policies[0]["targets"][0]["auth_header"], TOKEN)
+        self.assertEqual(len(harbor.policies), 1)
+
     def test_omitted_false_cert_verify_matches_after_create_and_on_repeat(self):
         harbor = FakeHarbor()
 
@@ -136,9 +147,11 @@ class HarborPolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "did not retain"):
             webhook.configure(request, CONFIG, TOKEN)
 
-    def test_only_private_https_endpoint_and_safe_token_are_accepted(self):
-        for endpoint in ("http://example.com", "https://example.com", webhook.ENDPOINT + "?type=harbor",
-                         webhook.ENDPOINT + "#fragment", "https://user:pass@example.com/webhook"):
+    def test_only_exact_internal_service_target_and_safe_token_are_accepted(self):
+        for endpoint in ("http://example.com", "https://example.com", webhook.ENDPOINT + "&extra=1",
+                         webhook.ENDPOINT.split("?")[0], webhook.ENDPOINT.replace("type=harbor", "type=dockerhub"),
+                         webhook.ENDPOINT.replace(":8080/", ":8082/"), webhook.ENDPOINT + "#fragment",
+                         "https://user:pass@example.com/webhook"):
             with self.subTest(endpoint=endpoint), self.assertRaises(ValueError):
                 webhook.desired_policy(dict(CONFIG, endpoint=endpoint), TOKEN)
         for token in ("short", TOKEN + "\n", TOKEN + "\x00", TOKEN + "é"):
@@ -148,7 +161,7 @@ class HarborPolicyTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 webhook.desired_policy(config, TOKEN)
 
-    def test_policy_has_only_push_default_json_with_certificate_verification(self):
+    def test_policy_has_only_push_default_json_and_shared_token(self):
         policy = webhook.desired_policy(CONFIG, TOKEN)
         self.assertEqual(policy["event_types"], ["PUSH_ARTIFACT"])
         self.assertEqual(policy["targets"], [{"type": "http", "address": webhook.ENDPOINT,
@@ -243,9 +256,11 @@ class HarborWebhookChartTests(unittest.TestCase):
         self.assertEqual(container["securityContext"]["capabilities"], {"drop": ["ALL"]})
         self.assertTrue(all(mount["readOnly"] for mount in container["volumeMounts"]))
 
-    def test_rendered_policy_matches_receiver_contract_without_query_string(self):
+    def test_rendered_policy_uses_service_dns_and_explicit_harbor_parser(self):
         config = self.document("ConfigMap", "harbor-playground-webhook-configure")["data"]
         self.assertEqual(json.loads(config["policy.json"]), CONFIG)
+        self.assertEqual(webhook.ENDPOINT,
+                         "http://playground-image-updater.argocd.svc.cluster.local:8080/webhook?type=harbor")
         self.assertEqual(config["configure.py"], (CHART / "files/configure.py").read_text())
 
 

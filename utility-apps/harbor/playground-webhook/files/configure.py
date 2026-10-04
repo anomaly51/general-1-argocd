@@ -10,7 +10,7 @@ import urllib.request
 API = "https://harbor.internal.api-api-api.com/api/v2.0"
 POLICIES = "/projects/playground/webhook/policies"
 NAME = "playground-image-updater"
-ENDPOINT = "https://playground-image-updater-webhook.internal.api-api-api.com/webhook"
+ENDPOINT = "http://playground-image-updater.argocd.svc.cluster.local:8080/webhook?type=harbor"
 FIELDS = ("name", "description", "enabled", "event_types", "targets")
 
 
@@ -57,7 +57,7 @@ def find_policy(request):
 def managed_fields(policy):
     fields = {field: policy.get(field) for field in FIELDS}
     # Harbor omits this bool when false. Only an absent field defaults to false;
-    # explicit true (or null) must remain drift and never bypass TLS verification.
+    # explicit true (or null) remains drift; a TLS bypass is never requested.
     if isinstance(fields["targets"], list):
         fields["targets"] = [dict(target, skip_cert_verify=target.get("skip_cert_verify", False))
                              if isinstance(target, dict) else target for target in fields["targets"]]

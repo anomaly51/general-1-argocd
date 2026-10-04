@@ -25,7 +25,7 @@ argocd-image-updater:
     watch.namespaces: argocd
     interval: 2m
     webhook.enable: true
-    # HTTPS terminates in the same pod; only its protected TLS port is reachable.
+    # Cluster-only HTTP; Harbor authenticates with the Vault-managed webhook token.
     disable-tls: true
     kube.events: false
     max_concurrent_apps: 1
@@ -53,7 +53,9 @@ argocd-image-updater:
               - key: node-role.kubernetes.io/control-plane
                 operator: DoesNotExist
   service:
-    enabled: false
+    enabled: true
+    type: ClusterIP
+    port: 8080
   ingress:
     enabled: false
   metrics:
@@ -64,57 +66,8 @@ argocd-image-updater:
     enabled: false
   extraArgs:
     - --disable-kube-events
-  podAnnotations:
-    # Tests require this to match files/nginx.conf, triggering rollout on edits.
-    checksum/webhook-proxy: 9c0517d9f5aa2c9d65c36f342d1ba9d671b047e94e5513590c798c7075c82b92
-  initContainers:
-    # Native sidecar: Harbor 2.15 strips URL queries, so inject its registry type.
-    - name: webhook-tls
-      image: nginx:1.28.0-alpine
-      restartPolicy: Always
-      command: [nginx, -c, /etc/webhook/nginx.conf, -g, "daemon off;"]
-      ports:
-        - name: webhook-tls
-          containerPort: 8444
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 101
-        runAsGroup: 101
-        allowPrivilegeEscalation: false
-        readOnlyRootFilesystem: true
-        capabilities:
-          drop: [ALL]
-        seccompProfile:
-          type: RuntimeDefault
-      resources:
-        requests: {cpu: 5m, memory: 16Mi}
-        limits: {cpu: 100m, memory: 32Mi}
-      startupProbe:
-        httpGet: {path: /healthz, port: webhook-tls, scheme: HTTPS}
-        periodSeconds: 2
-        failureThreshold: 30
-      readinessProbe:
-        httpGet: {path: /healthz, port: webhook-tls, scheme: HTTPS}
-        periodSeconds: 5
-      livenessProbe:
-        httpGet: {path: /healthz, port: webhook-tls, scheme: HTTPS}
-        periodSeconds: 20
-      volumeMounts:
-        - {name: webhook-nginx, mountPath: /etc/webhook, readOnly: true}
-        - {name: webhook-tls, mountPath: /tls, readOnly: true}
-        - {name: webhook-tmp, mountPath: /tmp}
-  volumes:
-    - name: webhook-nginx
-      configMap: {name: playground-image-updater-webhook}
-    - name: webhook-tls
-      secret: {secretName: playground-image-updater-webhook-tls}
-    - name: webhook-tmp
-      emptyDir: {sizeLimit: 8Mi}
 
 webhook:
-  hostname: playground-image-updater-webhook.internal.api-api-api.com
-  # Reserved private service address; also recorded in internal-dns/internal.db.
-  clusterIP: 10.43.244.51
   vaultPath: ci/playground-image-updater-webhook
 
 applications:

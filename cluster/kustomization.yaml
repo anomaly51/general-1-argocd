@@ -8,7 +8,6 @@ resources:
   - project.yaml
   - cutline-studio-oci-repository.yaml
   - ci-vault-route.yaml
-  - coredns-custom.yaml
   - projects/juggluco.yaml
   - traefik-config.yaml
   - applicationsets/apps.yaml

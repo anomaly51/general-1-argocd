@@ -1,6 +1,4 @@
 from pathlib import Path
-import hashlib
-import ipaddress
 import shlex
 import subprocess
 import tarfile
@@ -21,6 +19,7 @@ REGISTRY = "harbor.internal.api-api-api.com"
 GIT_REPOSITORY = "https://github.com/anomaly51/general-1-argocd.git"
 WEBHOOK = "playground-image-updater-webhook"
 WEBHOOK_HOST = WEBHOOK + ".internal.api-api-api.com"
+SERVICE = "playground-image-updater"
 
 
 def run_helm(*arguments):
@@ -106,29 +105,15 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
         cls.deployment = next(doc for doc in cls.documents if doc["kind"] == "Deployment")
         cls.pod = cls.deployment["spec"]["template"]["spec"]
         cls.pod_labels = cls.deployment["spec"]["template"]["metadata"]["labels"]
-        cls.sidecar = next(container for container in cls.pod["initContainers"]
-                           if container["name"] == "webhook-tls")
 
     def document(self, kind, name):
         return next(doc for doc in self.documents
                     if doc["kind"] == kind and doc["metadata"]["name"] == name)
 
-    def test_proxy_config_changes_force_a_pod_rollout(self):
-        template = self.document("Deployment", "playground-image-updater-controller")["spec"]["template"]
-        self.assertEqual(template["metadata"]["annotations"]["checksum/webhook-proxy"],
-                         hashlib.sha256((CHART / "files/nginx.conf").read_bytes()).hexdigest())
-
-    def test_cluster_dns_override_is_exact_and_preserves_acme_resolution(self):
-        config = yaml.safe_load((ROOT / "cluster/coredns-custom.yaml").read_text())
-        self.assertEqual(config["metadata"], {"name": "coredns-custom", "namespace": "kube-system"})
-        self.assertEqual(set(config["data"]), {"playground-webhook.override"})
-        rules = [line.strip() for line in config["data"]["playground-webhook.override"].splitlines()
-                 if line.strip() and not line.strip().startswith("#")]
-        self.assertEqual(rules, ["rewrite stop name exact "
-            "playground-image-updater-webhook.internal.api-api-api.com "
-            "playground-image-updater-webhook.argocd.svc.cluster.local"])
+    def test_webhook_needs_no_custom_cluster_dns_override(self):
+        self.assertFalse((ROOT / "cluster/coredns-custom.yaml").exists())
         kustomization = yaml.safe_load((ROOT / "cluster/kustomization.yaml").read_text())
-        self.assertIn("coredns-custom.yaml", kustomization["resources"])
+        self.assertNotIn("coredns-custom.yaml", kustomization["resources"])
 
     def test_upstream_chart_and_controller_are_exactly_pinned(self):
         chart = yaml.safe_load((CHART / "Chart.yaml").read_text())
@@ -222,93 +207,45 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
         self.assertEqual(registry["credentials"], "pullsecret:argocd/playground-image-updater-registry")
         self.assertFalse(registry["insecure"])
 
-    def test_private_service_selects_the_rendered_sidecar_tls_port_only(self):
+    def test_builtin_private_service_selects_the_rendered_webhook_port_only(self):
         services = [doc for doc in self.documents if doc["kind"] == "Service"]
-        self.assertEqual([service["metadata"]["name"] for service in services], [WEBHOOK])
+        self.assertEqual([service["metadata"]["name"] for service in services], [SERVICE])
         service = services[0]["spec"]
         self.assertEqual(service["type"], "ClusterIP")
-        self.assertTrue(ipaddress.ip_address(service["clusterIP"]).is_private)
+        self.assertNotIn("clusterIP", service, "Service IP must be allocated by Kubernetes")
         self.assertNotIn("externalIPs", service)
         self.assertNotIn("loadBalancerIP", service)
         self.assertTrue(service["selector"])
         self.assertLessEqual(service["selector"].items(), self.pod_labels.items())
         self.assertEqual(service["ports"], [{
-            "name": "https", "port": 443, "targetPort": "webhook-tls",
+            "name": "server-port", "port": 8080, "targetPort": "webhook", "protocol": "TCP",
         }])
-        ports = {port["name"]: port["containerPort"] for port in self.sidecar["ports"]}
-        self.assertEqual(ports[service["ports"][0]["targetPort"]], 8444)
+        ports = {port["name"]: port["containerPort"] for port in self.pod["containers"][0]["ports"]}
+        self.assertEqual(ports[service["ports"][0]["targetPort"]], 8082)
+        # Disabling the upstream Service must remove every Service, proving that
+        # the wrapper has not retained a second, bespoke webhook Service.
+        rendered = run_helm("template", "image-updater", CHART, "--namespace", "argocd",
+                            "--set", "argocd-image-updater.service.enabled=false")
+        self.assertFalse(any(doc and doc["kind"] == "Service" for doc in yaml.safe_load_all(rendered)))
 
-    def test_native_tls_sidecar_is_unprivileged_and_has_independent_health_probes(self):
-        self.assertEqual(self.sidecar["restartPolicy"], "Always")
-        self.assertEqual(self.sidecar["image"], "nginx:1.28.0-alpine")
-        self.assertEqual(self.sidecar["command"], [
-            "nginx", "-c", "/etc/webhook/nginx.conf", "-g", "daemon off;",
-        ])
-        context = self.sidecar["securityContext"]
-        self.assertTrue(context["runAsNonRoot"])
-        self.assertGreater(context["runAsUser"], 0)
-        self.assertTrue(context["readOnlyRootFilesystem"])
-        self.assertFalse(context["allowPrivilegeEscalation"])
-        self.assertEqual(context["capabilities"], {"drop": ["ALL"]})
-        self.assertEqual(context["seccompProfile"], {"type": "RuntimeDefault"})
-        self.assertEqual(set(self.sidecar["resources"]), {"requests", "limits"})
-        for kind in ["startupProbe", "readinessProbe", "livenessProbe"]:
-            self.assertEqual(self.sidecar[kind]["httpGet"], {
-                "path": "/healthz", "port": "webhook-tls", "scheme": "HTTPS",
-            })
-        config = self.document("ConfigMap", WEBHOOK)["data"]["nginx.conf"]
-        self.assertIn("location = /healthz { access_log off; return 200 'ok'; }", config)
+    def test_webhook_has_no_proxy_sidecar_or_custom_tls_resources(self):
+        self.assertEqual(len(self.pod["containers"]), 1)
+        self.assertFalse(self.pod.get("initContainers"))
+        self.assertFalse((CHART / "files/nginx.conf").exists())
+        annotations = self.deployment["spec"]["template"]["metadata"].get("annotations", {})
+        self.assertNotIn("checksum/webhook-proxy", annotations)
+        self.assertFalse(any(doc["kind"] == "Certificate" for doc in self.documents))
+        self.assertFalse(any(doc["kind"] == "ConfigMap" and doc["metadata"]["name"] == WEBHOOK
+                             for doc in self.documents))
+        # The upstream chart retains its optional default TLS volume. No custom
+        # proxy/certificate/tmp volume or required certificate may be added.
+        self.assertFalse({"webhook-nginx", "webhook-tls", "webhook-tmp"}
+                         & {volume["name"] for volume in self.pod.get("volumes", [])})
+        for volume in self.pod.get("volumes", []):
+            if volume["name"] == "argocd-image-updater-tls":
+                self.assertTrue(volume["secret"]["optional"])
 
-    def test_certificate_is_dns01_issued_and_renewal_remains_visible_to_nginx(self):
-        certificate = self.document("Certificate", WEBHOOK)["spec"]
-        self.assertEqual(certificate["dnsNames"], [WEBHOOK_HOST])
-        self.assertEqual(certificate["issuerRef"], {
-            "kind": "ClusterIssuer", "name": "letsencrypt-production",
-        })
-        self.assertEqual(certificate["privateKey"]["rotationPolicy"], "Always")
-        issuer_path = ROOT / "utility-apps/networking/cert-manager-issuers/templates/clusterissuer.yaml"
-        issuer = yaml.safe_load(issuer_path.read_text())
-        self.assertEqual(issuer["metadata"]["name"], certificate["issuerRef"]["name"])
-        self.assertTrue(issuer["spec"]["acme"]["solvers"])
-        for solver in issuer["spec"]["acme"]["solvers"]:
-            self.assertIn("dns01", solver)
-            self.assertNotIn("http01", solver)
-        volumes = {volume["name"]: volume for volume in self.pod["volumes"]}
-        mounts = {mount["name"]: mount for mount in self.sidecar["volumeMounts"]}
-        self.assertEqual(volumes["webhook-tls"]["secret"]["secretName"], certificate["secretName"])
-        self.assertFalse(volumes["webhook-tls"]["secret"].get("optional", False))
-        self.assertEqual(mounts["webhook-tls"]["mountPath"], "/tls")
-        self.assertTrue(mounts["webhook-tls"]["readOnly"])
-        self.assertNotIn("subPath", mounts["webhook-tls"])
-        self.assertNotIn("subPathExpr", mounts["webhook-tls"])
-        self.assertEqual(volumes["webhook-nginx"]["configMap"]["name"], WEBHOOK)
-        self.assertIn("emptyDir", volumes["webhook-tmp"])
-        config = self.document("ConfigMap", WEBHOOK)["data"]["nginx.conf"]
-        self.assertIn("map $ssl_server_name $certificate_directory { default /tls; }", config)
-        self.assertIn("ssl_certificate $certificate_directory/tls.crt;", config)
-        self.assertIn("ssl_certificate_key $certificate_directory/tls.key;", config)
-        self.assertNotIn("set $certificate_directory", config)
-        # Default off means projected certificate changes are read each handshake.
-        self.assertNotIn("ssl_certificate_cache", config)
-
-    def test_proxy_pins_harbor_type_preserves_auth_and_does_not_log_credentials(self):
-        config = self.document("ConfigMap", WEBHOOK)["data"]["nginx.conf"]
-        self.assertEqual(config, (CHART / "files/nginx.conf").read_text())
-        self.assertIn("location = /webhook {", config)
-        self.assertIn("limit_except POST { deny all; }", config)
-        self.assertIn("proxy_set_header X-Registry-Type harbor;", config)
-        self.assertIn("proxy_set_header Authorization $http_authorization;", config)
-        self.assertIn('set $args "";', config)
-        self.assertIn("proxy_pass http://127.0.0.1:8082/webhook;", config)
-        self.assertIn("location / { return 404; }", config)
-        self.assertIn("client_max_body_size 1m;", config)
-        log_format = next(line for line in config.splitlines() if line.strip().startswith("log_format "))
-        self.assertEqual(log_format.strip(),
-                         "log_format webhook '$time_iso8601 $request_method $uri $status $request_time';")
-        for token in ["$http_authorization", "$request_body", "$args", "$request_uri"]:
-            self.assertNotIn(token, log_format)
-
-    def test_network_policy_allows_only_harbor_senders_on_tls_not_raw_webhook(self):
+    def test_network_policy_allows_only_harbor_senders_on_webhook_port(self):
         policies = [doc for doc in self.documents if doc["kind"] == "NetworkPolicy"]
         self.assertEqual(len(policies), 1)
         policy = policies[0]["spec"]
@@ -318,7 +255,7 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
         self.assertEqual(policy["policyTypes"], ["Ingress"])
         self.assertEqual(len(policy["ingress"]), 1)
         ingress = policy["ingress"][0]
-        self.assertEqual(ingress["ports"], [{"protocol": "TCP", "port": 8444}])
+        self.assertEqual(ingress["ports"], [{"protocol": "TCP", "port": 8082}])
         # Both selectors must be in one peer: harbor namespace AND approved pods.
         self.assertEqual(ingress["from"], [{
             "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "harbor"}},
@@ -332,19 +269,20 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
         }])
         self.assertNotIn("egress", policy)
 
-    def test_private_dns_record_matches_service_without_replacing_lan_wildcard(self):
+    def test_webhook_uses_service_dns_without_a_custom_private_record(self):
         rendered = run_helm("template", "internal-dns", ROOT / "utility-apps/networking/internal-dns",
                             "--namespace", "networking")
         documents = [doc for doc in yaml.safe_load_all(rendered) if doc]
         dns = next(doc for doc in documents if doc["kind"] == "ConfigMap")
         zone = dns["data"]["internal.db"]
         self.assertIn("$ORIGIN internal.api-api-api.com.", zone)
-        records = [line.split() for line in zone.splitlines() if line.strip().startswith(WEBHOOK + " ")]
-        service = self.document("Service", WEBHOOK)["spec"]
-        self.assertEqual(records, [[WEBHOOK, "IN", "A", service["clusterIP"]]])
+        self.assertNotIn(WEBHOOK, zone)
         self.assertIn("*  IN A 192.168.1.3", zone)
         self.assertIn("ns IN A 192.168.1.2", zone)
-        self.assertEqual(self.document("Certificate", WEBHOOK)["spec"]["dnsNames"], [WEBHOOK_HOST])
+        config = yaml.safe_load((CHART / "values.yaml").read_text())
+        self.assertNotIn("hostname", config.get("webhook", {}))
+        self.assertNotIn("clusterIP", config.get("webhook", {}))
+        self.assertNotIn(WEBHOOK_HOST, yaml.safe_dump(self.documents))
 
     def test_webhook_secret_is_vault_managed_injected_and_restarts_on_rotation(self):
         secret = self.document("VaultStaticSecret", WEBHOOK)["spec"]

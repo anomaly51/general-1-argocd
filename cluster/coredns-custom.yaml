@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: coredns-custom
-  namespace: kube-system
-data:
-  playground-webhook.override: |
-    # Match only the receiver, not its ACME challenge or any other internal host.
-    rewrite stop name exact playground-image-updater-webhook.internal.api-api-api.com playground-image-updater-webhook.argocd.svc.cluster.local
