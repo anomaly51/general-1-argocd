@@ -1,0 +1,5 @@
+apiVersion: v2
+name: playground-webhook-cleanup
+description: Temporary exact-name cleanup of the retired webhook TLS Secret
+type: application
+version: 0.1.0
