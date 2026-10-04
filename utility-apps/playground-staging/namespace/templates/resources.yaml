@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}
+  labels:
+    gateway.api-api-api.com/internal: "true"
+    app.kubernetes.io/part-of: microservices-playground
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    argocd.argoproj.io/sync-wave: "-3"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: playground-runtime
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+automountServiceAccountToken: false
+imagePullSecrets:
+  - name: playground-registry
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: playground-runtime
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  method: kubernetes
+  mount: {{ .Values.vault.authMount }}
+  kubernetes:
+    role: {{ .Values.vault.role }}
+    serviceAccount: playground-runtime
+    audiences: [vault]
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: playground-env
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: playground-runtime
+  mount: {{ .Values.vault.mount }}
+  type: kv-v2
+  path: {{ .Values.vault.envPath }}
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: playground-env
+    transformation:
+      # Backends need connection URLs, not database-root or broker-admin keys.
+      excludeRaw: true
+      excludes: [".*"]
+      templates:
+{{- range list "POSTGRES_URL" "FLASHDROP_ANALYTICS_POSTGRES_URL" "MYSQL_URL" "REDIS_URL" "RABBITMQ_URL" }}
+        {{ . }}:
+          text: {{ printf "{{ get .Secrets %q }}" . | quote }}
+{{- end }}
+  rolloutRestartTargets:
+    - {kind: Deployment, name: order-service}
+    - {kind: Deployment, name: outbox-relay}
+    - {kind: Deployment, name: inventory-service}
+    - {kind: Deployment, name: analytics-service}
+    - {kind: Deployment, name: event-hub}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: playground-registry
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: playground-runtime
+  mount: {{ .Values.vault.mount }}
+  type: kv-v2
+  path: {{ .Values.vault.registryPath }}
+  refreshAfter: 1h
+  destination:
+    create: true
+    name: playground-registry
+    type: kubernetes.io/dockerconfigjson
+    transformation:
+      excludeRaw: true
+      excludes: [".*"]
+      templates:
+        .dockerconfigjson:
+          text: |
+            {{ `{{- $credentials := dict "username" (get .Secrets "username") "password" (get .Secrets "password") -}}` }}
+            {{ printf "{{- dict \"auths\" (dict %q $credentials) | mustToJson -}}" .Values.registry.server }}
+---
+# All plaintext data endpoints are namespace-private. Operator traffic is
+# allowed from its existing namespace; no broker NodePort/LoadBalancer exists.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: playground-isolation
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {}
+        - namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values: [kafka-system, rabbitmq-system, database-system, redis-system]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: playground-edge-from-traefik
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: playground-edge
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - {protocol: TCP, port: 8080}

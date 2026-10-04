@@ -1,0 +1,79 @@
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: playground-redis-password
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: playground-runtime
+  mount: kv
+  type: kv-v2
+  path: apps/playground-staging
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: playground-redis-password
+    transformation:
+      excludeRaw: true
+      excludes: [".*"]
+      templates:
+        password:
+          text: '{{ `{{ get .Secrets "REDIS_PASSWORD" }}` }}'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: playground-redis-config
+data:
+  redis-additional.conf: |
+    appendonly yes
+    appendfsync everysec
+    maxmemory {{ .Values.maxMemory }}
+    maxmemory-policy noeviction
+---
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: Redis
+metadata:
+  name: playground-redis
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  serviceAccountName: playground-runtime
+  kubernetesConfig:
+    image: {{ .Values.image }}
+    imagePullPolicy: IfNotPresent
+    redisSecret:
+      name: playground-redis-password
+      key: password
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+    resources:
+      {{- toYaml .Values.resources | nindent 6 }}
+  redisConfig:
+    additionalRedisConfig: playground-redis-config
+  storage:
+    keepAfterDelete: true
+    volumeClaimTemplate:
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.storage.className }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.size }}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - {key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}
+              - key: kubernetes.io/hostname
+                operator: In
+                values: [{{ required "storage.nodeName is required for local-path placement" .Values.storage.nodeName | quote }}]
+  podSecurityContext:
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile: {type: RuntimeDefault}
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities: {drop: [ALL]}

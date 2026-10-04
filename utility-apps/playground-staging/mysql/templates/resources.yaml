@@ -1,0 +1,115 @@
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: playground-mysql-env
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: playground-runtime
+  mount: kv
+  type: kv-v2
+  path: apps/playground-staging
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: playground-mysql-env
+    transformation:
+      excludeRaw: true
+      excludes: [".*"]
+      templates:
+{{- range list "MYSQL_DATABASE" "MYSQL_USER" "MYSQL_PASSWORD" "MYSQL_ROOT_PASSWORD" }}
+        {{ . }}:
+          text: {{ printf "{{ get .Secrets %q }}" . | quote }}
+{{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: playground-mysql
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: {{ .Values.storage.className }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: playground-mysql
+  ports:
+    - {name: mysql, port: 3306, targetPort: mysql}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+spec:
+  replicas: 1
+  serviceName: mysql
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: playground-mysql
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: playground-mysql
+    spec:
+      serviceAccountName: playground-runtime
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 90
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - {key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [{{ required "storage.nodeName is required for local-path placement" .Values.storage.nodeName | quote }}]
+      securityContext:
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: mysql
+          image: {{ .Values.image }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --innodb-buffer-pool-size=128M
+            - --max-connections=30
+          envFrom:
+            - secretRef: {name: playground-mysql-env}
+          ports:
+            - {name: mysql, containerPort: 3306}
+          startupProbe:
+            exec:
+              command: [sh, -ec, 'MYSQL_PWD="$MYSQL_PASSWORD" mysql --protocol=TCP -h 127.0.0.1 -u "$MYSQL_USER" "$MYSQL_DATABASE" --batch --skip-column-names --execute="SELECT 1" >/dev/null']
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: [sh, -ec, 'MYSQL_PWD="$MYSQL_PASSWORD" mysql --protocol=TCP -h 127.0.0.1 -u "$MYSQL_USER" "$MYSQL_DATABASE" --batch --skip-column-names --execute="SELECT 1" >/dev/null']
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: mysql}
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/mysql}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: playground-mysql

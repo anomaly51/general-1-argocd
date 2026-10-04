@@ -1,0 +1,70 @@
+# Complete staging configuration; Image Updater tracks its immutable channel digest.
+_release:
+  revision: 5d94a90dd687b19e3e24f25a6cfdeea292b83137
+  policy: promote
+  namespace: playground-staging
+  sourceRepository: anomaly51/playground-analytics-service
+
+replicaCount: 1
+nodeSelector:
+  kubernetes.io/hostname: general-1-worker-2
+component: backend
+appService:
+  name: analytics-service
+  port: 8002
+image:
+  repository: harbor.internal.api-api-api.com/playground/analytics-service
+  tag: staging@sha256:bdff30579ee3b3a196d138a0f1cde7f562a08bbe2d9979a27103b69a4242488f
+  pullPolicy: IfNotPresent
+serviceAccountName: playground-runtime
+imagePullSecret: playground-registry
+envSecret: playground-env
+probes:
+  livenessPath: /healthz
+  readinessPath: /readyz
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+  fsGroup: 10001
+  fsGroupChangePolicy: OnRootMismatch
+securityContext:
+  runAsUser: 10001
+  runAsGroup: 10001
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+    ephemeral-storage: 16Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+    ephemeral-storage: 128Mi
+scratchVolumes:
+  - name: tmp
+    mountPath: /tmp
+    sizeLimit: 32Mi
+env:
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  FLASHDROP_ANALYTICS_HOST: "0.0.0.0"
+  LAB_ANALYTICS_PORT: "8002"
+  LAB_KAFKA_ENABLED: "true"
+  FLASHDROP_KAFKA_BOOTSTRAP_SERVERS: "playground-kafka-kafka-bootstrap:9092"
+  FLASHDROP_KAFKA_ORDERS_TOPIC: "flashdrop.orders.v1"
+  FLASHDROP_KAFKA_ANALYTICS_TOPIC: "flashdrop.analytics.v1"
+  FLASHDROP_KAFKA_TRACE_TOPIC: "flashdrop.traces.v1"
+  FLASHDROP_ANALYTICS_GROUP_ID: "flashdrop-analytics-v1"
+  FLASHDROP_ANALYTICS_KAFKA_CLIENT_ID: "flashdrop-analytics"
+  LAB_KAFKA_PUBLISH_TIMEOUT_SECONDS: "3.0"
+  LAB_KAFKA_PROBE_INTERVAL_SECONDS: "2.0"
+  LAB_KAFKA_PROBE_TIMEOUT_SECONDS: "1.0"
+  FLASHDROP_ANALYTICS_RETRY_MAX_SECONDS: "10.0"
+  LAB_ANALYTICS_POSTGRES_OPERATION_TIMEOUT_SECONDS: "3.0"
+  LAB_ANALYTICS_POSTGRES_PROBE_INTERVAL_SECONDS: "2.0"
+  LAB_ANALYTICS_POSTGRES_PROBE_TIMEOUT_SECONDS: "1.0"

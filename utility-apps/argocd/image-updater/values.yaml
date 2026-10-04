@@ -72,7 +72,7 @@ webhook:
 
 # Only non-production channels may be managed by Image Updater.
 # Environments are activated in stages after namespace credentials are ready.
-environments: [dev]
+environments: [dev, staging]
 
 applications:
   - order-service

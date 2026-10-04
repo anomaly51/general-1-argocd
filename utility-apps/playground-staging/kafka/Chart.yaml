@@ -1,0 +1,5 @@
+apiVersion: v2
+name: kafka
+description: Isolated playground staging kafka resources.
+type: application
+version: 0.1.0

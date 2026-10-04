@@ -1,0 +1,68 @@
+# Complete staging configuration; Image Updater tracks its immutable channel digest.
+_release:
+  revision: 5d94a90dd687b19e3e24f25a6cfdeea292b83137
+  policy: promote
+  namespace: playground-staging
+  sourceRepository: anomaly51/playground-inventory-service
+
+replicaCount: 1
+nodeSelector:
+  kubernetes.io/hostname: general-1-worker-2
+component: backend
+appService:
+  name: inventory-service
+  port: 3004
+image:
+  repository: harbor.internal.api-api-api.com/playground/inventory-service
+  tag: staging@sha256:c813ddb8e8f9848eea70fa8d91c28e6d26c8237df75c71265b6fc12285c4e685
+  pullPolicy: IfNotPresent
+serviceAccountName: playground-runtime
+imagePullSecret: playground-registry
+envSecret: playground-env
+probes:
+  livenessPath: /healthz
+  readinessPath: /readyz
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+    ephemeral-storage: 16Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+    ephemeral-storage: 128Mi
+scratchVolumes:
+  - name: tmp
+    mountPath: /tmp
+    sizeLimit: 32Mi
+env:
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  HOST: "0.0.0.0"
+  PORT: "3004"
+  KAFKA_BROKERS: "playground-kafka-kafka-bootstrap:9092"
+  KAFKA_CLIENT_ID: "flashdrop-inventory-worker"
+  KAFKA_TRACE_TOPIC: "flashdrop.traces.v1"
+  MYSQL_POOL_SIZE: "5"
+  MYSQL_CONNECTION_TIMEOUT_MS: "5000"
+  READINESS_TIMEOUT_MS: "500"
+  RABBIT_QUEUE_TYPE: "quorum"
+  RABBITMQ_PREFETCH: "10"
+  RABBITMQ_MAX_ATTEMPTS: "3"
+  RABBITMQ_RETRY_DELAY_MS: "3000"
+  PROCESSING_DELAY_MS: "150"
+  LAB_INVENTORY_RESET_ENABLED: "false"

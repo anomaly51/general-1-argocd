@@ -1,0 +1,148 @@
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: rabbitmq-default-user
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: playground-runtime
+  mount: kv
+  type: kv-v2
+  path: apps/playground-staging
+  refreshAfter: 1m
+  destination:
+    create: true
+    # Keep the VSO resource identity, but avoid the cluster operator's reserved
+    # <cluster>-default-user name: it rewrites labels even with externalSecret.
+    name: playground-rabbitmq-admin
+    labels:
+      rabbitmq.com/topology-operator: "true"
+    transformation:
+      excludeRaw: true
+      excludes: [".*"]
+      templates:
+        default_user.conf:
+          text: |
+            default_user = {{ `{{ get .Secrets "RABBITMQ_ADMIN_USERNAME" }}` }}
+            default_pass = {{ `{{ get .Secrets "RABBITMQ_ADMIN_PASSWORD" }}` }}
+        host:
+          text: rabbitmq.{{ .Release.Namespace }}.svc.cluster.local
+        port:
+          text: "5672"
+        username:
+          text: '{{ `{{ get .Secrets "RABBITMQ_ADMIN_USERNAME" }}` }}'
+        password:
+          text: '{{ `{{ get .Secrets "RABBITMQ_ADMIN_PASSWORD" }}` }}'
+        provider:
+          text: rabbitmq
+        type:
+          text: rabbitmq
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: rabbitmq-app-user
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: playground-runtime
+  mount: kv
+  type: kv-v2
+  path: apps/playground-staging
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: rabbitmq-app-user
+    labels:
+      rabbitmq.com/topology-operator: "true"
+    transformation:
+      excludeRaw: true
+      excludes: [".*"]
+      templates:
+        username:
+          text: '{{ `{{ get .Secrets "RABBITMQ_USERNAME" }}` }}'
+        password:
+          text: '{{ `{{ get .Secrets "RABBITMQ_PASSWORD" }}` }}'
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: rabbitmq
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  image: {{ .Values.image }}
+  replicas: 1
+  secretBackend:
+    externalSecret:
+      name: playground-rabbitmq-admin
+  persistence:
+    storageClassName: {{ .Values.storage.className }}
+    storage: {{ .Values.storage.size }}
+  resources:
+    {{- toYaml .Values.resources | nindent 4 }}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - {key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}
+              - key: kubernetes.io/hostname
+                operator: In
+                values: [{{ required "storage.nodeName is required for local-path placement" .Values.storage.nodeName | quote }}]
+  rabbitmq:
+    additionalPlugins: [rabbitmq_management]
+    additionalConfig: |
+      consumer_timeout = 300000
+      disk_free_limit.absolute = 256MB
+      vm_memory_high_watermark.relative = 0.6
+      collect_statistics_interval = 10000
+  override:
+    statefulSet:
+      spec:
+        persistentVolumeClaimRetentionPolicy:
+          whenDeleted: Retain
+          whenScaled: Retain
+        volumeClaimTemplates:
+          - metadata:
+              name: persistence
+              annotations:
+                argocd.argoproj.io/sync-options: Prune=false,Delete=false
+            spec:
+              accessModes: [ReadWriteOnce]
+              storageClassName: {{ .Values.storage.className }}
+              resources:
+                requests:
+                  storage: {{ .Values.storage.size }}
+---
+# Root vhost is intentional: event-hub samples /api/queues/%2F.
+# The application owns its exact quorum/classic queue declarations.
+apiVersion: rabbitmq.com/v1beta1
+kind: User
+metadata:
+  name: playground
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  tags: [monitoring]
+  importCredentialsSecret:
+    name: rabbitmq-app-user
+  rabbitmqClusterReference:
+    name: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Permission
+metadata:
+  name: playground
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  vhost: "/"
+  userReference:
+    name: playground
+  permissions:
+    configure: "^flashdrop\\..*"
+    write: "^flashdrop\\..*"
+    read: "^flashdrop\\..*"
+  rabbitmqClusterReference:
+    name: rabbitmq

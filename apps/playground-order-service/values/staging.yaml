@@ -1,0 +1,95 @@
+# Complete staging configuration; Image Updater tracks its immutable channel digest.
+_release:
+  revision: 5d94a90dd687b19e3e24f25a6cfdeea292b83137
+  policy: promote
+  namespace: playground-staging
+  sourceRepository: anomaly51/playground-order-service
+
+replicaCount: 1
+nodeSelector:
+  kubernetes.io/hostname: general-1-worker-2
+component: backend
+appService:
+  name: order-service
+  port: 3000
+image:
+  repository: harbor.internal.api-api-api.com/playground/order-service
+  tag: staging@sha256:cf348f4ed521e7bde1b3e71fd4f8fc4fd475cb5f23f43146daf8edf60c4df3ca
+  pullPolicy: IfNotPresent
+serviceAccountName: playground-runtime
+imagePullSecret: playground-registry
+envSecret: playground-env
+probes:
+  livenessPath: /healthz
+  readinessPath: /readyz
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+    ephemeral-storage: 16Mi
+  limits:
+    cpu: 500m
+    memory: 384Mi
+    ephemeral-storage: 128Mi
+scratchVolumes:
+  - name: tmp
+    mountPath: /tmp
+    sizeLimit: 32Mi
+env:
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  HOST: "0.0.0.0"
+  PORT: "3000"
+  CORS_ORIGINS: "https://playground-staging.internal.api-api-api.com"
+  KAFKA_BROKERS: "playground-kafka-kafka-bootstrap:9092"
+  KAFKA_CLIENT_ID: "lab-gateway"
+  KAFKA_SSL: "false"
+  PROCESSOR_HTTP_URL: "http://pricing-service:8001"
+  INVENTORY_SERVICE_URL: "http://inventory-service:3004"
+  POSTGRES_POOL_SIZE: "5"
+  POSTGRES_CONNECTION_TIMEOUT_MS: "5000"
+  REDIS_CONNECT_TIMEOUT_MS: "500"
+  REDIS_COMMAND_TIMEOUT_MS: "250"
+  READINESS_TIMEOUT_MS: "500"
+  PROCESSOR_HTTP_TIMEOUT_MS: "3000"
+  INVENTORY_HTTP_TIMEOUT_MS: "2000"
+  REQUEST_TIMEOUT_MS: "15000"
+  LAB_SCENARIOS_ENABLED: "false"
+  OUTBOX_POLL_MS: "100"
+  OUTBOX_BATCH_SIZE: "100"
+  OUTBOX_RETRY_MAX_MS: "30000"
+
+relayService:
+  name: outbox-relay
+  port: 3005
+relay:
+  # Source initialization serializes API and relay schema changes with an advisory lock.
+  enabled: true
+  replicaCount: 1
+  env:
+    KAFKA_CLIENT_ID: "flashdrop-outbox-relay"
+    RELAY_OPERATIONS_HOST: "0.0.0.0"
+    RELAY_OPERATIONS_PORT: "3005"
+  resources:
+    requests:
+      cpu: 25m
+      memory: 96Mi
+      ephemeral-storage: 16Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+      ephemeral-storage: 128Mi

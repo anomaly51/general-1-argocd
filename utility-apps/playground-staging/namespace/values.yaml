@@ -1,0 +1,8 @@
+registry:
+  server: harbor.internal.api-api-api.com
+vault:
+  mount: kv
+  authMount: kubernetes
+  role: playground-staging
+  envPath: apps/playground-staging
+  registryPath: apps/playground-staging/registry

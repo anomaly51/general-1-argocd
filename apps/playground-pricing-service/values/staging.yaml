@@ -1,0 +1,67 @@
+# Complete staging configuration; Image Updater tracks its immutable channel digest.
+_release:
+  revision: 5d94a90dd687b19e3e24f25a6cfdeea292b83137
+  policy: promote
+  namespace: playground-staging
+  sourceRepository: anomaly51/playground-pricing-service
+
+replicaCount: 1
+nodeSelector:
+  kubernetes.io/hostname: general-1-worker-2
+component: backend
+appService:
+  name: pricing-service
+  port: 8001
+image:
+  repository: harbor.internal.api-api-api.com/playground/pricing-service
+  tag: staging@sha256:11751422440bc8b0ed58a6e89462113d0664bdfa99cdfdd35edf99b7ed1111a6
+  pullPolicy: IfNotPresent
+serviceAccountName: playground-runtime
+imagePullSecret: playground-registry
+envSecret: playground-env
+probes:
+  livenessPath: /healthz
+  readinessPath: /readyz
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+  fsGroup: 10001
+  fsGroupChangePolicy: OnRootMismatch
+securityContext:
+  runAsUser: 10001
+  runAsGroup: 10001
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+    ephemeral-storage: 16Mi
+  limits:
+    cpu: 500m
+    memory: 192Mi
+    ephemeral-storage: 128Mi
+scratchVolumes:
+  - name: tmp
+    mountPath: /tmp
+    sizeLimit: 32Mi
+env:
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  LAB_PROCESSOR_HTTP_HOST: "0.0.0.0"
+  LAB_PROCESSOR_HTTP_PORT: "8001"
+  LAB_KAFKA_ENABLED: "true"
+  LAB_KAFKA_BOOTSTRAP_SERVERS: "playground-kafka-kafka-bootstrap:9092"
+  FLASHDROP_KAFKA_TRACE_TOPIC: "flashdrop.traces.v1"
+  FLASHDROP_KAFKA_CLIENT_ID: "flashdrop-pricing-service"
+  FLASHDROP_PRICING_QUOTE_TIMEOUT_SECONDS: "2.0"
+  FLASHDROP_PRICING_TIMEOUT_DELAY_SECONDS: "3.0"
+  LAB_KAFKA_PUBLISH_TIMEOUT_SECONDS: "2.0"
+  LAB_KAFKA_PROBE_INTERVAL_SECONDS: "2.0"
+  LAB_KAFKA_PROBE_TIMEOUT_SECONDS: "1.0"
+  LAB_PROCESSOR_SHUTDOWN_GRACE_SECONDS: "10.0"
+  LAB_PROCESSOR_MAX_REQUEST_BYTES: "1048576"

@@ -1,0 +1,17 @@
+name: playground-kafka
+version: 4.3.1
+storage:
+  className: local-path
+  # Isolated low-load environment; never reuse production PVCs.
+  nodeName: general-1-worker-3
+  size: 4Gi
+resources:
+  requests: {cpu: 250m, memory: 768Mi}
+  limits: {cpu: "2", memory: 1536Mi}
+topicOperatorResources:
+  requests: {cpu: 50m, memory: 128Mi}
+  limits: {cpu: 500m, memory: 384Mi}
+topics:
+  - {name: flashdrop.orders.v1, partitions: 6, retentionMs: 86400000}
+  - {name: flashdrop.traces.v1, partitions: 6, retentionMs: 3600000}
+  - {name: flashdrop.analytics.v1, partitions: 3, retentionMs: 86400000}

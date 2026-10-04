@@ -1,0 +1,65 @@
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: playground-postgres-app
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: playground-runtime
+  mount: kv
+  type: kv-v2
+  path: apps/playground-staging
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: playground-postgres-app
+    type: kubernetes.io/basic-auth
+    transformation:
+      excludeRaw: true
+      excludes: [".*"]
+      templates:
+        username:
+          text: '{{ `{{ get .Secrets "POSTGRES_USERNAME" }}` }}'
+        password:
+          text: '{{ `{{ get .Secrets "POSTGRES_PASSWORD" }}` }}'
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.name }}
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  instances: 1
+  imageName: {{ .Values.image }}
+  enableSuperuserAccess: false
+  inheritedMetadata:
+    annotations:
+      argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  bootstrap:
+    initdb:
+      database: {{ .Values.database }}
+      owner: {{ .Values.owner }}
+      encoding: UTF8
+      secret:
+        name: playground-postgres-app
+  managed:
+    roles:
+      - name: {{ .Values.owner }}
+        login: true
+        passwordSecret:
+          name: playground-postgres-app
+  storage:
+    storageClass: {{ .Values.storage.className }}
+    size: {{ .Values.storage.size }}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - {key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}
+              - key: kubernetes.io/hostname
+                operator: In
+                values: [{{ required "storage.nodeName is required for local-path placement" .Values.storage.nodeName | quote }}]
+  resources:
+    {{- toYaml .Values.resources | nindent 4 }}

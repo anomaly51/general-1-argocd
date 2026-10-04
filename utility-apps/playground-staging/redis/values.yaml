@@ -1,0 +1,10 @@
+image: quay.io/opstree/redis:v8.10.1
+storage:
+  className: local-path
+  # Isolated low-load environment; never reuse production PVCs.
+  nodeName: general-1-worker-1
+  size: 1Gi
+resources:
+  requests: {cpu: 50m, memory: 64Mi}
+  limits: {cpu: 500m, memory: 128Mi}
+maxMemory: 64mb
