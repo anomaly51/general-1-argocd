@@ -1,0 +1,6 @@
+image: docker.io/library/python:3.12-slim-bookworm
+apiCredentialsVaultPath: ci/harbor-playground-webhook
+policy:
+  enabled: true
+  # Harbor strips query strings. The private proxy injects X-Registry-Type: harbor.
+  endpoint: https://playground-image-updater-webhook.internal.api-api-api.com/webhook

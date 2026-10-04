@@ -1,4 +1,6 @@
 from pathlib import Path
+import hashlib
+import ipaddress
 import shlex
 import subprocess
 import tarfile
@@ -17,6 +19,8 @@ COMPONENTS = {
 }
 REGISTRY = "harbor.internal.api-api-api.com"
 GIT_REPOSITORY = "https://github.com/anomaly51/general-1-argocd.git"
+WEBHOOK = "playground-image-updater-webhook"
+WEBHOOK_HOST = WEBHOOK + ".internal.api-api-api.com"
 
 
 def run_helm(*arguments):
@@ -99,10 +103,20 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
         cls.documents = [doc for doc in yaml.safe_load_all(rendered) if doc]
         cls.updater = next(doc for doc in cls.documents if doc["kind"] == "ImageUpdater")
         cls.references = cls.updater["spec"]["applicationRefs"]
+        cls.deployment = next(doc for doc in cls.documents if doc["kind"] == "Deployment")
+        cls.pod = cls.deployment["spec"]["template"]["spec"]
+        cls.pod_labels = cls.deployment["spec"]["template"]["metadata"]["labels"]
+        cls.sidecar = next(container for container in cls.pod["initContainers"]
+                           if container["name"] == "webhook-tls")
 
     def document(self, kind, name):
         return next(doc for doc in self.documents
                     if doc["kind"] == kind and doc["metadata"]["name"] == name)
+
+    def test_proxy_config_changes_force_a_pod_rollout(self):
+        template = self.document("Deployment", "playground-image-updater-controller")["spec"]["template"]
+        self.assertEqual(template["metadata"]["annotations"]["checksum/webhook-proxy"],
+                         hashlib.sha256((CHART / "files/nginx.conf").read_bytes()).hexdigest())
 
     def test_upstream_chart_and_controller_are_exactly_pinned(self):
         chart = yaml.safe_load((CHART / "Chart.yaml").read_text())
@@ -168,8 +182,8 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
         self.assertIn('omit . "_release" "path"', source["helm"]["values"])
         self.assertIn('"prod-only"', appset["spec"]["templatePatch"])
 
-    def test_namespaced_controller_has_bounded_resources_and_no_exposed_listener(self):
-        forbidden = {"ClusterRole", "ClusterRoleBinding", "Service", "Ingress", "HTTPRoute"}
+    def test_namespaced_controller_has_bounded_resources_and_no_public_listener(self):
+        forbidden = {"ClusterRole", "ClusterRoleBinding", "Ingress", "HTTPRoute", "Gateway"}
         self.assertFalse(forbidden & {doc["kind"] for doc in self.documents})
         for doc in self.documents:
             if doc["kind"] != "CustomResourceDefinition":
@@ -188,10 +202,161 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
         self.assertEqual(config["argocd.namespace"], "argocd")
         self.assertEqual(config["watch.namespaces"], "argocd")
         self.assertEqual(config["interval"], "2m")
-        self.assertEqual(config["webhook.enable"], "false")
+        self.assertEqual(config["webhook.enable"], "true")
+        self.assertEqual(config["disable-tls"], "true")
+        # In v1.3.0 kube.events maps to DisableKubeEvents, not EnableKubeEvents.
+        self.assertIn("--disable-kube-events", pod["containers"][0]["args"])
         registry = yaml.safe_load(config["registries.conf"])["registries"][0]
         self.assertEqual(registry["credentials"], "pullsecret:argocd/playground-image-updater-registry")
         self.assertFalse(registry["insecure"])
+
+    def test_private_service_selects_the_rendered_sidecar_tls_port_only(self):
+        services = [doc for doc in self.documents if doc["kind"] == "Service"]
+        self.assertEqual([service["metadata"]["name"] for service in services], [WEBHOOK])
+        service = services[0]["spec"]
+        self.assertEqual(service["type"], "ClusterIP")
+        self.assertTrue(ipaddress.ip_address(service["clusterIP"]).is_private)
+        self.assertNotIn("externalIPs", service)
+        self.assertNotIn("loadBalancerIP", service)
+        self.assertTrue(service["selector"])
+        self.assertLessEqual(service["selector"].items(), self.pod_labels.items())
+        self.assertEqual(service["ports"], [{
+            "name": "https", "port": 443, "targetPort": "webhook-tls",
+        }])
+        ports = {port["name"]: port["containerPort"] for port in self.sidecar["ports"]}
+        self.assertEqual(ports[service["ports"][0]["targetPort"]], 8444)
+
+    def test_native_tls_sidecar_is_unprivileged_and_has_independent_health_probes(self):
+        self.assertEqual(self.sidecar["restartPolicy"], "Always")
+        self.assertEqual(self.sidecar["image"], "nginx:1.28.0-alpine")
+        self.assertEqual(self.sidecar["command"], [
+            "nginx", "-c", "/etc/webhook/nginx.conf", "-g", "daemon off;",
+        ])
+        context = self.sidecar["securityContext"]
+        self.assertTrue(context["runAsNonRoot"])
+        self.assertGreater(context["runAsUser"], 0)
+        self.assertTrue(context["readOnlyRootFilesystem"])
+        self.assertFalse(context["allowPrivilegeEscalation"])
+        self.assertEqual(context["capabilities"], {"drop": ["ALL"]})
+        self.assertEqual(context["seccompProfile"], {"type": "RuntimeDefault"})
+        self.assertEqual(set(self.sidecar["resources"]), {"requests", "limits"})
+        for kind in ["startupProbe", "readinessProbe", "livenessProbe"]:
+            self.assertEqual(self.sidecar[kind]["httpGet"], {
+                "path": "/healthz", "port": "webhook-tls", "scheme": "HTTPS",
+            })
+        config = self.document("ConfigMap", WEBHOOK)["data"]["nginx.conf"]
+        self.assertIn("location = /healthz { access_log off; return 200 'ok'; }", config)
+
+    def test_certificate_is_dns01_issued_and_renewal_remains_visible_to_nginx(self):
+        certificate = self.document("Certificate", WEBHOOK)["spec"]
+        self.assertEqual(certificate["dnsNames"], [WEBHOOK_HOST])
+        self.assertEqual(certificate["issuerRef"], {
+            "kind": "ClusterIssuer", "name": "letsencrypt-production",
+        })
+        self.assertEqual(certificate["privateKey"]["rotationPolicy"], "Always")
+        issuer_path = ROOT / "utility-apps/networking/cert-manager-issuers/templates/clusterissuer.yaml"
+        issuer = yaml.safe_load(issuer_path.read_text())
+        self.assertEqual(issuer["metadata"]["name"], certificate["issuerRef"]["name"])
+        self.assertTrue(issuer["spec"]["acme"]["solvers"])
+        for solver in issuer["spec"]["acme"]["solvers"]:
+            self.assertIn("dns01", solver)
+            self.assertNotIn("http01", solver)
+        volumes = {volume["name"]: volume for volume in self.pod["volumes"]}
+        mounts = {mount["name"]: mount for mount in self.sidecar["volumeMounts"]}
+        self.assertEqual(volumes["webhook-tls"]["secret"]["secretName"], certificate["secretName"])
+        self.assertFalse(volumes["webhook-tls"]["secret"].get("optional", False))
+        self.assertEqual(mounts["webhook-tls"]["mountPath"], "/tls")
+        self.assertTrue(mounts["webhook-tls"]["readOnly"])
+        self.assertNotIn("subPath", mounts["webhook-tls"])
+        self.assertNotIn("subPathExpr", mounts["webhook-tls"])
+        self.assertEqual(volumes["webhook-nginx"]["configMap"]["name"], WEBHOOK)
+        self.assertIn("emptyDir", volumes["webhook-tmp"])
+        config = self.document("ConfigMap", WEBHOOK)["data"]["nginx.conf"]
+        self.assertIn("map $ssl_server_name $certificate_directory { default /tls; }", config)
+        self.assertIn("ssl_certificate $certificate_directory/tls.crt;", config)
+        self.assertIn("ssl_certificate_key $certificate_directory/tls.key;", config)
+        self.assertNotIn("set $certificate_directory", config)
+        # Default off means projected certificate changes are read each handshake.
+        self.assertNotIn("ssl_certificate_cache", config)
+
+    def test_proxy_pins_harbor_type_preserves_auth_and_does_not_log_credentials(self):
+        config = self.document("ConfigMap", WEBHOOK)["data"]["nginx.conf"]
+        self.assertEqual(config, (CHART / "files/nginx.conf").read_text())
+        self.assertIn("location = /webhook {", config)
+        self.assertIn("limit_except POST { deny all; }", config)
+        self.assertIn("proxy_set_header X-Registry-Type harbor;", config)
+        self.assertIn("proxy_set_header Authorization $http_authorization;", config)
+        self.assertIn('set $args "";', config)
+        self.assertIn("proxy_pass http://127.0.0.1:8082/webhook;", config)
+        self.assertIn("location / { return 404; }", config)
+        self.assertIn("client_max_body_size 1m;", config)
+        log_format = next(line for line in config.splitlines() if line.strip().startswith("log_format "))
+        self.assertEqual(log_format.strip(),
+                         "log_format webhook '$time_iso8601 $request_method $uri $status $request_time';")
+        for token in ["$http_authorization", "$request_body", "$args", "$request_uri"]:
+            self.assertNotIn(token, log_format)
+
+    def test_network_policy_allows_only_harbor_senders_on_tls_not_raw_webhook(self):
+        policies = [doc for doc in self.documents if doc["kind"] == "NetworkPolicy"]
+        self.assertEqual(len(policies), 1)
+        policy = policies[0]["spec"]
+        selector = policy["podSelector"]["matchLabels"]
+        self.assertTrue(selector)
+        self.assertLessEqual(selector.items(), self.pod_labels.items())
+        self.assertEqual(policy["policyTypes"], ["Ingress"])
+        self.assertEqual(len(policy["ingress"]), 1)
+        ingress = policy["ingress"][0]
+        self.assertEqual(ingress["ports"], [{"protocol": "TCP", "port": 8444}])
+        # Both selectors must be in one peer: harbor namespace AND approved pods.
+        self.assertEqual(ingress["from"], [{
+            "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "harbor"}},
+            "podSelector": {
+                "matchLabels": {"app.kubernetes.io/name": "harbor"},
+                "matchExpressions": [{
+                    "key": "app.kubernetes.io/component", "operator": "In",
+                    "values": ["core", "jobservice"],
+                }],
+            },
+        }])
+        self.assertNotIn("egress", policy)
+
+    def test_private_dns_record_matches_service_without_replacing_lan_wildcard(self):
+        rendered = run_helm("template", "internal-dns", ROOT / "utility-apps/networking/internal-dns",
+                            "--namespace", "networking")
+        documents = [doc for doc in yaml.safe_load_all(rendered) if doc]
+        dns = next(doc for doc in documents if doc["kind"] == "ConfigMap")
+        zone = dns["data"]["internal.db"]
+        self.assertIn("$ORIGIN internal.api-api-api.com.", zone)
+        records = [line.split() for line in zone.splitlines() if line.strip().startswith(WEBHOOK + " ")]
+        service = self.document("Service", WEBHOOK)["spec"]
+        self.assertEqual(records, [[WEBHOOK, "IN", "A", service["clusterIP"]]])
+        self.assertIn("*  IN A 192.168.1.3", zone)
+        self.assertIn("ns IN A 192.168.1.2", zone)
+        self.assertEqual(self.document("Certificate", WEBHOOK)["spec"]["dnsNames"], [WEBHOOK_HOST])
+
+    def test_webhook_secret_is_vault_managed_injected_and_restarts_on_rotation(self):
+        secret = self.document("VaultStaticSecret", WEBHOOK)["spec"]
+        self.assertEqual(secret["vaultAuthRef"], "playground-image-updater")
+        self.assertEqual((secret["mount"], secret["type"]), ("kv", "kv-v2"))
+        self.assertEqual(secret["path"], "ci/playground-image-updater-webhook")
+        self.assertEqual(secret["refreshAfter"], "1m")
+        destination = secret["destination"]
+        self.assertTrue(destination["create"])
+        self.assertEqual(destination["name"], "argocd-image-updater-secret")
+        self.assertEqual(destination["transformation"], {
+            "excludeRaw": True, "excludes": [".*"],
+            "templates": {"webhook.harbor-secret": {"text": '{{- get .Secrets "secret" -}}'}},
+        })
+        environment = {item["name"]: item for item in self.pod["containers"][0]["env"]}
+        reference = environment["HARBOR_WEBHOOK_SECRET"]["valueFrom"]["secretKeyRef"]
+        self.assertEqual(reference["name"], destination["name"])
+        self.assertEqual(reference["key"], "webhook.harbor-secret")
+        self.assertNotIn("value", environment["HARBOR_WEBHOOK_SECRET"])
+        self.assertEqual(secret["rolloutRestartTargets"], [{
+            "kind": "Deployment", "name": self.deployment["metadata"]["name"],
+        }])
+        self.assertNotIn("--webhook-require-secret=false", self.pod["containers"][0]["args"])
+        self.assertNotIn("WEBHOOK_REQUIRE_SECRET", environment)
 
     def test_git_only_rbac_cannot_modify_applications_or_secrets(self):
         application_rules = []
@@ -253,7 +418,8 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
                          & {doc["kind"] for doc in self.documents})
         destinations = {doc["spec"]["destination"]["name"] for doc in self.documents
                         if doc["kind"] == "VaultStaticSecret"}
-        self.assertEqual(destinations, {"playground-image-updater-registry", "playground-image-updater-git"})
+        self.assertEqual(destinations, {"playground-image-updater-registry", "playground-image-updater-git",
+                                        "argocd-image-updater-secret"})
 
     def test_custom_resource_fields_match_the_bundled_upstream_crd(self):
         crd = self.document("CustomResourceDefinition", "imageupdaters.argocd-image-updater.argoproj.io")
