@@ -721,8 +721,8 @@
   },
   "branch": "feature/preview-e2e-20261004",
   "created_at": "2026-10-04T23:20:03Z",
-  "expires_at": "2026-10-04T23:37:01Z",
-  "generation": "2b1a115b-d1e9-4686-aa3e-b21cb5f9148e",
+  "expires_at": "2026-10-04T23:47:45Z",
+  "generation": "7ca9e913-fe06-42ba-b37b-5a586e073c5b",
   "images": {
     "order-service": {
       "digest": "sha256:fe8c6c364057ab67d93cb80d74eb830884236bcfa20eb5fabf5b88b0c3ef6a47",
