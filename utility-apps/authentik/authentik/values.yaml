@@ -17,6 +17,8 @@ authentik:
 
   worker:
     replicas: 1
+    nodeSelector:
+      kubernetes.io/hostname: general-1-worker-1
     resources:
       requests:
         cpu: 50m
