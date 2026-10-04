@@ -76,6 +76,33 @@ class HarborPolicyTests(unittest.TestCase):
         self.assertEqual(harbor.policies[0]["targets"][0]["auth_header"], token)
         self.assertEqual(len(harbor.policies), 1)
 
+    def test_omitted_false_cert_verify_matches_after_create_and_on_repeat(self):
+        harbor = FakeHarbor()
+
+        def request(method, path, payload=None):
+            response = harbor.request(method, path, payload)
+            if method == "GET":
+                for policy in response:
+                    for target in policy.get("targets", []):
+                        if target.get("skip_cert_verify") is False:
+                            del target["skip_cert_verify"]
+            return response
+
+        self.assertEqual(webhook.configure(request, CONFIG, TOKEN), "created")
+        self.assertEqual(webhook.configure(request, CONFIG, TOKEN), "unchanged")
+        self.assertEqual(len(harbor.writes), 1)
+        self.assertIs(harbor.writes[0][2]["targets"][0]["skip_cert_verify"], False)
+
+    def test_explicit_insecure_or_null_cert_verify_is_still_drift(self):
+        for value in (True, None):
+            with self.subTest(value=value):
+                policy = self.desired()
+                policy["targets"][0]["skip_cert_verify"] = value
+                harbor = FakeHarbor([policy])
+                self.assertEqual(webhook.configure(harbor.request, CONFIG, TOKEN), "updated")
+                self.assertIs(harbor.policies[0]["targets"][0]["skip_cert_verify"], False)
+                self.assertIs(policy["targets"][0]["skip_cert_verify"], value)
+
     def test_can_disable_only_the_owned_policy_without_deleting(self):
         harbor = FakeHarbor([self.desired()])
         webhook.configure(harbor.request, dict(CONFIG, enabled=False), TOKEN)
@@ -154,6 +181,7 @@ class HarborPolicyTests(unittest.TestCase):
             self.assertEqual(req.full_url, webhook.API + webhook.POLICIES + "?page=1&page_size=100")
             self.assertEqual(build.return_value.open.call_args.kwargs["timeout"], 20)
         error = urllib.error.HTTPError("https://example.com", 403, TOKEN, {}, io.BytesIO(TOKEN.encode()))
+        self.addCleanup(error.close)
         with patch.object(webhook.Path, "read_text", return_value=json.dumps(CONFIG)), \
                 patch.object(webhook, "api_client", side_effect=error), \
                 contextlib.redirect_stdout(io.StringIO()) as output:
