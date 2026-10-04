@@ -118,6 +118,18 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
         self.assertEqual(template["metadata"]["annotations"]["checksum/webhook-proxy"],
                          hashlib.sha256((CHART / "files/nginx.conf").read_bytes()).hexdigest())
 
+    def test_cluster_dns_override_is_exact_and_preserves_acme_resolution(self):
+        config = yaml.safe_load((ROOT / "cluster/coredns-custom.yaml").read_text())
+        self.assertEqual(config["metadata"], {"name": "coredns-custom", "namespace": "kube-system"})
+        self.assertEqual(set(config["data"]), {"playground-webhook.override"})
+        rules = [line.strip() for line in config["data"]["playground-webhook.override"].splitlines()
+                 if line.strip() and not line.strip().startswith("#")]
+        self.assertEqual(rules, ["rewrite stop name exact "
+            "playground-image-updater-webhook.internal.api-api-api.com "
+            "playground-image-updater-webhook.argocd.svc.cluster.local"])
+        kustomization = yaml.safe_load((ROOT / "cluster/kustomization.yaml").read_text())
+        self.assertIn("coredns-custom.yaml", kustomization["resources"])
+
     def test_upstream_chart_and_controller_are_exactly_pinned(self):
         chart = yaml.safe_load((CHART / "Chart.yaml").read_text())
         lock = yaml.safe_load((CHART / "Chart.lock").read_text())
