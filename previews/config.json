@@ -1,4 +1,4 @@
 {
-  "enabled": false,
-  "chart_revision": "PUBLISH_CHART_REVISION_BEFORE_ENABLING"
+  "enabled": true,
+  "chart_revision": "0c7efe25a79ef4511c906006cb5ce69d0cb6b0ff"
 }
