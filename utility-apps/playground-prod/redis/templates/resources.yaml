@@ -52,8 +52,6 @@ spec:
       {{- toYaml .Values.resources | nindent 6 }}
   redisConfig:
     additionalRedisConfig: playground-redis-config
-  redisExporter:
-    enabled: false
   storage:
     keepAfterDelete: true
     volumeClaimTemplate:

@@ -318,6 +318,12 @@ class PlaygroundDependencyTests(unittest.TestCase):
             self.assertIn(directive, config)
         self.assertRegex(config, r"(?m)^maxmemory\s+[1-9][0-9]*(?:mb|gb)$")
 
+    def test_redis_omits_disabled_exporter_with_a_required_image_field(self):
+        redis = self.document("redis", "Redis", "playground-redis")["spec"]
+        # v0.26.0 treats nil RedisExporter as disabled. A present object requires
+        # image even when enabled=false, which Kubernetes admission rejects.
+        self.assertNotIn("redisExporter", redis)
+
     def test_edge_preserves_sse_and_same_origin_routes_without_admin_tools(self):
         edge = self.document("edge", "ConfigMap", "playground-edge")["data"]["nginx.conf"]
         self.assertNotIn("127.0.0.11", edge)
