@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: playground-previews
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+  generators:
+    - git:
+        repoURL: https://github.com/anomaly51/general-1-argocd.git
+        revision: main
+        requeueAfterSeconds: 30
+        files:
+          # Only active environment manifests create Applications. Lifecycle
+          # records and the shared configuration are deliberately not matched.
+          - path: previews/active/*.json
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+  template:
+    metadata:
+      name: '{{ .name }}'
+      namespace: argocd
+      labels:
+        app.kubernetes.io/part-of: microservices-playground
+        gitops.api-api-api.com/environment: preview
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+      annotations:
+        argocd.argoproj.io/compare-options: ServerSideDiff=true
+        preview.api-api-api.com/branch: '{{ .branch }}'
+        preview.api-api-api.com/url: '{{ .url }}'
+    spec:
+      project: gitops-apps
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{ .namespace }}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+  # The trusted central lifecycle workflow validates and pins every source.
+  # All components belong to the same Application and namespace, so closing
+  # one component's PR cannot independently delete the shared environment.
+  templatePatch: |
+    spec:
+      sources:
+    {{ .sources | toYaml | nindent 4 }}

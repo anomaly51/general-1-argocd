@@ -8,7 +8,7 @@ spec:
   vaultAuthRef: playground-runtime
   mount: kv
   type: kv-v2
-  path: apps/playground-staging
+  path: {{ default "apps/playground-staging" .Values.vaultPath }}
   refreshAfter: 1m
   destination:
     create: true
@@ -48,7 +48,7 @@ spec:
   vaultAuthRef: playground-runtime
   mount: kv
   type: kv-v2
-  path: apps/playground-staging
+  path: {{ default "apps/playground-staging" .Values.vaultPath }}
   refreshAfter: 1m
   destination:
     create: true
@@ -68,8 +68,10 @@ apiVersion: rabbitmq.com/v1beta1
 kind: RabbitmqCluster
 metadata:
   name: rabbitmq
+  {{- if not .Values.ephemeral }}
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  {{- end }}
 spec:
   image: {{ .Values.image }}
   replicas: 1
@@ -101,13 +103,15 @@ spec:
     statefulSet:
       spec:
         persistentVolumeClaimRetentionPolicy:
-          whenDeleted: Retain
-          whenScaled: Retain
+          whenDeleted: {{ ternary "Delete" "Retain" .Values.ephemeral }}
+          whenScaled: {{ ternary "Delete" "Retain" .Values.ephemeral }}
         volumeClaimTemplates:
           - metadata:
               name: persistence
+              {{- if not .Values.ephemeral }}
               annotations:
                 argocd.argoproj.io/sync-options: Prune=false,Delete=false
+              {{- end }}
             spec:
               accessModes: [ReadWriteOnce]
               storageClassName: {{ .Values.storage.className }}

@@ -6,7 +6,9 @@ metadata:
     gateway.api-api-api.com/internal: "true"
     app.kubernetes.io/part-of: microservices-playground
   annotations:
+    {{- if not .Values.ephemeral }}
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    {{- end }}
     argocd.argoproj.io/sync-wave: "-3"
 ---
 apiVersion: v1

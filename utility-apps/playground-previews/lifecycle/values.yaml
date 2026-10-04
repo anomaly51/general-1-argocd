@@ -1,0 +1,15 @@
+image: ghcr.io/actions/actions-runner:2.337.0@sha256:5036480998280bb21e32ade9fe1b02b493861ac314b62ba1aea320b94f56ec97
+schedule: "* * * * *"
+repository: anomaly51/general-1-argocd
+branch: main
+vaultRole: playground-preview-lifecycle
+githubAppPath: ci/github-app
+nodeSelector:
+  kubernetes.io/hostname: general-1-worker-1
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi

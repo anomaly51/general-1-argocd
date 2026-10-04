@@ -12,6 +12,7 @@ resources:
   - traefik-config.yaml
   - applicationsets/apps.yaml
   - applicationsets/utility-apps.yaml
+  - applicationsets/playground-previews.yaml
   - applications/juggluco.yaml
   - operators/rabbitmq-cluster-operator.yaml
   - operators/rabbitmq-topology-operator.yaml

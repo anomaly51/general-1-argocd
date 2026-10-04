@@ -1,3 +1,4 @@
+ephemeral: false
 name: playground-kafka
 version: 4.3.1
 storage:

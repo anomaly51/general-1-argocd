@@ -1,3 +1,5 @@
+ephemeral: false
+vaultPath: apps/playground-staging
 image: quay.io/opstree/redis:v8.10.1
 storage:
   className: local-path

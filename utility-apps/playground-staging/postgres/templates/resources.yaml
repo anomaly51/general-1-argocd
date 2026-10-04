@@ -8,7 +8,7 @@ spec:
   vaultAuthRef: playground-runtime
   mount: kv
   type: kv-v2
-  path: apps/playground-staging
+  path: {{ default "apps/playground-staging" .Values.vaultPath }}
   refreshAfter: 1m
   destination:
     create: true
@@ -27,15 +27,19 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: {{ .Values.name }}
+  {{- if not .Values.ephemeral }}
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  {{- end }}
 spec:
   instances: 1
   imageName: {{ .Values.image }}
   enableSuperuserAccess: false
+  {{- if not .Values.ephemeral }}
   inheritedMetadata:
     annotations:
       argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  {{- end }}
   bootstrap:
     initdb:
       database: {{ .Values.database }}

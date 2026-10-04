@@ -1,3 +1,4 @@
+ephemeral: false
 registry:
   server: harbor.internal.api-api-api.com
 vault:

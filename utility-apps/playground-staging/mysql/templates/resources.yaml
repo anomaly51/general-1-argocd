@@ -8,7 +8,7 @@ spec:
   vaultAuthRef: playground-runtime
   mount: kv
   type: kv-v2
-  path: apps/playground-staging
+  path: {{ default "apps/playground-staging" .Values.vaultPath }}
   refreshAfter: 1m
   destination:
     create: true
@@ -26,8 +26,10 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: playground-mysql
+  {{- if not .Values.ephemeral }}
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  {{- end }}
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: {{ .Values.storage.className }}

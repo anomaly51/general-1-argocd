@@ -8,7 +8,7 @@ spec:
   vaultAuthRef: playground-runtime
   mount: kv
   type: kv-v2
-  path: apps/playground-staging
+  path: {{ default "apps/playground-staging" .Values.vaultPath }}
   refreshAfter: 1m
   destination:
     create: true
@@ -35,8 +35,10 @@ apiVersion: redis.redis.opstreelabs.in/v1beta2
 kind: Redis
 metadata:
   name: playground-redis
+  {{- if not .Values.ephemeral }}
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  {{- end }}
 spec:
   serviceAccountName: playground-runtime
   kubernetesConfig:
@@ -46,14 +48,14 @@ spec:
       name: playground-redis-password
       key: password
     persistentVolumeClaimRetentionPolicy:
-      whenDeleted: Retain
-      whenScaled: Retain
+      whenDeleted: {{ ternary "Delete" "Retain" .Values.ephemeral }}
+      whenScaled: {{ ternary "Delete" "Retain" .Values.ephemeral }}
     resources:
       {{- toYaml .Values.resources | nindent 6 }}
   redisConfig:
     additionalRedisConfig: playground-redis-config
   storage:
-    keepAfterDelete: true
+    keepAfterDelete: {{ not .Values.ephemeral }}
     volumeClaimTemplate:
       spec:
         accessModes: [ReadWriteOnce]

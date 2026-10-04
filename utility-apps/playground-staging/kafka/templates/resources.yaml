@@ -4,8 +4,10 @@ metadata:
   name: combined
   labels:
     strimzi.io/cluster: {{ .Values.name }}
+  {{- if not .Values.ephemeral }}
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  {{- end }}
 spec:
   replicas: 1
   roles: [controller, broker]
@@ -18,12 +20,14 @@ spec:
     type: persistent-claim
     size: {{ .Values.storage.size }}
     class: {{ .Values.storage.className }}
-    deleteClaim: false
+    deleteClaim: {{ .Values.ephemeral }}
   template:
+    {{- if not .Values.ephemeral }}
     persistentVolumeClaim:
       metadata:
         annotations:
           argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    {{- end }}
     pod:
       affinity:
         nodeAffinity:
@@ -39,8 +43,10 @@ apiVersion: kafka.strimzi.io/v1
 kind: Kafka
 metadata:
   name: {{ .Values.name }}
+  {{- if not .Values.ephemeral }}
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  {{- end }}
 spec:
   kafka:
     version: {{ .Values.version | quote }}
@@ -91,7 +97,12 @@ metadata:
   labels:
     strimzi.io/cluster: {{ $.Values.name }}
   annotations:
+    {{- if $.Values.ephemeral }}
+    # Delete topics while their broker and topic operator still exist.
+    argocd.argoproj.io/sync-wave: "1"
+    {{- else }}
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    {{- end }}
 spec:
   topicName: {{ .name }}
   partitions: {{ .partitions }}
