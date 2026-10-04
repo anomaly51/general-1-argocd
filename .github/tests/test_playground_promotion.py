@@ -103,13 +103,15 @@ class ReleaseProvenance(unittest.TestCase):
             archive.writestr(filename, raw if raw is not None else json.dumps(document or self.document))
         return buffer.getvalue()
 
-    def verify(self, *, digest=None, document=None, artifacts=None):
+    def verify(self, *, digest=None, document=None, artifacts=None, documents=None):
         listing = [self.artifact] if artifacts is None else artifacts
         with patch.object(promote, "github_json", side_effect=[{"workflow_runs": [self.run]},
                 {"artifacts": listing, "total_count": len(listing)}]), patch.object(
-                promote, "github_bytes", return_value=self.archive(document)):
+                promote, "github_bytes", return_value=self.archive(document),
+                side_effect=None if documents is None else [self.archive(item) for item in documents]) as download:
             promote.verify_build_artifact(self.registry, digest or self.digest,
                                           self.repository, self.revision, "shell")
+            return download.call_count
 
     def test_exact_main_build_index_and_verified_amd64_child_are_accepted(self):
         self.assertEqual(promote.source_revision(self.registry, self.digest, self.repository), self.revision)
@@ -167,11 +169,42 @@ class ReleaseProvenance(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     promote.successful_build(self.repository, self.revision)
 
-    def test_expired_duplicate_and_oversized_artifacts_are_rejected(self):
+    def test_only_expired_duplicate_ids_and_oversized_artifacts_are_rejected(self):
         for artifacts in ([dict(self.artifact, expired=True)], [self.artifact, self.artifact],
                           [dict(self.artifact, size_in_bytes=promote.MAX_RESPONSE_BYTES + 1)]):
             with self.subTest(artifacts=artifacts), self.assertRaises(ValueError):
                 self.verify(artifacts=artifacts)
+
+    def test_rerun_artifact_matching_second_is_accepted(self):
+        other_digest = "sha256:" + "e" * 64
+        original_manifest = self.registry.manifest.side_effect
+        self.registry.manifest.side_effect = lambda digest: (
+            (self.manifest, other_digest) if digest == other_digest else original_manifest(digest))
+        count = self.verify(artifacts=[self.artifact, dict(self.artifact, id=457)],
+                            documents=[dict(self.document, digest=other_digest), self.document])
+        self.assertEqual(count, 2)
+
+    def test_all_valid_rerun_artifacts_with_wrong_digests_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "was not published"):
+            self.verify(digest="sha256:" + "e" * 64,
+                        artifacts=[self.artifact, dict(self.artifact, id=457)],
+                        documents=[self.document, dict(self.document, digest=self.child)])
+
+    def test_expired_old_artifact_is_skipped_when_current_artifact_matches(self):
+        count = self.verify(artifacts=[dict(self.artifact, id=455, expired=True), self.artifact])
+        self.assertEqual(count, 1)
+
+    def test_wrong_identity_fails_even_when_another_artifact_matches(self):
+        foreign = dict(self.document, source_repository="foreign/repository")
+        for documents in ([foreign, self.document], [self.document, foreign]):
+            with self.subTest(foreign_first=documents[0] is foreign), self.assertRaisesRegex(
+                    ValueError, "does not belong"):
+                self.verify(artifacts=[self.artifact, dict(self.artifact, id=457)], documents=documents)
+
+    def test_rerun_artifact_search_is_bounded(self):
+        artifacts = [dict(self.artifact, id=1000 + i) for i in range(promote.MAX_RELEASE_ARTIFACTS + 1)]
+        with self.assertRaisesRegex(ValueError, "Too many release-image artifacts"):
+            self.verify(artifacts=artifacts)
 
     def test_archive_path_zip_bomb_unknown_fields_and_size_limits(self):
         bodies = [self.archive(filename="../release-image.json"),

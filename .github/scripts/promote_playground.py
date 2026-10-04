@@ -28,6 +28,7 @@ STAGED_IMAGE = re.compile(r"staging@(sha256:[0-9a-f]{64})")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 MAX_RESPONSE_BYTES = 1024 * 1024
 MAX_RELEASE_BYTES = 64 * 1024
+MAX_RELEASE_ARTIFACTS = 20
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -182,30 +183,41 @@ def verify_build_artifact(registry: Registry, digest: str, repository: str,
                 "source_repository": repository, "source_commit": revision, "source_branch": "main"}
     if service not in SERVICES or repository != "anomaly51/playground-" + service:
         raise ValueError("Unexpected release repository")
+    candidate_count, live_artifact = 0, False
     for run_id in successful_build(repository, revision):
         response = github_json(f"/repos/{repository}/actions/runs/{run_id}/artifacts?per_page=100")
         artifacts = response.get("artifacts", [])
         if response.get("total_count", len(artifacts)) > len(artifacts):
             raise ValueError("Incomplete release artifact listing")
         candidates = [item for item in artifacts if item.get("name") == "release-image"]
-        if not candidates:
-            continue
-        if len(candidates) != 1:
-            raise ValueError("Ambiguous release-image artifact")
-        artifact = candidates[0]
-        if (artifact.get("expired") is not False or type(artifact.get("id")) is not int
-                or artifact["id"] < 1 or type(artifact.get("size_in_bytes")) is not int
-                or not 0 < artifact["size_in_bytes"] <= MAX_RESPONSE_BYTES):
-            raise ValueError("Release artifact is expired or oversized")
-        body = github_bytes(f"/repos/{repository}/actions/artifacts/{artifact['id']}/zip", archive=True)
-        document = release_document(body)
-        if any(document[key] != value for key, value in expected.items()):
-            raise ValueError("CI artifact does not belong to the selected main release")
-        published_digest = document["digest"]
-        _, platform_digest = image_manifest(registry, published_digest)
-        if digest not in {published_digest, platform_digest}:
-            raise ValueError("Staging digest was not published by the successful main CI run")
-        return
+        candidate_count += len(candidates)
+        if candidate_count > MAX_RELEASE_ARTIFACTS:
+            raise ValueError("Too many release-image artifacts to verify safely")
+        matched, seen_ids = False, set()
+        for artifact in candidates:
+            if artifact.get("expired") is True:
+                continue
+            if (artifact.get("expired") is not False or type(artifact.get("id")) is not int
+                    or artifact["id"] < 1 or type(artifact.get("size_in_bytes")) is not int
+                    or not 0 < artifact["size_in_bytes"] <= MAX_RESPONSE_BYTES):
+                raise ValueError("Release artifact metadata is invalid or oversized")
+            if artifact["id"] in seen_ids:
+                raise ValueError("Duplicate release artifact ID")
+            seen_ids.add(artifact["id"])
+            live_artifact = True
+            body = github_bytes(f"/repos/{repository}/actions/artifacts/{artifact['id']}/zip", archive=True)
+            document = release_document(body)
+            if any(document[key] != value for key, value in expected.items()):
+                raise ValueError("CI artifact does not belong to the selected main release")
+            published_digest = document["digest"]
+            _, platform_digest = image_manifest(registry, published_digest)
+            matched |= digest in {published_digest, platform_digest}
+        # Reruns may retain same-name artifacts. Validate every live candidate's
+        # identity before accepting a matching immutable image from this run.
+        if matched:
+            return
+    if live_artifact:
+        raise ValueError("Staging digest was not published by the successful main CI run")
     raise ValueError("Successful main CI has no release-image artifact; rebuild main before promotion")
 
 
