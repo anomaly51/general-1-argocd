@@ -1,0 +1,12 @@
+name: playground-postgres
+image: ghcr.io/cloudnative-pg/postgresql:17.6-standard-bookworm
+database: playground
+owner: playground
+storage:
+  className: local-path
+  # Isolated low-load environment; never reuse production PVCs.
+  nodeName: general-1-worker-1
+  size: 2Gi
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: "1", memory: 384Mi}

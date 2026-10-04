@@ -52,7 +52,7 @@ spec:
     {{- if or (ne .path.filename "prod.yaml") (eq (dig "policy" "promote" ._release) "prod-only") }}
     spec:
       syncPolicy:
-        {{- if ne .path.filename "prod.yaml" }}
+        {{- if and (ne .path.filename "prod.yaml") (not (hasPrefix "playground-" (index .path.segments 1))) }}
         managedNamespaceMetadata:
           labels:
             gateway.api-api-api.com/public: "true"

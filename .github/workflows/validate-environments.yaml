@@ -40,6 +40,7 @@ jobs:
           assert exclusions == {f"apps/*bot*/values/{env}.yaml" for env in ("dev", "staging")}
           assert patterns and len(patterns) == len(set(patterns)), "Duplicate discovery pattern"
           assert set(patterns) <= {f"apps/*/values/{env}.yaml" for env in ("dev", "staging", "prod")}
+          playground = {f"playground-{name}" for name in ("order-service", "pricing-service", "inventory-service", "event-hub", "analytics-service", "shell", "topology-mfe", "traffic-mfe")}
           for pattern in patterns:
               for path in Path().glob(pattern):
                   assert (path.parent.parent / "Chart.yaml").is_file(), f"No chart for {path}"
@@ -56,19 +57,22 @@ jobs:
               if "bot" in folder.name:
                   assert policy == "prod-only", "Standalone bots must be prod-only"
               if policy == "prod-only":
-                  playground = {f"playground-{name}" for name in ("order-service", "pricing-service", "inventory-service", "event-hub", "analytics-service", "shell", "topology-mfe", "traffic-mfe")}
-                  assert "bot" in folder.name or folder.name in playground, "Only approved bots and playground apps may auto-deploy prod"
+                  assert "bot" in folder.name, "Only standalone bots may auto-deploy prod"
                   assert {path.stem for path in profiles} == {"prod"}, "Prod-only apps cannot have dev/staging"
                   assert re.fullmatch(r"anomaly51/[A-Za-z0-9_.-]+", production["_release"]["sourceRepository"])
-                  if folder.name in playground:
-                      assert production["_release"]["sourceRepository"] == f"anomaly51/{folder.name}"
-                      assert production["_release"]["namespace"] == "playground-prod"
+              if folder.name in playground:
+                  assert policy == "promote", "Playground production requires explicit promotion"
               for path in profiles:
                   assert path.stem in {"dev", "staging", "prod"}
                   values = yaml.safe_load(path.read_text())
                   assert isinstance(values, dict) and values
                   assert "path" not in values, "path is reserved by the Git generator"
                   release = values["_release"]
+                  if folder.name in playground:
+                      assert release["sourceRepository"] == f"anomaly51/{folder.name}"
+                      assert release["namespace"] == f"playground-{path.stem}"
+                      assert values["image"]["repository"] == f"harbor.internal.api-api-api.com/playground/{folder.name.removeprefix('playground-')}"
+                      assert re.fullmatch(r"[^@]+@sha256:[0-9a-f]{64}", values["image"]["tag"]), "Playground images must be digest-pinned"
                   assert isinstance(release, dict), f"Missing chart release in {path}"
                   assert set(release) <= {"revision", "repository", "namespace", "promotedFrom", "sourceRepository", "sourceCommit", "sourceBranch", "runUrl", "imageKeys", "policy"}
                   pattern = r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?" if "repository" in release else r"[0-9a-f]{40}"
