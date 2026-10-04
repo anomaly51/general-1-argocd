@@ -469,6 +469,45 @@ class LeaseLifecycle(unittest.TestCase):
         self.assertTrue(lifecycle.reconcile(database, self.github, self.kubernetes, vault, self.now))
         vault.cleanup.assert_called_once_with(self.state)
 
+    def test_other_preview_changes_do_not_starve_durable_vault_cleanup(self):
+        self.state.update(phase="closed", cleanup_started_at=lifecycle.format_date(self.now))
+        expiring = copy.deepcopy(self.state)
+        expiring.update(branch="feature/another-group", phase="ready",
+                        ready_at=lifecycle.format_date(self.now - timedelta(minutes=15)),
+                        expires_at=lifecycle.format_date(self.now), cleanup_started_at=None)
+        expiring["namespace"] = lifecycle.preview_namespace(expiring["branch"])
+        expiring_path = f"previews/state/{expiring['namespace']}.json"
+        active_path = f"previews/active/{expiring['namespace']}.json"
+        active = copy.deepcopy(self.active)
+        active.update(name=expiring["namespace"], namespace=expiring["namespace"], branch=expiring["branch"])
+        data = {self.state_path: self.state, expiring_path: expiring, active_path: active}
+        database = Mock()
+        database.snapshot.return_value = ("head", "tree", {path: {"path": path} for path in data})
+        database.read_json.side_effect = lambda entry: data[entry["path"]]
+        self.kubernetes.namespace_exists.return_value = False
+        self.kubernetes.application.return_value = None
+        vault = Mock()
+        self.assertTrue(lifecycle.reconcile(database, self.github, self.kubernetes, vault, self.now))
+        vault.cleanup.assert_called_once_with(self.state)
+        changes = database.commit.call_args.args[2]
+        self.assertEqual(changes[self.state_path]["cleanup_completed_at"], lifecycle.format_date(self.now))
+        self.assertEqual(changes[expiring_path]["phase"], "expired")
+        self.assertIsNone(changes[active_path])
+
+    def test_new_cleanup_claim_is_committed_before_any_vault_deletion(self):
+        self.state["phase"] = "closed"
+        database = Mock()
+        database.snapshot.return_value = ("head", "tree", {self.state_path: {"path": self.state_path}})
+        database.read_json.return_value = self.state
+        self.kubernetes.namespace_exists.return_value = False
+        self.kubernetes.application.return_value = None
+        vault = Mock()
+        self.assertTrue(lifecycle.reconcile(database, self.github, self.kubernetes, vault, self.now))
+        vault.cleanup.assert_not_called()
+        changed = database.commit.call_args.args[2][self.state_path]
+        self.assertEqual(changed["cleanup_started_at"], lifecycle.format_date(self.now))
+        self.assertIsNone(changed.get("cleanup_completed_at"))
+
     def test_vault_provisioning_defers_cleanup_but_not_environment_expiration(self):
         self.ready_state(expires_delta=0)
         self.state["provisioning_until"] = lifecycle.format_date(self.now + timedelta(minutes=5))

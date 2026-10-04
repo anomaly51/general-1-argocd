@@ -598,20 +598,21 @@ def reconcile(database, github, kubernetes, vault, now=None):
                 # begun deletion may a stuck Running operation be terminated.
                 kubernetes.terminate_retired_operation(previous)
         changes = plan_changes(states, actives, github, kubernetes, moment)
-        if not changes:
-            for path, previous in sorted(states.items()):
-                if (previous["phase"] in TERMINAL_PHASES and previous.get("cleanup_started_at")
-                        and not previous.get("cleanup_completed_at")
-                        and provisioning_finished(previous, moment)
-                        and f"{ACTIVE_PREFIX}{previous['namespace']}.json" not in actives
-                        and not kubernetes.namespace_exists(previous["namespace"])
-                        and kubernetes.application(previous["namespace"]) is None):
-                    # Reactivation must wait for cleanup_completed_at; the durable
-                    # cleanup claim protects a refreshed generation's credentials.
-                    vault.cleanup(previous)
-                    state = copy.deepcopy(previous)
-                    state["cleanup_completed_at"] = format_date(moment)
-                    changes[path] = state
+        for path, previous in sorted(states.items()):
+            if (previous["phase"] in TERMINAL_PHASES and previous.get("cleanup_started_at")
+                    and not previous.get("cleanup_completed_at")
+                    and provisioning_finished(previous, moment)
+                    and f"{ACTIVE_PREFIX}{previous['namespace']}.json" not in actives
+                    and not kubernetes.namespace_exists(previous["namespace"])
+                    and kubernetes.application(previous["namespace"]) is None):
+                # Use the durable snapshot, never a claim just planned above.
+                # Other previews changing must not starve credential cleanup.
+                # Reactivation waits for cleanup_completed_at, protecting any
+                # refreshed generation while these idempotent deletes run.
+                vault.cleanup(previous)
+                state = copy.deepcopy(previous)
+                state["cleanup_completed_at"] = format_date(moment)
+                changes[path] = state
         if not changes:
             return False
         try:
