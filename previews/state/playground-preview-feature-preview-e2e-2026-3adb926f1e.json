@@ -1533,7 +1533,7 @@
     }
   },
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
-  "phase": "starting",
+  "phase": "ready",
   "plan_hash": "d918717984e491bd581283687dc671121d862635a68cec57bc6fe3dcd2ff937f",
   "prs": {
     "order-service": {
