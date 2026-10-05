@@ -1,0 +1,5 @@
+apiVersion: v2
+name: pod-recovery-20261005
+description: One-time, UID-guarded recovery of the reviewed General1 pods.
+type: application
+version: 0.1.0

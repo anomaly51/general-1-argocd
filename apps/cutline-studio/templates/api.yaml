@@ -42,16 +42,28 @@ spec:
         - name: wait-postgres
           image: "{{ .Values.images.api.repository }}:{{ .Values.images.api.tag }}"
           imagePullPolicy: {{ .Values.images.api.pullPolicy }}
-          command: [/app/backend/.venv/bin/python, -c]
+          command: [/app/backend/.venv/bin/python, -B, -c]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-env
+                  key: DATABASE_URL
           args:
             - |
-              import socket, time
+              import os, time
+              from sqlalchemy import create_engine, text
+              from sqlalchemy.exc import SQLAlchemyError
+              engine = create_engine(os.environ["DATABASE_URL"], connect_args={"connect_timeout": 3})
               while True:
                   try:
-                      socket.create_connection(("{{ .Release.Name }}-postgres", 5432), 3).close()
+                      with engine.connect() as connection:
+                          connection.execute(text("SELECT 1"))
                       break
-                  except OSError:
+                  except SQLAlchemyError:
+                      print("Waiting for PostgreSQL readiness", flush=True)
                       time.sleep(2)
+              engine.dispose()
           resources:
             requests: {cpu: 10m, memory: 32Mi}
             limits: {cpu: 100m, memory: 128Mi}
@@ -109,7 +121,8 @@ spec:
             - name: http
               containerPort: 8001
           startupProbe:
-            httpGet: {path: /api/v1/health, port: http}
+            # Initialization failures must restart instead of staying unready forever.
+            httpGet: {path: /api/v1/ready, port: http}
             periodSeconds: 5
             timeoutSeconds: 5
             failureThreshold: 60
