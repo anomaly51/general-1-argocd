@@ -1517,7 +1517,7 @@
     }
   },
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
-  "phase": "ready",
+  "phase": "closed",
   "plan_hash": "1164d1c599641dcbb85a5f739166cb619fbbbbbceb4d8946df71f0d9bf17d055",
   "prs": {
     "order-service": {
@@ -1530,6 +1530,7 @@
   "revision": "b6a4599262afabdf362474479333bec449403c07",
   "schema": 1,
   "startup_deadline": "2026-10-05T01:33:10Z",
+  "terminated_at": "2026-10-05T01:06:01Z",
   "url": "https://playground-preview-feature-preview-e2e-2026-3adb926f1e.internal.api-api-api.com",
   "utilities": {
     "edge": {
