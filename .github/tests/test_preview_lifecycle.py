@@ -113,9 +113,10 @@ class LeaseLifecycle(unittest.TestCase):
         self.active_path = f"previews/active/{self.namespace}.json"
         self.active = {"name": self.namespace, "namespace": self.namespace,
                        "branch": "feature/shared-checkout", "url": f"https://{self.namespace}.internal.api-api-api.com",
-                       "sources": [{"repoURL": "https://github.com/anomaly51/general-1-argocd.git",
-                                    "targetRevision": "a" * 40, "path": "apps/playground-shell",
-                                    "helm": {"valuesObject": {"image": {"repository": "preview/shell", "tag": "preview@sha256:" + "d" * 64}}}}]}
+                       "sources": [{"repoURL": lifecycle.APP_CHART_REPOSITORY,
+                                    "targetRevision": "0.6.0", "chart": "app",
+                                    "helm": {"releaseName": "shell", "valuesObject": {
+                                        "image": {"repository": "preview/shell", "tag": "preview@sha256:" + "d" * 64}}}}]}
         self.state = {"schema": 1, "namespace": self.namespace, "branch": self.active["branch"],
                       "url": self.active["url"], "generation": "first-generation", "phase": "starting",
                       "created_at": lifecycle.format_date(self.now - timedelta(minutes=5)),
@@ -124,7 +125,10 @@ class LeaseLifecycle(unittest.TestCase):
                       "prs": {"shell": {"number": 10, "head": "b" * 40,
                                         "repository": "anomaly51/playground-shell"}},
                       "images": {"shell": {"head": "b" * 40, "digest": "sha256:" + "d" * 64}},
-                      "baseline": {"shell": {"image": {"repository": "preview/shell", "tag": "staging@sha256:" + "e" * 64}}},
+                      "baseline": {"shell": {
+                          "_release": {"repository": lifecycle.APP_CHART_REPOSITORY,
+                                       "chart": "app", "revision": "0.6.0"},
+                          "image": {"repository": "preview/shell", "tag": "staging@sha256:" + "e" * 64}}},
                       "plan_hash": lifecycle.hashlib.sha256(lifecycle.compact_json(self.active["sources"]).encode()).hexdigest()}
         self.application = {"spec": {"sources": copy.deepcopy(self.active["sources"])},
                             "status": {"sync": {"status": "Synced", "comparedTo": {
@@ -387,8 +391,10 @@ class LeaseLifecycle(unittest.TestCase):
                                                  "repository": "anomaly51/playground-pricing-service"}
         self.state["images"]["pricing-service"] = {"head": "c" * 40, "digest": "sha256:" + "f" * 64}
         baseline = {"repository": "preview/pricing-service", "tag": "staging@sha256:" + "1" * 64}
-        self.state["baseline"]["pricing-service"] = {"image": baseline}
-        self.active["sources"].append({"path": "apps/playground-pricing-service", "helm": {
+        self.state["baseline"]["pricing-service"] = {
+            "image": baseline, "_release": copy.deepcopy(self.state["baseline"]["shell"]["_release"])}
+        self.active["sources"].append({"repoURL": lifecycle.APP_CHART_REPOSITORY,
+            "chart": "app", "targetRevision": "0.6.0", "helm": {"releaseName": "pricing-service",
             "valuesObject": {"image": {"repository": "preview/pricing-service", "tag": "preview@sha256:" + "f" * 64}}}})
         self.github.request.side_effect = [
             {"number": 11, "state": "closed", "base": {"repo": {"full_name": "anomaly51/playground-pricing-service"}}},
@@ -640,6 +646,59 @@ class LeaseLifecycle(unittest.TestCase):
         bad["sources"][0]["targetRevision"] = "different"
         with self.assertRaisesRegex(ValueError, "recorded plan"):
             lifecycle.validate_active(self.state, bad)
+
+    def test_closed_oci_component_restores_only_its_own_frozen_image(self):
+        state = copy.deepcopy(self.state)
+        active = copy.deepcopy(self.active)
+        other = copy.deepcopy(active["sources"][0])
+        other["helm"]["releaseName"] = "pricing-service"
+        other["helm"]["valuesObject"]["image"] = {"repository": "preview/pricing", "tag": "unchanged"}
+        active["sources"].insert(0, other)
+        before = copy.deepcopy(active)
+        restored = lifecycle.restore_closed_components(state, active, {"shell"})
+        self.assertEqual(restored["sources"][0], before["sources"][0])
+        self.assertEqual(restored["sources"][1]["helm"]["valuesObject"]["image"],
+                         self.state["baseline"]["shell"]["image"])
+        for field in ("repoURL", "chart", "targetRevision"):
+            self.assertEqual(restored["sources"][1][field], before["sources"][1][field])
+        self.assertEqual(active, before)
+        self.assertNotIn("shell", state["prs"])
+        self.assertNotIn("shell", state["images"])
+        self.assertEqual(state["plan_hash"], lifecycle.hashlib.sha256(
+            lifecycle.compact_json(restored["sources"]).encode()).hexdigest())
+
+    def test_closed_oci_component_rejects_ambiguous_or_foreign_chart_sources_atomically(self):
+        variants = []
+        for field, value in (("repoURL", "evil.invalid/charts"), ("chart", "other"),
+                             ("targetRevision", "0.7.0"), ("path", "apps/playground-shell")):
+            active = copy.deepcopy(self.active)
+            active["sources"][0][field] = value
+            variants.append(active)
+        active = copy.deepcopy(self.active)
+        active["sources"][0]["helm"]["releaseName"] = "pricing-service"
+        variants.append(active)
+        active = copy.deepcopy(self.active)
+        active["sources"].append(copy.deepcopy(active["sources"][0]))
+        variants.append(active)
+        for active in variants:
+            with self.subTest(source=active["sources"][0]):
+                state, before = copy.deepcopy(self.state), copy.deepcopy(active)
+                with self.assertRaisesRegex(ValueError, "exactly one"):
+                    lifecycle.restore_closed_components(state, active, {"shell"})
+                self.assertEqual(state, self.state)
+                self.assertEqual(active, before)
+
+    def test_closed_legacy_git_component_keeps_cleanup_compatibility(self):
+        state, active = copy.deepcopy(self.state), copy.deepcopy(self.active)
+        state["baseline"]["shell"].pop("_release")
+        state["revision"] = "a" * 40
+        source = active["sources"][0]
+        source.pop("chart")
+        source.update(repoURL="https://github.com/anomaly51/general-1-argocd.git",
+                      targetRevision=state["revision"], path="apps/playground-shell")
+        restored = lifecycle.restore_closed_components(state, active, {"shell"})
+        self.assertEqual(restored["sources"][0]["helm"]["valuesObject"]["image"],
+                         self.state["baseline"]["shell"]["image"])
 
     def test_http_ready_verifies_brokers_even_when_endpoint_returns_200(self):
         api = {"status": "ready", "dependencies": {key: True for key in ("processor", "postgres", "redis", "brokers")}}

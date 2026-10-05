@@ -26,7 +26,8 @@ Other applications keep this flow:
 
 Production for other applications has no automatic synchronization. For them,
 the manual workflow is the deployment button.
-Authorized Argo administrators can still synchronize manually. No preview envs.
+Authorized Argo administrators can still synchronize manually. Playground also
+supports the branch-grouped previews described below.
 
 The webhook is configured once on `general-1-argocd`; source repositories need no
 additional webhook because their CI commits the release to GitOps. Its endpoint
@@ -69,6 +70,48 @@ its source annotations and component digests must match. This path is rejected
 if the application has a staging profile. It does not claim a staging test occurred.
 
 ## Release details
+
+### Playground shared chart
+
+For the eight playground applications, keep only `values/dev.yaml`,
+`values/staging.yaml`, and `values/prod.yaml` under `apps/playground-<service>/`.
+Set the chart source in each profile:
+
+```yaml
+_release:
+  repository: harbor.internal.api-api-api.com/helm-charts
+  chart: app
+  revision: 0.6.0
+  policy: promote
+  namespace: playground-staging
+  sourceRepository: anomaly51/playground-shell
+```
+
+Use the namespace and source repository for that profile. Put `image`, `env`,
+resources and other chart values at the root of the file. Argo CD pulls `app`
+from Harbor and receives the values through the Git-generated ApplicationSet.
+`cluster/platform-helm-repository.yaml` registers the public OCI chart source.
+
+To upgrade the chart, publish an exact version and its matching `app-v<version>`
+Git tag in `anomaly51/platform-helm-charts`, then change the dev/staging pin.
+In the service's source repository, run **Promote to prod** after checking staging. Promotion keeps
+the production settings and copies the tested image digest and chart version;
+it rejects changes to the chart repository or name. Image Updater continues to
+write dev/staging image digests to these Git values files.
+
+GitHub-hosted validation renders the public source tag for each referenced chart
+version, without cluster credentials. Release validation renders the OCI package
+from Harbor. The GitOps repository contains no playground chart archives.
+
+Preview PRs with the same feature-branch name share one environment. At creation,
+the workflow snapshots staging settings and chart versions; it replaces images
+only for the participating PRs. Eight OCI app sources and seven Git-pinned utility
+sources share the namespace. A preview lives for 15 minutes after readiness;
+**Preview environments → refresh** renews or recreates it. Closing a component PR
+restores its original staging image while other PRs remain open. Closing the last
+PR, or lease expiry, removes the environment and its disposable data.
+
+### Other applications
 
 CI retries competing GitOps pushes without force push and rejects superseded
 source builds. Image digests pin content even if a human changes a tag. Git

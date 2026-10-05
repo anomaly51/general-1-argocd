@@ -13,7 +13,7 @@ import tempfile
 import yaml
 
 from argocd_release import wait
-from gitops_release import SHA, image_at, profile, updated_profile
+from gitops_release import SHA, chart_name, image_at, profile, updated_profile, validate_chart_pin
 from registry_release import Registry
 
 
@@ -21,8 +21,10 @@ def promoted_values(production: dict, staging: dict, commit: str) -> dict:
     if production["_release"].get("policy") == "prod-only":
         raise ValueError("Prod-only bots deploy automatically from main; Promote is not used")
     source, target = staging["_release"], production["_release"]
-    if source.get("repository") != target.get("repository"):
-        raise ValueError("Changing chart source needs an explicit migration")
+    for release in (source, target):
+        validate_chart_pin(release)
+    if any(source.get(key) != target.get(key) for key in ("repository", "chart")):
+        raise ValueError("Changing chart source or name needs an explicit migration")
     if source.get("sourceBranch") != "main" or not SHA.fullmatch(source.get("sourceCommit", "")):
         raise ValueError("Only a CI release built from source main can be promoted")
     keys = source.get("imageKeys", [])
@@ -49,18 +51,15 @@ def promoted_values(production: dict, staging: dict, commit: str) -> dict:
 
 def validate_chart(app: str, values: dict) -> None:
     release = values["_release"]
+    name = chart_name(app, release)
     with tempfile.TemporaryDirectory(prefix="production-chart-") as temporary:
         directory = Path(temporary)
         value_file = directory / "production.yaml"
         value_file.write_text(yaml.safe_dump(values))
         if "repository" in release:
-            if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", release["revision"]):
-                raise ValueError("Use an exact OCI chart version")
-            chart = f"oci://{release['repository']}/{app}"
+            chart = f"oci://{release['repository']}/{name}"
             extra = ["--version", release["revision"]]
         else:
-            if not SHA.fullmatch(release["revision"]):
-                raise ValueError("Use a full Git chart SHA")
             archive = subprocess.check_output(["git", "archive", release["revision"], "--", f"apps/{app}"])
             import io, tarfile
             with tarfile.open(fileobj=io.BytesIO(archive)) as files:
@@ -94,7 +93,7 @@ def production_only(app: str, production: dict, source_commit: str, chart_versio
         if not chart_version or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", chart_version):
             raise ValueError("Select the exact OCI chart version from the source CI run")
         chart = yaml.safe_load(subprocess.check_output([
-            "helm", "show", "chart", f"oci://{release['repository']}/{app}", "--version", chart_version], text=True))
+            "helm", "show", "chart", f"oci://{release['repository']}/{chart_name(app, release)}", "--version", chart_version], text=True))
         annotations = chart.get("annotations", {})
         if annotations.get("io.cutline.studio.source-sha") != source_commit or annotations.get("io.cutline.studio.source-branch") != "main":
             raise ValueError("OCI chart was not published from the selected main commit")

@@ -1,5 +1,7 @@
 _release:
-  revision: b6a4599262afabdf362474479333bec449403c07
+  repository: harbor.internal.api-api-api.com/helm-charts
+  chart: app
+  revision: 0.6.0
   policy: promote
   namespace: playground-prod
   sourceRepository: anomaly51/playground-event-hub

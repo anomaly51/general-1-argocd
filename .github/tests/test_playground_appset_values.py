@@ -6,6 +6,8 @@ import unittest
 
 import yaml
 
+from test_reusable_app import chart_arguments
+
 
 ROOT = Path(__file__).resolve().parents[2]
 COMPONENTS = (
@@ -22,13 +24,14 @@ class PlaygroundApplicationSetValuesTests(unittest.TestCase):
         self.assertNotIn("valueFiles", source["helm"])
         for component in COMPONENTS:
             with self.subTest(component=component):
-                chart = ROOT / f"apps/playground-{component}"
-                profile = yaml.safe_load((chart / "values/prod.yaml").read_text())
+                values_dir = ROOT / f"apps/playground-{component}/values"
+                profile = yaml.safe_load((values_dir / "prod.yaml").read_text())
+                chart, extra = chart_arguments(profile["_release"])
                 namespace = profile["_release"]["namespace"]
                 inline_values = {key: value for key, value in profile.items()
                                  if key not in {"_release", "path"}}
                 result = subprocess.run(
-                    ["helm", "template", f"playground-{component}", str(chart),
+                    ["helm", "template", f"playground-{component}", str(chart), *extra,
                      "--namespace", namespace, "--values", "-"],
                     input=yaml.safe_dump(inline_values), text=True, capture_output=True,
                 )
@@ -40,15 +43,16 @@ class PlaygroundApplicationSetValuesTests(unittest.TestCase):
 
     def test_optional_worker_selection_does_not_change_production_defaults(self):
         for component in COMPONENTS:
-            chart = ROOT / f"apps/playground-{component}"
-            values = yaml.safe_load((chart / "values/prod.yaml").read_text())
+            values_dir = ROOT / f"apps/playground-{component}/values"
+            values = yaml.safe_load((values_dir / "prod.yaml").read_text())
+            chart, extra = chart_arguments(values["_release"])
             for selected in (False, True):
                 with self.subTest(component=component, selected=selected):
                     inline = {key: value for key, value in values.items() if key != "_release"}
                     if selected:
                         inline["nodeSelector"] = {"kubernetes.io/hostname": "general-1-worker-2"}
                     rendered = subprocess.run(
-                        ["helm", "template", f"playground-{component}", str(chart),
+                        ["helm", "template", f"playground-{component}", str(chart), *extra,
                          "--namespace", "playground-dev", "--values", "-"],
                         input=yaml.safe_dump(inline), text=True, capture_output=True, check=True,
                     )

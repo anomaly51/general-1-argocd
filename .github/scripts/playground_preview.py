@@ -23,7 +23,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "utility-apps/playground-previews/lifecycle/files"))
-from lifecycle import APIError, GitDatabase, GitHub  # noqa: E402
+from lifecycle import APIError, GitDatabase, GitHub, app_chart_release  # noqa: E402
 from registry_release import Registry  # noqa: E402
 
 SERVICES = ("order-service", "pricing-service", "inventory-service", "event-hub",
@@ -236,6 +236,7 @@ def baseline_snapshot():
         values = yaml.safe_load((ROOT / f"apps/playground-{service}/values/staging.yaml").read_text())
         if not re.fullmatch(r"staging@sha256:[0-9a-f]{64}", values["image"]["tag"]):
             raise ValueError("Staging baseline must use a pinned staging digest")
+        app_chart_release(values)
         baseline[service] = values
     return baseline
 
@@ -247,11 +248,12 @@ def utility_snapshot():
 
 def sources_for(state, revision):
     if not SHA.fullmatch(revision):
-        raise ValueError("Preview charts must be pinned to a published commit")
+        raise ValueError("Preview utility charts must be pinned to a published commit")
     sources = []
     for service in SERVICES:
         values = copy.deepcopy(state["baseline"][service])
-        values.pop("_release", None)
+        release = app_chart_release(values)
+        values.pop("_release")
         values["ephemeral"] = True
         if service in state["images"]:
             digest = state["images"][service]["digest"]
@@ -261,7 +263,8 @@ def sources_for(state, revision):
         values["nodeSelector"] = {"kubernetes.io/hostname": "general-1-worker-3" if service == "order-service" else "general-1-worker-2"}
         if "CORS_ORIGINS" in values.get("env", {}):
             values["env"]["CORS_ORIGINS"] = state["url"]
-        sources.append({"repoURL": REPO_URL, "targetRevision": revision, "path": "apps/playground-" + service,
+        sources.append({"repoURL": release["repository"], "targetRevision": release["revision"],
+                        "chart": release["chart"],
                         "helm": {"releaseName": service, "valuesObject": values}})
     for utility in UTILITIES:
         values = copy.deepcopy(state["utilities"][utility])

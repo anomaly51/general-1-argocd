@@ -16,12 +16,13 @@ import promote_playground as promote
 
 class PlaygroundPromotion(unittest.TestCase):
     def setUp(self):
-        self.prod = {"_release": {"policy": "promote", "namespace": "playground-prod", "revision": "a" * 40},
+        self.prod = {"_release": {"policy": "promote", "namespace": "playground-prod", "revision": "0.6.0",
+                                  "repository": "harbor.internal.api-api-api.com/helm-charts", "chart": "app"},
                      "image": {"repository": "harbor.internal.api-api-api.com/playground/shell", "tag": "prod@sha256:" + "b" * 64},
                      "resources": {"requests": {"memory": "64Mi"}}, "replicaCount": 1,
                      "env": {"URL": "https://production.example"}}
         self.stage = copy.deepcopy(self.prod)
-        self.stage["_release"].update(namespace="playground-staging", revision="c" * 40)
+        self.stage["_release"].update(namespace="playground-staging", revision="0.6.1")
         self.stage["image"]["tag"] = "staging@sha256:" + "d" * 64
         self.stage["env"]["URL"] = "https://staging.example"
 
@@ -36,6 +37,9 @@ class PlaygroundPromotion(unittest.TestCase):
         self.assertEqual(result["_release"]["namespace"], "playground-prod")
         self.assertEqual(result["_release"]["sourceBranch"], "main")
         self.assertEqual(result["_release"]["imageKeys"], ["image"])
+        self.assertEqual(result["_release"]["revision"], "0.6.1")
+        for key in ("repository", "chart"):
+            self.assertEqual(result["_release"][key], self.prod["_release"][key])
         self.assertTrue(self.prod["image"]["tag"].startswith("prod@"))
 
     def test_mutable_tag_foreign_repository_and_wrong_namespace_are_rejected(self):
@@ -64,10 +68,31 @@ class PlaygroundPromotion(unittest.TestCase):
         self.stage["_release"]["revision"] = "main"
         with self.assertRaises(ValueError):
             self.promote()
-        self.stage["_release"]["revision"] = "c" * 40
+        self.stage["_release"]["revision"] = "0.6.1"
         self.prod["_release"]["policy"] = "prod-only"
         with self.assertRaises(ValueError):
             self.promote()
+
+    def test_oci_revision_requires_exact_version_and_chart_identity_is_preserved(self):
+        for revision in ("main", "latest", "0.6.*", ">=0.6.0", "a" * 40):
+            with self.subTest(revision=revision):
+                self.stage["_release"]["revision"] = revision
+                with self.assertRaisesRegex(ValueError, "exact OCI chart version"):
+                    self.promote()
+        self.stage["_release"]["revision"] = "0.6.1"
+        for key, value in (("repository", "example.com/charts"), ("chart", "foreign")):
+            original = self.stage["_release"][key]
+            self.stage["_release"][key] = value
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "explicit migration"):
+                self.promote()
+            self.stage["_release"][key] = original
+
+    def test_legacy_git_pins_still_promote_without_an_oci_chart_name(self):
+        for values, revision in ((self.prod, "a" * 40), (self.stage, "c" * 40)):
+            values["_release"].pop("repository")
+            values["_release"].pop("chart")
+            values["_release"]["revision"] = revision
+        self.assertEqual(self.promote()["_release"]["revision"], "c" * 40)
 
 
 class ReleaseProvenance(unittest.TestCase):

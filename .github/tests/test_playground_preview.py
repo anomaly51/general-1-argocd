@@ -48,6 +48,15 @@ def new_state(prs=None):
                                  utilities=preview.utility_snapshot())[0]
 
 
+def chart_arguments(source):
+    if "chart" not in source:
+        return [str(ROOT / source["path"])]
+    local = os.environ.get("APP_CHART_PATH")
+    if local:
+        return [local.format(version=source["targetRevision"])]
+    return [f"oci://{source['repoURL']}/{source['chart']}", "--version", source["targetRevision"]]
+
+
 class PreviewIdentityAndMembershipTests(unittest.TestCase):
     def test_branch_namespace_is_deterministic_dns_safe_and_collision_resistant(self):
         name = preview.namespace_for(BRANCH)
@@ -194,6 +203,22 @@ class PreviewPreparationTests(unittest.TestCase):
             self.assertNotIn("cleanup_completed_at", restored)
             self.assertIsNone(active)
 
+    def test_cleaned_legacy_preview_refresh_uses_current_oci_profiles(self):
+        previous = new_state()
+        previous.update(phase="closed", cleanup_completed_at=preview.now_string(NOW))
+        for values in previous["baseline"].values():
+            values["_release"].pop("repository")
+            values["_release"].pop("chart")
+            values["_release"]["revision"] = "a" * 40
+        before = copy.deepcopy(previous)
+        baseline = preview.baseline_snapshot()
+        restored, active = preview.prepare_state(previous, None, BRANCH, previous["prs"], True,
+            REVISION, baseline, now=NOW, utilities=preview.utility_snapshot())
+        self.assertEqual(restored["baseline"], baseline)
+        self.assertEqual(previous, before)
+        self.assertIsNone(active)
+        self.assertTrue(all("chart" in source for source in preview.sources_for(restored, REVISION)[:8]))
+
     def test_identity_mismatch_and_expired_lease_cannot_be_reconciled_implicitly(self):
         previous = new_state()
         previous["namespace"] = "playground-prod"
@@ -269,21 +294,29 @@ class PreviewSourceIsolationTests(unittest.TestCase):
         cls.documents = []
         for source in cls.sources:
             output = subprocess.run(
-                ["helm", "template", source["helm"]["releaseName"], str(ROOT / source["path"]),
+                ["helm", "template", source["helm"]["releaseName"], *chart_arguments(source),
                  "--namespace", cls.state["namespace"], "--values", "-"],
                 input=yaml.safe_dump(source["helm"]["valuesObject"]), text=True,
                 capture_output=True, check=True,
             ).stdout
             cls.documents.extend(document for document in yaml.safe_load_all(output) if document)
 
-    def test_one_complete_plan_uses_only_trusted_paths_and_pinned_chart_revisions(self):
+    def test_complete_plan_pins_oci_apps_and_git_utilities_without_local_app_paths(self):
         self.assertEqual(len(self.sources), 15)
-        paths = {f"apps/playground-{service}" for service in preview.SERVICES}
-        paths |= {f"utility-apps/playground-staging/{utility}" for utility in preview.UTILITIES}
-        self.assertEqual({source["path"] for source in self.sources}, paths)
-        for source in self.sources:
+        for source in self.sources[:8]:
+            service = source["helm"]["releaseName"]
+            release = self.state["baseline"][service]["_release"]
+            self.assertEqual(source["repoURL"], release["repository"])
+            self.assertEqual(source["targetRevision"], release["revision"])
+            self.assertEqual(source["chart"], release["chart"])
+            self.assertNotIn("path", source)
+            self.assertNotIn("_release", source["helm"]["valuesObject"])
+        paths = {f"utility-apps/playground-staging/{utility}" for utility in preview.UTILITIES}
+        self.assertEqual({source["path"] for source in self.sources[8:]}, paths)
+        for source in self.sources[8:]:
             self.assertEqual(source["repoURL"], preview.REPO_URL)
             self.assertEqual(source["targetRevision"], REVISION)
+            self.assertNotIn("chart", source)
             self.assertNotIn("_release", source["helm"]["valuesObject"])
         identities = [(doc["apiVersion"], doc["kind"], doc["metadata"]["name"]) for doc in self.documents]
         self.assertEqual(len(identities), len(set(identities)))
@@ -322,7 +355,7 @@ class PreviewSourceIsolationTests(unittest.TestCase):
 
     def test_only_selected_components_change_and_snapshots_are_not_mutated(self):
         for source in self.sources[:8]:
-            service = source["path"].removeprefix("apps/playground-")
+            service = source["helm"]["releaseName"]
             actual = source["helm"]["valuesObject"]["image"]["tag"]
             expected = "preview@" + DIGEST if service == "shell" else self.state["baseline"][service]["image"]["tag"]
             self.assertEqual(actual, expected)
@@ -370,15 +403,17 @@ class PreviewSourceIsolationTests(unittest.TestCase):
 
     def test_preview_wave_and_no_surge_leave_default_renders_unchanged(self):
         for service in preview.SERVICES:
-            chart = ROOT / f"apps/playground-{service}"
             baseline = copy.deepcopy(self.state["baseline"][service])
+            release = preview.app_chart_release(baseline)
+            chart = chart_arguments({"repoURL": release["repository"], "chart": release["chart"],
+                                     "targetRevision": release["revision"]})
             rendered = {}
             for mode in ("omitted", False, True):
                 values = copy.deepcopy(baseline)
                 if mode != "omitted":
                     values["ephemeral"] = mode
                 output = subprocess.run(
-                    ["helm", "template", service, str(chart), "--namespace", "playground-staging", "--values", "-"],
+                    ["helm", "template", service, *chart, "--namespace", "playground-staging", "--values", "-"],
                     input=yaml.safe_dump(values), text=True, capture_output=True, check=True,
                 ).stdout
                 rendered[mode] = [doc for doc in yaml.safe_load_all(output) if doc]
@@ -405,6 +440,48 @@ class PreviewSourceIsolationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             preview.sources_for(state, REVISION)
 
+    def test_app_sources_reject_untrusted_oci_locations_and_nonexact_versions(self):
+        for field, invalid in (("repository", "evil.invalid/helm-charts"),
+                               ("repository", "oci://harbor.internal.api-api-api.com/helm-charts"),
+                               ("chart", "other"), ("chart", "../app"),
+                               ("revision", "main"), ("revision", "latest"),
+                               ("revision", "0.6.*"), ("revision", ">=0.6.0"),
+                               ("revision", "a" * 40), ("revision", 0.6),
+                               ("revision", "01.6.0")):
+            state = copy.deepcopy(self.state)
+            state["baseline"]["shell"]["_release"][field] = invalid
+            with self.subTest(field=field, value=invalid), self.assertRaisesRegex(ValueError, "trusted OCI"):
+                preview.sources_for(state, REVISION)
+        for field in ("_release", "repository", "chart", "revision"):
+            state = copy.deepcopy(self.state)
+            if field == "_release":
+                state["baseline"]["shell"].pop(field)
+            else:
+                state["baseline"]["shell"]["_release"].pop(field)
+            with self.subTest(missing=field), self.assertRaises(ValueError):
+                preview.sources_for(state, REVISION)
+
+    def test_each_application_keeps_its_frozen_oci_pin_when_utility_revision_changes(self):
+        state = copy.deepcopy(self.state)
+        state["baseline"]["shell"]["_release"]["revision"] = "0.7.1"
+        state["baseline"]["pricing-service"]["_release"]["revision"] = "0.8.0-rc.1"
+        before = copy.deepcopy(state)
+        sources = preview.sources_for(state, "d" * 40)
+        for source in sources[:8]:
+            component = source["helm"]["releaseName"]
+            self.assertEqual(source["targetRevision"], state["baseline"][component]["_release"]["revision"])
+        self.assertTrue(all(source["targetRevision"] == "d" * 40 for source in sources[8:]))
+        self.assertEqual(state, before)
+
+    def test_local_chart_paths_can_resolve_each_exact_release_version(self):
+        source = {"repoURL": "harbor.internal.api-api-api.com/helm-charts",
+                  "chart": "app", "targetRevision": "0.7.1"}
+        with patch.dict(os.environ, {"APP_CHART_PATH": "/tmp/chart-cache/{version}/app"}):
+            self.assertEqual(chart_arguments(source), ["/tmp/chart-cache/0.7.1/app"])
+        with patch.dict(os.environ, {"APP_CHART_PATH": ""}):
+            self.assertEqual(chart_arguments(source), [
+                "oci://harbor.internal.api-api-api.com/helm-charts/app", "--version", "0.7.1"])
+
     def test_all_four_requested_change_combinations_share_the_same_composition_rule(self):
         cases = (("shell",), ("pricing-service",), ("shell", "pricing-service"),
                  ("shell", "traffic-mfe", "order-service", "pricing-service"))
@@ -416,7 +493,7 @@ class PreviewSourceIsolationTests(unittest.TestCase):
                 sources = preview.sources_for(state, REVISION)
                 self.assertEqual(len(sources), 15)
                 for source in sources[:8]:
-                    service = source["path"].removeprefix("apps/playground-")
+                    service = source["helm"]["releaseName"]
                     tag = source["helm"]["valuesObject"]["image"]["tag"]
                     self.assertEqual(tag, "preview@" + DIGEST if service in changed
                                      else state["baseline"][service]["image"]["tag"])

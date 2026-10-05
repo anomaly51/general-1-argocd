@@ -16,6 +16,8 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      APP_CHART_PATH: ${{ github.workspace }}/.ci/app-charts/{version}/charts/app
     steps:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
@@ -25,12 +27,44 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install PyYAML==6.0.2
+      # Unprivileged PR CI cannot reach the LAN registry. Render each public source
+      # release matching its OCI pin; deployment validation still pulls from OCI.
+      - name: Fetch pinned public app chart sources
+        run: |
+          python - <<'PYCODE'
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+          import yaml
+          sys.path.insert(0, ".github/scripts")
+          from gitops_release import validate_chart_pin
+          versions = set()
+          for path in Path("apps").glob("playground-*/values/*.yaml"):
+              release = yaml.safe_load(path.read_text())["_release"]
+              validate_chart_pin(release)
+              assert release["repository"] == "harbor.internal.api-api-api.com/helm-charts"
+              assert release["chart"] == "app"
+              versions.add(release["revision"])
+          for version in sorted(versions):
+              chart_path = Path(os.environ["APP_CHART_PATH"].format(version=version))
+              checkout_path = chart_path.parent.parent
+              checkout_path.parent.mkdir(parents=True, exist_ok=True)
+              subprocess.run(["git", "clone", "--depth", "1", "--branch", f"app-v{version}",
+                              "https://github.com/anomaly51/platform-helm-charts.git", str(checkout_path)], check=True)
+              metadata = yaml.safe_load((chart_path / "Chart.yaml").read_text())
+              assert metadata["name"] == "app" and metadata["version"] == version
+          PYCODE
       - name: Validate automatically discovered environments
         run: |
           python - <<'PYCODE'
           import re
+          import os
+          import sys
           from pathlib import Path
           import yaml
+          sys.path.insert(0, ".github/scripts")
+          from gitops_release import validate_chart_pin
           appset = yaml.safe_load(Path("cluster/applicationsets/apps.yaml").read_text())
           generators = appset["spec"]["generators"]
           assert len(generators) == 1 and set(generators[0]) == {"git"}, "Use automatic Git discovery"
@@ -41,13 +75,13 @@ jobs:
           assert patterns and len(patterns) == len(set(patterns)), "Duplicate discovery pattern"
           assert set(patterns) <= {f"apps/*/values/{env}.yaml" for env in ("dev", "staging", "prod")}
           playground = {f"playground-{name}" for name in ("order-service", "pricing-service", "inventory-service", "event-hub", "analytics-service", "shell", "topology-mfe", "traffic-mfe")}
-          for pattern in patterns:
-              for path in Path().glob(pattern):
-                  assert (path.parent.parent / "Chart.yaml").is_file(), f"No chart for {path}"
-          for chart in Path("apps").glob("*/Chart.yaml"):
-              folder = chart.parent
+          folders = {path.parent.parent for path in Path("apps").glob("*/values/*.yaml")}
+          folders.update(chart.parent for chart in Path("apps").glob("*/Chart.yaml"))
+          for folder in sorted(folders):
               assert re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", folder.name)
-              assert yaml.safe_load(chart.read_text())["name"] == folder.name, "Chart name must match its directory"
+              chart = folder / "Chart.yaml"
+              if chart.exists():
+                  assert yaml.safe_load(chart.read_text())["name"] == folder.name, "Chart name must match its directory"
               assert not (folder / "values.yaml").exists(), "No shared values.yaml"
               profiles = list((folder / "values").glob("*.yaml"))
               assert profiles, f"No environment profiles for {folder}"
@@ -68,17 +102,20 @@ jobs:
                   assert isinstance(values, dict) and values
                   assert "path" not in values, "path is reserved by the Git generator"
                   release = values["_release"]
+                  assert isinstance(release, dict), f"Missing chart release in {path}"
+                  assert chart.is_file() or "repository" in release, f"No local or OCI chart for {path}"
                   if folder.name in playground:
+                      assert not chart.exists(), "Playground profiles reference OCI directly, without wrappers"
+                      assert release["repository"] == "harbor.internal.api-api-api.com/helm-charts"
+                      shared_chart = yaml.safe_load((Path(os.environ["APP_CHART_PATH"].format(version=release["revision"])) / "Chart.yaml").read_text())
+                      assert release["chart"] == shared_chart["name"]
+                      assert release["revision"] == shared_chart["version"], "Public CI source must match this profile's OCI pin"
                       assert release["sourceRepository"] == f"anomaly51/{folder.name}"
                       assert release["namespace"] == f"playground-{path.stem}"
                       assert values["image"]["repository"] == f"harbor.internal.api-api-api.com/playground/{folder.name.removeprefix('playground-')}"
                       assert re.fullmatch(r"[^@]+@sha256:[0-9a-f]{64}", values["image"]["tag"]), "Playground images must be digest-pinned"
-                  assert isinstance(release, dict), f"Missing chart release in {path}"
-                  assert set(release) <= {"revision", "repository", "namespace", "promotedFrom", "sourceRepository", "sourceCommit", "sourceBranch", "runUrl", "imageKeys", "policy"}
-                  pattern = r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?" if "repository" in release else r"[0-9a-f]{40}"
-                  assert re.fullmatch(pattern, str(release["revision"])), f"Pin an exact chart version in {path}"
-                  if "repository" in release:
-                      assert re.fullmatch(r"[a-z0-9][a-z0-9.:-]*/[a-z0-9/_-]+", release["repository"]), "Use an OCI Helm repository without oci://"
+                  assert set(release) <= {"revision", "repository", "chart", "namespace", "promotedFrom", "sourceRepository", "sourceCommit", "sourceBranch", "runUrl", "imageKeys", "policy"}
+                  validate_chart_pin(release)
                   if "namespace" in release:
                       assert re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", release["namespace"])
                   if "promotedFrom" in release:
@@ -101,14 +138,21 @@ jobs:
       - name: Test release and promotion guards
         run: python -m unittest discover -s .github/tests -v
       - name: Render every declared values profile
-        shell: bash
         run: |
-          set -euo pipefail
-          for values in apps/*/values/*.yaml; do
-            app_dir="${values%/values/*}"
-            # Each profile must work on its own; shared defaults are deliberately absent.
-            test ! -e "$app_dir/values.yaml"
-            helm lint "$app_dir" -f "$values"
-            helm template "${app_dir##*/}" "$app_dir" -f "$values" > /dev/null
-          done
+          python - <<'PYCODE'
+          import os
+          from pathlib import Path
+          import subprocess
+          import yaml
+          for values in sorted(Path("apps").glob("*/values/*.yaml")):
+              app_dir = values.parent.parent
+              assert not (app_dir / "values.yaml").exists()
+              chart = app_dir
+              if app_dir.name.startswith("playground-"):
+                  release = yaml.safe_load(values.read_text())["_release"]
+                  chart = Path(os.environ["APP_CHART_PATH"].format(version=release["revision"]))
+              subprocess.run(["helm", "lint", str(chart), "-f", str(values)], check=True)
+              subprocess.run(["helm", "template", app_dir.name, str(chart), "-f", str(values)],
+                             check=True, stdout=subprocess.DEVNULL)
+          PYCODE
       - run: git diff --check

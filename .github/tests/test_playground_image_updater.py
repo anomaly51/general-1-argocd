@@ -173,7 +173,9 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
             self.assertEqual(values["image"]["repository"], f"{REGISTRY}/playground/{name}")
             self.assertIsInstance(values["image"]["tag"], str)
             self.assertEqual(values["_release"]["namespace"], f"playground-{environment}")
-            self.assertRegex(values["_release"]["revision"], r"^[0-9a-f]{40}$")
+            self.assertEqual(values["_release"]["repository"], f"{REGISTRY}/helm-charts")
+            self.assertEqual(values["_release"]["chart"], "app")
+            self.assertRegex(values["_release"]["revision"], r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$")
         self.assertNotIn(".argocd-source", yaml.safe_dump(self.updaters))
 
     def test_production_is_manual_and_never_an_updater_target(self):
@@ -193,6 +195,9 @@ class PlaygroundImageUpdaterTests(unittest.TestCase):
         self.assertEqual(appset["spec"]["generators"][0]["git"]["revision"], "main")
         source = appset["spec"]["template"]["spec"]["source"]
         self.assertEqual(source["targetRevision"], "{{ ._release.revision }}")
+        self.assertIn('dig "repository"', source["repoURL"])
+        self.assertIn('if not (hasKey ._release "repository")', source["path"])
+        self.assertIn('dig "chart" (index .path.segments 1) ._release', source["chart"])
         self.assertIn('omit . "_release" "path"', source["helm"]["values"])
         self.assertIn('"prod-only"', appset["spec"]["templatePatch"])
 

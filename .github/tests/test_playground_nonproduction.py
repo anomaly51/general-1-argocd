@@ -6,6 +6,8 @@ import unittest
 
 import yaml
 
+from test_reusable_app import chart_arguments
+
 
 ROOT = Path(__file__).resolve().parents[2]
 COMPONENTS = (
@@ -15,8 +17,9 @@ COMPONENTS = (
 CHARTS = {"namespace", "kafka", "postgres", "mysql", "rabbitmq", "redis", "edge"}
 
 
-def render(path, namespace, values=None):
-    command = ["helm", "template", path.name, str(path), "--namespace", namespace]
+def render(path, namespace, values=None, pin=None):
+    chart, extra = chart_arguments(pin) if pin is not None else (str(path), [])
+    command = ["helm", "template", path.name, str(chart), *extra, "--namespace", namespace]
     if values is not None:
         command.extend(["--values", "-"])
     result = subprocess.run(command, input=None if values is None else yaml.safe_dump(values),
@@ -50,7 +53,7 @@ class PlaygroundNonproductionTests(unittest.TestCase):
                 profile = yaml.safe_load((chart / f"values/{environment}.yaml").read_text())
                 cls.profiles[environment, component] = profile
                 documents.extend(render(chart, namespace, {key: value for key, value in profile.items()
-                                                           if key != "_release"}))
+                                                           if key != "_release"}, profile["_release"]))
             cls.documents[environment] = documents
 
     def document(self, environment, kind, name):
@@ -70,7 +73,10 @@ class PlaygroundNonproductionTests(unittest.TestCase):
                 profile = self.profiles[environment, component]
                 self.assertEqual(profile["_release"]["namespace"], namespace)
                 self.assertEqual(profile["_release"]["sourceRepository"], f"anomaly51/playground-{component}")
-                self.assertRegex(profile["_release"]["revision"], r"^[0-9a-f]{40}$")
+                self.assertEqual(profile["_release"]["repository"],
+                                 "harbor.internal.api-api-api.com/helm-charts")
+                self.assertEqual(profile["_release"]["chart"], "app")
+                self.assertRegex(profile["_release"]["revision"], r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$")
                 self.assertEqual(profile["image"]["repository"],
                                  f"harbor.internal.api-api-api.com/playground/{component}")
                 self.assertRegex(profile["image"]["tag"], rf"^{environment}@sha256:[0-9a-f]{{64}}$")

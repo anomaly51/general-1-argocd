@@ -1,0 +1,17 @@
+# Public, pull-only chart source. No credentials are required for this Harbor project.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: platform-helm-repository
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    argocd.argoproj.io/secret-type: repository
+type: Opaque
+stringData:
+  name: platform-helm-charts
+  type: helm
+  url: harbor.internal.api-api-api.com/helm-charts
+  project: gitops-apps
+  enableOCI: "true"

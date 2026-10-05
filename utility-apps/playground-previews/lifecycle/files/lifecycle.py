@@ -19,6 +19,10 @@ import urllib.request
 
 API_ORIGIN = "https://api.github.com"
 REPOSITORY = "anomaly51/general-1-argocd"
+APP_CHART_REPOSITORY = "harbor.internal.api-api-api.com/helm-charts"
+APP_CHART_NAME = "app"
+CHART_VERSION = re.compile(
+    r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?")
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024
 SERVICES = frozenset({"order-service", "pricing-service", "inventory-service", "event-hub",
                       "analytics-service", "shell", "topology-mfe", "traffic-mfe"})
@@ -42,6 +46,18 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def compact_json(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def app_chart_release(values):
+    """Accept only the configured OCI chart and an exact version pin."""
+    release = values.get("_release") if isinstance(values, dict) else None
+    if (not isinstance(release, dict)
+            or release.get("repository") != APP_CHART_REPOSITORY
+            or release.get("chart") != APP_CHART_NAME
+            or not isinstance(release.get("revision"), str)
+            or not CHART_VERSION.fullmatch(release["revision"])):
+        raise ValueError("Preview application requires the trusted OCI chart and an exact version")
+    return {key: release[key] for key in ("repository", "chart", "revision")}
 
 
 def base64url(value):
@@ -307,18 +323,42 @@ def open_branch_prs(github, state):
 def restore_closed_components(state, active, services):
     """Closed components return to the group's original staging image, not today's staging."""
     active = copy.deepcopy(active)
+    replacements = []
+    for service in services:
+        if service not in SERVICES or service not in state["prs"]:
+            raise ValueError("Closed component is not a recorded preview member")
+        if active:
+            baseline = state.get("baseline", {}).get(service, {})
+            release = baseline.get("_release", {})
+            if "repository" in release or "chart" in release:
+                release = app_chart_release(baseline)
+                matches = [source for source in active["sources"]
+                           if source.get("helm", {}).get("releaseName") == service
+                           and source.get("repoURL") == release["repository"]
+                           and source.get("chart") == release["chart"]
+                           and source.get("targetRevision") == release["revision"]
+                           and "path" not in source]
+            else:
+                # Retain cleanup support for a frozen pre-OCI preview. New
+                # generations use app_chart_release and cannot create these.
+                matches = [source for source in active["sources"]
+                           if source.get("path") == f"apps/playground-{service}"
+                           and source.get("repoURL") == f"https://github.com/{REPOSITORY}.git"
+                           and re.fullmatch(r"[0-9a-f]{40}", str(source.get("targetRevision", "")))
+                           and (not state.get("revision") or source["targetRevision"] == state["revision"])
+                           and source.get("helm", {}).get("releaseName") in (None, service)
+                           and "chart" not in source]
+            if len(matches) != 1 or "valuesObject" not in matches[0].get("helm", {}):
+                raise ValueError("Closed component does not have exactly one Helm source")
+            baseline_image = baseline.get("image")
+            if not isinstance(baseline_image, dict):
+                raise ValueError("Closed component has no frozen baseline image")
+            replacements.append((matches[0], baseline_image))
+    for source, baseline_image in replacements:
+        source["helm"]["valuesObject"]["image"] = copy.deepcopy(baseline_image)
     for service in services:
         state["prs"].pop(service)
         state.get("images", {}).pop(service, None)
-        if active:
-            matches = [source for source in active["sources"]
-                       if source.get("path") == f"apps/playground-{service}"]
-            if len(matches) != 1 or "valuesObject" not in matches[0].get("helm", {}):
-                raise ValueError("Closed component does not have exactly one Helm source")
-            baseline_image = state.get("baseline", {}).get(service, {}).get("image")
-            if not isinstance(baseline_image, dict):
-                raise ValueError("Closed component has no frozen baseline image")
-            matches[0]["helm"]["valuesObject"]["image"] = copy.deepcopy(baseline_image)
     state["phase"] = "starting"
     if active:
         state["plan_hash"] = hashlib.sha256(compact_json(active["sources"]).encode()).hexdigest()

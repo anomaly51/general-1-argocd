@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import unittest
 from unittest.mock import patch
+import yaml
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
@@ -31,6 +32,66 @@ class ReleaseGuards(unittest.TestCase):
         self.assertEqual(result["image"]["pullPolicy"], "IfNotPresent")
         self.assertEqual(result["image"]["tag"], self.images[0]["tag"] + "@" + self.images[0]["digest"])
         self.assertEqual(self.values["image"]["tag"], "old")
+
+    def test_explicit_oci_chart_keeps_identity_and_requires_exact_version(self):
+        self.values["_release"].update(repository="harbor.internal.api-api-api.com/helm-charts",
+                                       chart="app", revision="0.6.0")
+        result = release.updated_profile(self.values, self.images, self.source, "0.6.1")
+        self.assertEqual(result["_release"]["chart"], "app")
+        self.assertEqual(result["_release"]["repository"], self.values["_release"]["repository"])
+        self.assertEqual(release.updated_profile(self.values, self.images, self.source, "0.8.0-rc.1")
+                         ["_release"]["revision"], "0.8.0-rc.1")
+        for revision in ("main", "latest", "0.6.*", "a" * 40, "00.6.0", "0.6.0-rc..1", "0.6.0-"):
+            with self.subTest(revision=revision), self.assertRaises(ValueError):
+                release.updated_profile(self.values, self.images, self.source, revision)
+        for name in ("../app", "app/other", ""):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                release.chart_name("example", {**self.values["_release"], "chart": name})
+
+    def test_oci_validation_renders_published_chart_not_local_or_ci_override(self):
+        self.values["_release"].update(repository="harbor.internal.api-api-api.com/helm-charts",
+                                       chart="app", revision="0.6.0")
+        with patch.object(promote.subprocess, "run") as render, patch.dict(
+                "os.environ", {"APP_CHART_PATH": "/untrusted/local/chart"}):
+            promote.validate_chart("playground-shell", self.values)
+        command = render.call_args.args[0]
+        self.assertEqual(command[:4], ["helm", "template", "playground-shell",
+                                      "oci://harbor.internal.api-api-api.com/helm-charts/app"])
+        self.assertEqual(command[-2:], ["--version", "0.6.0"])
+        self.assertTrue(render.call_args.kwargs["check"])
+
+    def test_legacy_oci_defaults_to_application_chart_name(self):
+        self.values["_release"].update(repository="example.com/charts", revision="1.2.3")
+        with patch.object(promote.subprocess, "run") as render:
+            promote.validate_chart("example", self.values)
+        self.assertEqual(render.call_args.args[0][3], "oci://example.com/charts/example")
+
+    def test_oci_release_verification_checks_repository_and_chart_identity(self):
+        self.values["_release"].update(repository="harbor.internal.api-api-api.com/helm-charts",
+                                       chart="app", revision="0.6.0")
+        source = {"repoURL": self.values["_release"]["repository"], "chart": "app", "targetRevision": "0.6.0",
+                  "helm": {"values": yaml.safe_dump({k: v for k, v in self.values.items() if k != "_release"})}}
+        self.assertTrue(argo.matches({"spec": {"source": source}}, self.values, "example"))
+        for key, value in (("repoURL", "example.com/foreign"), ("chart", "foreign"), ("targetRevision", "0.5.1")):
+            with self.subTest(key=key):
+                self.assertFalse(argo.matches({"spec": {"source": {**source, key: value}}}, self.values, "example"))
+        app = {"spec": {"source": source}, "status": {"sync": {"status": "Synced", "comparedTo": {
+            "source": copy.deepcopy(source)}}, "health": {"status": "Healthy"}}}
+        self.assertTrue(argo.healthy(app))
+        for key, value in (("repoURL", "example.com/foreign"), ("chart", "foreign"), ("path", "apps/foreign")):
+            changed = copy.deepcopy(app)
+            changed["status"]["sync"]["comparedTo"]["source"][key] = value
+            with self.subTest(compared_field=key):
+                self.assertFalse(argo.healthy(changed))
+
+    def test_git_release_verification_checks_repository_and_path(self):
+        source = {"repoURL": "https://github.com/anomaly51/general-1-argocd.git", "path": "apps/example",
+                  "targetRevision": self.values["_release"]["revision"],
+                  "helm": {"values": yaml.safe_dump({k: v for k, v in self.values.items() if k != "_release"})}}
+        self.assertTrue(argo.matches({"spec": {"source": source}}, self.values, "example"))
+        for key, value in (("repoURL", "https://github.com/foreign/repo.git"), ("path", "apps/foreign"), ("chart", "app")):
+            with self.subTest(key=key):
+                self.assertFalse(argo.matches({"spec": {"source": {**source, key: value}}}, self.values, "example"))
 
     def test_automatic_production_and_wrong_branch_environment_rejected_before_git(self):
         with patch.object(release, "deployment_policy", return_value={}):
@@ -116,6 +177,19 @@ class ReleaseGuards(unittest.TestCase):
         stage["_release"]["sourceBranch"] = "dev"
         with self.assertRaises(ValueError):
             promote.promoted_values(production, stage, "e" * 40)
+
+    def test_oci_promotion_rejects_chart_source_or_name_changes(self):
+        self.values["_release"].update(repository="harbor.internal.api-api-api.com/helm-charts",
+                                       chart="app", revision="0.6.0")
+        stage = release.updated_profile(self.values, self.images, {**self.source, "branch": "main"}, "0.6.1")
+        result = promote.promoted_values(self.values, stage, "e" * 40)
+        self.assertEqual(result["_release"]["chart"], "app")
+        self.assertEqual(result["_release"]["revision"], "0.6.1")
+        for key, value in (("chart", "foreign"), ("repository", "example.com/foreign")):
+            changed = copy.deepcopy(stage)
+            changed["_release"][key] = value
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "explicit migration"):
+                promote.promoted_values(self.values, changed, "e" * 40)
 
     def test_live_verification_rejects_scaled_zero_stale_or_wrong_images(self):
         image = "example/image:sha-123@sha256:" + "a" * 64

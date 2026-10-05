@@ -23,11 +23,11 @@ def fixture():
     sources = []
     for component in COMPONENTS:
         sources.append({
-            "repoURL": REPOSITORY, "targetRevision": "a" * 40,
-            "path": f"apps/playground-{component}",
-            "helm": {"releaseName": f"playground-{component}", "values":
-                     yaml.safe_dump({"image": {"repository": f"harbor.internal.api-api-api.com/playground/{component}",
-                                               "tag": "preview@sha256:" + "b" * 64}})},
+            "repoURL": "harbor.internal.api-api-api.com/helm-charts", "targetRevision": "0.6.0",
+            "chart": "app",
+            "helm": {"releaseName": component, "valuesObject":
+                     {"image": {"repository": f"harbor.internal.api-api-api.com/playground/{component}",
+                                "tag": "preview@sha256:" + "b" * 64}}},
         })
     for component in UTILITIES:
         sources.append({
@@ -65,8 +65,18 @@ def render_go_templates(appset, parameters):
             ["helm", "template", "preview-test", str(chart), "--values", "-"],
             input=yaml.safe_dump(values), text=True, capture_output=True, check=True,
         ).stdout
-    application, patch = [document for document in yaml.safe_load_all(output) if document]
-    application["spec"].update(patch["spec"])
+    documents = [document for document in yaml.safe_load_all(output) if document]
+    application = documents[0]
+
+    def merge(target, patch):
+        for key, value in patch.items():
+            if isinstance(value, dict) and isinstance(target.get(key), dict):
+                merge(target[key], value)
+            else:
+                target[key] = deepcopy(value)
+
+    for patch in documents[1:]:
+        merge(application, patch)
     return application
 
 

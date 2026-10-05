@@ -19,6 +19,7 @@ import yaml
 
 from argocd_release import wait
 from promote_release import validate_chart
+from gitops_release import validate_chart_pin
 from registry_release import Registry
 
 SERVICES = {"order-service", "pricing-service", "inventory-service", "event-hub",
@@ -226,6 +227,11 @@ def promoted_values(production: dict, staging: dict, service: str, commit: str, 
         raise ValueError("Invalid promotion identity")
     if production["_release"].get("policy") != "promote":
         raise ValueError("Production must use manual promotion")
+    for values in (production, staging):
+        validate_chart_pin(values["_release"])
+    if any(production["_release"].get(key) != staging["_release"].get(key)
+           for key in ("repository", "chart")):
+        raise ValueError("Changing chart source or name needs an explicit migration")
     repository = "harbor.internal.api-api-api.com/playground/" + service
     for values, environment in ((production, "prod"), (staging, "staging")):
         if values["_release"].get("namespace") != "playground-" + environment:
@@ -234,8 +240,6 @@ def promoted_values(production: dict, staging: dict, service: str, commit: str, 
             raise ValueError("Unexpected image repository")
     if not STAGED_IMAGE.fullmatch(staging["image"].get("tag", "")):
         raise ValueError("Staging must pin its image digest")
-    if not SHA.fullmatch(staging["_release"].get("revision", "")):
-        raise ValueError("Staging must pin its chart revision")
     result = copy.deepcopy(production)
     result["image"]["tag"] = staging["image"]["tag"]
     result["_release"].update(

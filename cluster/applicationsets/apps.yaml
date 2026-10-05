@@ -37,10 +37,10 @@ spec:
         repoURL: '{{ dig "repository" "https://github.com/anomaly51/general-1-argocd.git" ._release }}'
         targetRevision: '{{ ._release.revision }}'
         path: '{{ if not (hasKey ._release "repository") }}apps/{{ index .path.segments 1 }}{{ end }}'
-        chart: '{{ if hasKey ._release "repository" }}{{ index .path.segments 1 }}{{ end }}'
+        chart: '{{ if hasKey ._release "repository" }}{{ dig "chart" (index .path.segments 1) ._release }}{{ end }}'
         helm:
           releaseName: '{{ index .path.segments 1 }}'
-          # Embed values from main while keeping the chart pinned to its release.
+          # Git holds the settings; the chart is pinned independently by Git SHA or OCI version.
           values: '{{ omit . "_release" "path" | toJson }}'
       destination:
         server: https://kubernetes.default.svc

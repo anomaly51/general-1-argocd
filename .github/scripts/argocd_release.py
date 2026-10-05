@@ -27,14 +27,26 @@ def request(path: str, body: dict | None = None) -> dict:
         return json.load(response)
 
 
-def matches(application: dict, values: dict) -> bool:
+def matches(application: dict, values: dict, app: str | None = None) -> bool:
     source = application.get("spec", {}).get("source", {})
     try:
         embedded = yaml.safe_load(source.get("helm", {}).get("values", ""))
     except yaml.YAMLError:
         return False
     expected = {key: value for key, value in values.items() if key != "_release"}
-    return source.get("targetRevision") == values["_release"]["revision"] and embedded == expected
+    release = values["_release"]
+    if "repository" in release:
+        if source.get("repoURL") != release["repository"]:
+            return False
+        expected_chart = release.get("chart", app)
+        if expected_chart is not None and source.get("chart") != expected_chart:
+            return False
+        if source.get("path"):
+            return False
+    elif app is not None and (source.get("repoURL") != "https://github.com/anomaly51/general-1-argocd.git"
+                              or source.get("path") != f"apps/{app}" or source.get("chart")):
+        return False
+    return source.get("targetRevision") == release["revision"] and embedded == expected
 
 
 def healthy(application: dict) -> bool:
@@ -45,6 +57,7 @@ def healthy(application: dict) -> bool:
             and status.get("health", {}).get("status") == "Healthy"
             and compared.get("targetRevision") == desired.get("targetRevision")
             and compared.get("helm", {}).get("values") == desired.get("helm", {}).get("values")
+            and all((compared.get(key) or "") == (desired.get(key) or "") for key in ("repoURL", "chart", "path"))
             and application.get("operation") is None
             and status.get("operationState", {}).get("phase") not in {"Running", "Terminating"})
 
@@ -92,7 +105,7 @@ def wait(app: str, environment: str, values: dict, sync: bool = False, timeout: 
     while time.monotonic() < deadline:
         try:
             application = request(f"applications/{name}?refresh=normal")
-            if matches(application, values):
+            if matches(application, values, app):
                 if not synced:
                     if application.get("operation"):
                         raise RuntimeError("Another synchronization is already running")

@@ -17,6 +17,28 @@ SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 SHA = re.compile(r"[0-9a-f]{40}")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 IMAGE_KEY = re.compile(r"image|images\.[A-Za-z][A-Za-z0-9]*")
+CHART_VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?")
+
+
+def validate_chart_pin(release: dict) -> None:
+    """Keep Git commit pins and OCI versions distinct; never accept floating refs."""
+    if "repository" in release:
+        if not re.fullmatch(r"[a-z0-9][a-z0-9.:-]*/[a-z0-9/_-]+", release["repository"]):
+            raise ValueError("Use an OCI Helm repository without oci://")
+        if not CHART_VERSION.fullmatch(str(release.get("revision", ""))):
+            raise ValueError("Use an exact OCI chart version")
+        if "chart" in release and not SLUG.fullmatch(str(release["chart"])):
+            raise ValueError("Use a valid OCI chart name")
+    elif "chart" in release or not SHA.fullmatch(str(release.get("revision", ""))):
+        raise ValueError("Use a full Git chart SHA without an OCI chart name")
+
+
+def chart_name(app: str, release: dict) -> str:
+    validate_chart_pin(release)
+    name = release.get("chart", app)
+    if not SLUG.fullmatch(name):
+        raise ValueError("Use a valid chart name")
+    return name
 
 
 def git(*args: str) -> str:
@@ -110,9 +132,7 @@ def updated_profile(values: dict, images: list[dict], source: dict, chart_revisi
         if "digest" in target:
             target["digest"] = image["digest"]
     release = result["_release"]
-    revision_pattern = r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?" if "repository" in release else r"[0-9a-f]{40}"
-    if not re.fullmatch(revision_pattern, chart_revision):
-        raise ValueError("Pin an exact chart revision")
+    validate_chart_pin({**release, "revision": chart_revision})
     release.update(revision=chart_revision, sourceRepository=source["repository"],
                    sourceCommit=source["commit"], sourceBranch=source["branch"],
                    runUrl=source["run_url"], imageKeys=[image["key"] for image in images])
