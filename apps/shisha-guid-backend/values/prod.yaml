@@ -1,5 +1,5 @@
 _release:
-  revision: ccd32793828376539a29048135f6069da9994d6e
+  revision: 51040507e2b116b3cccc94419ad3c6ea1a4ba584
 replicas: 1
 images:
   api:
@@ -11,8 +11,8 @@ images:
     tag: 16-alpine
     pullPolicy: IfNotPresent
   minio:
-    repository: quay.io/minio/minio
-    tag: RELEASE.2025-04-22T22-12-26Z
+    repository: harbor.internal.api-api-api.com/applications/minio
+    tag: RELEASE.2025-04-22T22-12-26Z@sha256:3f97c5651cb6662b880c787a232b6b34fec8d8922e08d6617b25d241a21164bb
     pullPolicy: IfNotPresent
   wait:
     repository: docker.io/library/busybox
