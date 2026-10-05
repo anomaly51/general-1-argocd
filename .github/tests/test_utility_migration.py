@@ -101,13 +101,16 @@ class ArcMigrationTests(unittest.TestCase):
         self.assertIn("--update-strategy=immediate", manager["args"])
         self.assertNotIn("--update-strategy=eventual", manager["args"])
 
-    def test_runner_work_uses_expanded_worker_one_and_one_gib_memory_ceiling(self):
-        for name in ("arc-runner-set", "juggluco-runner-set"):
+    def test_runner_work_uses_expected_workers_and_one_gib_memory_ceiling(self):
+        for name, worker in (
+            ("arc-runner-set", "general-1-worker-2"),
+            ("juggluco-runner-set", "general-1-worker-1"),
+        ):
             with self.subTest(chart=name):
                 template = runner_set(name)["spec"]["template"]
                 self.assertEqual(template["metadata"]["labels"][CLIENT_LABEL], "true")
                 spec = template["spec"]
-                self.assertEqual(spec["nodeSelector"], {"kubernetes.io/hostname": "general-1-worker-1"})
+                self.assertEqual(spec["nodeSelector"], {"kubernetes.io/hostname": worker})
                 self.assertIs(spec["automountServiceAccountToken"], False)
                 self.assertNotIn("hostAliases", spec)
                 runner = next(c for c in spec["containers"] if c["name"] == "runner")

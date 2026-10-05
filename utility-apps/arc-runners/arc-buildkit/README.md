@@ -15,8 +15,10 @@ credentials from Vault with GitHub OIDC.
 
 Runner/DinD images and all ARC chart dependencies are pinned. Explicit DinD uses
 Kubernetes native sidecars (Kubernetes 1.29 or newer), bounded resources, and
-size-limited ephemeral workspace/Docker volumes. Runners use `general-1-worker-1`
-after its approved expansion to 6Gi RAM and a 60Gi disk. Each runner and its DinD
+size-limited ephemeral workspace/Docker volumes. General runners use
+`general-1-worker-2` (12Gi RAM, 60Gi disk), keeping build/test I/O off the
+control-plane's physical host. Restricted Juggluco runners remain on
+`general-1-worker-1` (12Gi RAM, 60Gi disk). Each runner and its DinD
 sidecar have a 512Mi memory limit, for at most 1Gi per pod. Two general jobs and
 one restricted Juggluco job are the upper bound. Heavy image builds run on the
 remote BuildKit worker; memory-intensive local tests may require a larger,
