@@ -721,7 +721,7 @@
   },
   "branch": "feature/preview-parallel-20261004",
   "created_at": "2026-10-05T00:18:34Z",
-  "expires_at": null,
+  "expires_at": "2026-10-05T00:39:02Z",
   "generation": "f032c1ed-2176-47ca-9a2b-1c9f6697bb25",
   "images": {
     "shell": {
@@ -731,7 +731,7 @@
     }
   },
   "namespace": "playground-preview-feature-preview-parallel-0bf283995a",
-  "phase": "starting",
+  "phase": "ready",
   "plan_hash": "2e7e2fa62a87ab32de8e82714e170c1dffa6e19736edf62cd5af669b71b3ada7",
   "prs": {
     "shell": {
@@ -740,7 +740,7 @@
       "repository": "anomaly51/playground-shell"
     }
   },
-  "ready_at": null,
+  "ready_at": "2026-10-05T00:24:02Z",
   "revision": "e04285291f1686cb5e4d091e22b0c48aafcc9584",
   "schema": 1,
   "startup_deadline": "2026-10-05T00:48:34Z",
