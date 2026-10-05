@@ -55,7 +55,6 @@ From this chart directory, run:
 ```sh
 rtk helm dependency build
 rtk helm lint .
-rtk proxy ruby tests/test_render.rb
 ```
 
 These commands render and validate manifests without changing the cluster.

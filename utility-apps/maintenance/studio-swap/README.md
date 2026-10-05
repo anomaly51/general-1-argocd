@@ -108,10 +108,8 @@ export's combined API/Chrome cgroup peak and swap, not Node process RSS alone.
 Local verification (no host execution):
 
 ```sh
-rtk python3 -m unittest discover -s utility-apps/maintenance/studio-swap/tests -v
 rtk proxy helm lint utility-apps/maintenance/studio-swap
 rtk proxy helm template studio-swap utility-apps/maintenance/studio-swap --namespace maintenance
 ```
 
-The Python tests fake host commands and use temporary files. Never invoke
-`--boot` or `--enter-host` on a workstation as a test.
+Never invoke `--boot` or `--enter-host` on a workstation.

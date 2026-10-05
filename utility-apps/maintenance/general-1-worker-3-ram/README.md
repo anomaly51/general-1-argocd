@@ -12,8 +12,8 @@ Job, ServiceAccount, RBAC and execution ConfigMap without enabling global
 credentials, host access or execution behavior. Retiring the chart does not
 perform a drain, uncordon, VM operation or RAM change.
 
-The historical implementation and explicit `enabled=true` test fixtures remain
-for audit only. Reuse requires a new request, fresh inventory and independent
+The historical implementation remains for audit only.
+Reuse requires a new request, fresh inventory and independent
 review; the sequence below is not current authorization. The implementation
 contains **no Proxmox credential or VM operation**.
 
@@ -39,9 +39,8 @@ Readiness is not a memory-capacity guarantee. Root must separately watch physica
 ## Local checks
 
 ```sh
-rtk proxy python3 -B -m unittest discover -s utility-apps/maintenance/general-1-worker-3-ram/tests -v
 rtk proxy helm lint utility-apps/maintenance/general-1-worker-3-ram
 rtk proxy helm template general-1-worker-3-ram utility-apps/maintenance/general-1-worker-3-ram --namespace maintenance --set enabled=true
 ```
 
-Run tests in an existing Python environment with PyYAML to include all rendered-chart security checks; the execution image itself uses only Python's standard library. These checks do not apply resources. Eviction semantics follow the [Kubernetes Eviction API](https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/); subresource name restrictions follow [Kubernetes RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/).
+These checks do not apply resources. Eviction semantics follow the [Kubernetes Eviction API](https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/); subresource name restrictions follow [Kubernetes RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/).

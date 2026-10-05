@@ -25,5 +25,3 @@ remove host swap; decommissioning needs a separate operation.
 Swap does not increase scheduler allocatable memory. Burstable containers need
 memory requests below limits to receive LimitedSwap capacity. Production limits
 are not lowered automatically.
-
-Tests: `python3 -m unittest discover -s utility-apps/maintenance/environments-swap/tests -v`
