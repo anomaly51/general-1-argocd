@@ -720,21 +720,12 @@
     }
   },
   "branch": "feature/preview-parallel-20261004",
-  "cleanup_completed_at": "2026-10-04T23:43:01Z",
-  "cleanup_started_at": "2026-10-04T23:41:01Z",
-  "created_at": "2026-10-04T23:36:52Z",
+  "created_at": "2026-10-05T00:18:34Z",
   "expires_at": null,
-  "generation": "44597466-eb0e-45f2-8c0d-71bf6116b81f",
-  "images": {
-    "shell": {
-      "digest": "sha256:b1458e7d827e70a3340675ebf2eaa8bac629291b1f9f41da7204928aea42aa10",
-      "head": "57117fd92f6f95bbb928077bd84a005dd8600f15",
-      "run_id": 37244263065
-    }
-  },
+  "generation": "f032c1ed-2176-47ca-9a2b-1c9f6697bb25",
+  "images": {},
   "namespace": "playground-preview-feature-preview-parallel-0bf283995a",
-  "phase": "closed",
-  "plan_hash": "2e7e2fa62a87ab32de8e82714e170c1dffa6e19736edf62cd5af669b71b3ada7",
+  "phase": "starting",
   "prs": {
     "shell": {
       "head": "57117fd92f6f95bbb928077bd84a005dd8600f15",
@@ -745,8 +736,7 @@
   "ready_at": null,
   "revision": "e04285291f1686cb5e4d091e22b0c48aafcc9584",
   "schema": 1,
-  "startup_deadline": "2026-10-05T00:06:52Z",
-  "terminated_at": "2026-10-04T23:39:02Z",
+  "startup_deadline": "2026-10-05T00:48:34Z",
   "url": "https://playground-preview-feature-preview-parallel-0bf283995a.internal.api-api-api.com",
   "utilities": {
     "edge": {
