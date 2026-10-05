@@ -5,12 +5,17 @@ _release:
   policy: promote
   namespace: playground-dev
   sourceRepository: anomaly51/playground-traffic-mfe
+  sourceCommit: 06644a635ff1eeae9e972e0ca2879e7f3e56de10
+  sourceBranch: dev
+  runUrl: https://github.com/anomaly51/playground-traffic-mfe/actions/runs/37273504762
+  imageKeys:
+  - image
 replicaCount: 1
 nodeSelector:
   kubernetes.io/hostname: general-1-worker-2
 image:
   repository: harbor.internal.api-api-api.com/playground/traffic-mfe
-  tag: dev@sha256:5f4218ff86261586d5d98012ca522d563d3ef4756bae164e9cc4e682003d9389
+  tag: dev-06644a635ff1eeae9e972e0ca2879e7f3e56de10@sha256:323cb5b3ce43db1dbcb3edb41dc2061d4752f0aaa693c3abbdff3c29dee2bf7f
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 env: {}
