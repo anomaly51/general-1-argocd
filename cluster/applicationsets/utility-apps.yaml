@@ -13,6 +13,9 @@ spec:
         revision: main
         directories:
           - path: utility-apps/*/*
+          # Keep the chart available until its PostDelete cleanup has completed.
+          - path: utility-apps/argocd/image-updater
+            exclude: true
   template:
     metadata:
       name: '{{ index .path.segments 1 }}-{{ .path.basenameNormalized }}'
