@@ -720,21 +720,12 @@
     }
   },
   "branch": "feature/preview-e2e-20261004",
-  "cleanup_completed_at": "2026-10-04T23:51:01Z",
-  "cleanup_started_at": "2026-10-04T23:50:02Z",
-  "created_at": "2026-10-04T23:20:03Z",
-  "expires_at": "2026-10-04T23:47:45Z",
-  "generation": "7ca9e913-fe06-42ba-b37b-5a586e073c5b",
-  "images": {
-    "order-service": {
-      "digest": "sha256:fe8c6c364057ab67d93cb80d74eb830884236bcfa20eb5fabf5b88b0c3ef6a47",
-      "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
-      "run_id": 37243667669
-    }
-  },
+  "created_at": "2026-10-05T00:16:46Z",
+  "expires_at": null,
+  "generation": "29fe50c4-3c14-4d12-96fa-1539221c5b0c",
+  "images": {},
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
-  "phase": "expired",
-  "plan_hash": "758f6516ba25a095101d6d095d1628181f59b079e96c55f5eb538a6c6e956391",
+  "phase": "starting",
   "prs": {
     "order-service": {
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
@@ -742,11 +733,10 @@
       "repository": "anomaly51/playground-order-service"
     }
   },
-  "ready_at": "2026-10-04T23:22:01Z",
+  "ready_at": null,
   "revision": "e04285291f1686cb5e4d091e22b0c48aafcc9584",
   "schema": 1,
-  "startup_deadline": "2026-10-04T23:50:03Z",
-  "terminated_at": "2026-10-04T23:48:01Z",
+  "startup_deadline": "2026-10-05T00:46:46Z",
   "url": "https://playground-preview-feature-preview-e2e-2026-3adb926f1e.internal.api-api-api.com",
   "utilities": {
     "edge": {
