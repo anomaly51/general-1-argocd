@@ -2,7 +2,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - retired-preview-namespace.yaml
   - route-namespaces.yaml
   - juggluco-namespace.yaml
   - metallb-namespace.yaml
