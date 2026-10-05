@@ -20,6 +20,7 @@ argocd-image-updater:
     keep: false
     annotations:
       argocd.argoproj.io/sync-wave: "-3"
+      argocd.argoproj.io/tracking-id: argocd-image-updater:apiextensions.k8s.io/CustomResourceDefinition:/imageupdaters.argocd-image-updater.argoproj.io
   config:
     name: playground-image-updater-config
     argocd.namespace: argocd
