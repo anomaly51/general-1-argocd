@@ -1530,26 +1530,16 @@
       "digest": "sha256:fe8c6c364057ab67d93cb80d74eb830884236bcfa20eb5fabf5b88b0c3ef6a47",
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
       "run_id": 37253014711
-    },
-    "shell": {
-      "digest": "sha256:ef8038bb3bda85c79dd2fa33dac5dec36faedd09c5de05536bfde2a83d65a182",
-      "head": "5cb975cbb2e404c102ab6e3ff22b10513683b2dd",
-      "run_id": 37253017265
     }
   },
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
-  "phase": "ready",
-  "plan_hash": "03c7f7bfaa2d02d3706811897e0c5e94c61100e880d84556d48cb41a1f8cd319",
+  "phase": "starting",
+  "plan_hash": "d918717984e491bd581283687dc671121d862635a68cec57bc6fe3dcd2ff937f",
   "prs": {
     "order-service": {
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
       "number": 1,
       "repository": "anomaly51/playground-order-service"
-    },
-    "shell": {
-      "head": "5cb975cbb2e404c102ab6e3ff22b10513683b2dd",
-      "number": 1,
-      "repository": "anomaly51/playground-shell"
     }
   },
   "ready_at": "2026-10-05T01:56:02Z",
