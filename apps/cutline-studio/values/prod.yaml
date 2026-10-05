@@ -1,6 +1,6 @@
 # Chart version used by Argo CD; the remaining keys are Helm values.
 _release:
-  revision: 0.1.12
+  revision: 0.1.13-recovery.1
   repository: harbor.internal.api-api-api.com/cutline-studio
 
 # Complete environment configuration; this chart has no shared values.yaml.
