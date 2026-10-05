@@ -5,6 +5,9 @@ metadata:
   labels:
     gateway.api-api-api.com/internal: "true"
     app.kubernetes.io/part-of: microservices-playground
+    {{- if .Values.ephemeral }}
+    gitops.api-api-api.com/environment: preview
+    {{- end }}
   annotations:
     {{- if not .Values.ephemeral }}
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
@@ -129,37 +132,3 @@ spec:
               app.kubernetes.io/name: traefik
       ports:
         - {protocol: TCP, port: 8080}
-{{- if .Values.ephemeral }}
----
-# Expired previews may have an in-flight sync waiting on unschedulable pods.
-# The lifecycle controller may terminate only this preview's Argo operation;
-# removing the desired Application and workloads still happens through GitOps.
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: {{ .Release.Namespace }}
-  namespace: argocd
-  annotations:
-    argocd.argoproj.io/sync-wave: "-2"
-rules:
-  - apiGroups: [argoproj.io]
-    resources: [applications]
-    resourceNames: [{{ .Release.Namespace | quote }}]
-    verbs: [get, patch]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: {{ .Release.Namespace }}
-  namespace: argocd
-  annotations:
-    argocd.argoproj.io/sync-wave: "-2"
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: {{ .Release.Namespace }}
-subjects:
-  - kind: ServiceAccount
-    name: playground-preview-lifecycle
-    namespace: playground-previews
-{{- end }}

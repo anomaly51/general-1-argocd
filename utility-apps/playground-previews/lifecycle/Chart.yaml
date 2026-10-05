@@ -1,5 +1,0 @@
-apiVersion: v2
-name: playground-preview-lifecycle
-description: GitOps-only expiry and readiness reconciliation for feature previews
-type: application
-version: 0.1.0

@@ -1,0 +1,121 @@
+name: Publish PR image
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+  id-token: write
+
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: arc-runner-set
+    timeout-minutes: 30
+    concurrency:
+      group: preview-${{ github.repository }}-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: true
+    steps:
+      # This workflow runs from main, not from PR code. Reject forks, stale
+      # runs and untrusted authors before retrieving preview-only credentials.
+      - name: Verify successful CI and current PR
+        id: pr
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        env:
+          SERVICE: ${{ inputs.service }}
+        with:
+          script: |
+            const services = ['order-service', 'pricing-service', 'inventory-service',
+              'event-hub', 'analytics-service', 'shell', 'topology-mfe', 'traffic-mfe'];
+            if (!services.includes(process.env.SERVICE) ||
+                `${context.repo.owner}/${context.repo.repo}` !== `anomaly51/playground-${process.env.SERVICE}`)
+              throw new Error('Unexpected source repository');
+            const {data: run} = await github.rest.actions.getWorkflowRun({
+              ...context.repo, run_id: context.payload.workflow_run.id});
+            if (run.path !== '.github/workflows/ci.yaml' || run.event !== 'pull_request' ||
+                run.conclusion !== 'success' || run.head_repository?.full_name !== `${context.repo.owner}/${context.repo.repo}`)
+              throw new Error('Expected successful same-repository PR CI');
+            const prs = await github.paginate(github.rest.pulls.list, {
+              ...context.repo, state: 'open', head: `${context.repo.owner}:${run.head_branch}`, per_page: 100});
+            const pr = prs.find(pr => pr.head.sha === run.head_sha &&
+              pr.head.repo?.full_name === `${context.repo.owner}/${context.repo.repo}` &&
+              ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(pr.author_association));
+            if (!pr) { core.notice('PR closed, superseded, or untrusted; skipping'); return; }
+            core.setOutput('number', pr.number);
+            core.setOutput('sha', pr.head.sha);
+      - name: Check out verified PR revision
+        if: steps.pr.outputs.number
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.pr.outputs.sha }}
+          persist-credentials: false
+      - name: Read preview-only Harbor credentials
+        if: steps.pr.outputs.number
+        id: vault
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
+        with:
+          url: https://vault.internal.api-api-api.com
+          method: jwt
+          path: github
+          role: ci-playground-${{ inputs.service }}-preview
+          jwtGithubAudience: playground-preview
+          exportEnv: false
+          secrets: |
+            kv/data/ci/playground-preview/${{ inputs.service }} username | HARBOR_USERNAME ;
+            kv/data/ci/playground-preview/${{ inputs.service }} password | HARBOR_PASSWORD
+      - name: Log in to Harbor
+        if: steps.pr.outputs.number
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: harbor.internal.api-api-api.com
+          username: ${{ steps.vault.outputs.HARBOR_USERNAME }}
+          password: ${{ steps.vault.outputs.HARBOR_PASSWORD }}
+      - name: Connect to BuildKit
+        if: steps.pr.outputs.number
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        with:
+          driver: remote
+          endpoint: tcp://arc-buildkit.arc-runners.svc.cluster.local:1234
+      - name: Build and push SHA image
+        if: steps.pr.outputs.number
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          build-args: VITE_ENABLE_TOOL_LINKS=false
+          tags: harbor.internal.api-api-api.com/playground-previews/${{ inputs.service }}:pr-${{ steps.pr.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.pr.outputs.sha }}
+      - name: Enable preview and post its URL
+        if: steps.pr.outputs.number
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        env:
+          SERVICE: ${{ inputs.service }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          PR_SHA: ${{ steps.pr.outputs.sha }}
+        with:
+          script: |
+            const number = Number(process.env.PR_NUMBER);
+            const {data: pr} = await github.rest.pulls.get({...context.repo, pull_number: number});
+            if (pr.state !== 'open' || pr.head.sha !== process.env.PR_SHA) return;
+            await github.rest.issues.addLabels({...context.repo, issue_number: number, labels: ['preview']});
+            const url = `https://preview-${process.env.SERVICE}-${number}.internal.api-api-api.com`;
+            const body = `<!-- native-preview -->\nPreview: ${url}\n\nImage: \`pr-${process.env.PR_SHA}\`. Argo CD reconciles within 60 seconds; initial database startup takes longer. The preview remains until this PR closes or merges.`;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo, issue_number: number, per_page: 100});
+            const old = comments.find(c => c.user?.login === 'github-actions[bot]' && c.body?.startsWith('<!-- native-preview -->'));
+            if (old) await github.rest.issues.updateComment({...context.repo, comment_id: old.id, body});
+            else await github.rest.issues.createComment({...context.repo, issue_number: number, body});

@@ -27,7 +27,7 @@ Other applications keep this flow:
 Production for other applications has no automatic synchronization. For them,
 the manual workflow is the deployment button.
 Authorized Argo administrators can still synchronize manually. Playground also
-supports the branch-grouped previews described below.
+supports the per-PR previews described below.
 
 The webhook is configured once on `general-1-argocd`; source repositories need no
 additional webhook because their CI commits the release to GitOps. Its endpoint
@@ -114,13 +114,47 @@ GitHub-hosted validation renders the public source tag for each referenced chart
 version, without cluster credentials. Release validation renders the OCI package
 from Harbor. The GitOps repository contains no playground chart archives.
 
-Preview PRs with the same feature-branch name share one environment. At creation,
-the workflow snapshots staging settings and chart versions; it replaces images
-only for the participating PRs. Eight OCI app sources and seven Git-pinned utility
-sources share the namespace. A preview lives for 15 minutes after readiness;
-**Preview environments → refresh** renews or recreates it. Closing a component PR
-restores its original staging image while other PRs remain open. Closing the last
-PR, or lease expiry, removes the environment and its disposable data.
+### Pull request previews
+
+Open a same-repository PR in any of the eight playground repositories. After CI
+passes, the trusted `preview.yaml` workflow calls `publish-preview.yaml`, builds
+`playground-previews/<service>:pr-<head SHA>` in Harbor, adds the `preview` label
+and comments with the URL. Fork PRs run checks only; they receive no cluster or
+registry credentials. Keep the privileged workflow on the protected default branch.
+
+The native [Pull Request Generator](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators-Pull-Request/)
+polls GitHub every 60 seconds. It creates `preview-<service>-<PR number>` as both
+the Application name and namespace. A new head SHA updates the selected image.
+During a rebuild, Kubernetes may wait for the new image until CI publishes it.
+Do not reuse or overwrite SHA tags.
+
+Each PR gets eight app deployments and its own Kafka, RabbitMQ, PostgreSQL,
+MySQL and Redis. Unchanged services use the current staging image pins and
+configuration, copied into the preview namespace through Helm values. Preview
+changes do not write to staging databases. PRs in different repositories remain
+separate, even when they use the same branch name.
+
+Preview namespaces share one **preview-only** credential set in Vault at
+`apps/playground-preview`; namespace NetworkPolicies isolate their databases.
+Vault restricts this role to `playground-runtime` in namespaces carrying the
+preview label. The runtime registry robot can pull baseline and preview images;
+preview CI robots can push only to Harbor's `playground-previews` project.
+ApplicationSet reads public PR metadata with the existing Vault-backed GitHub App.
+There is no per-PR Vault provisioning or cleanup job.
+
+Close or merge the PR to remove its Application. The Argo resource finalizer,
+managed Namespace and ephemeral storage settings delete its workloads and PVCs.
+Removing the `preview` label also removes the preview. There is **no TTL**;
+close unused PRs to release their memory and disks. No JSON state, repository
+dispatch or lifecycle CronJob participates in this flow.
+
+Configuration:
+
+- `cluster/applicationsets/playground-previews.yaml`: PR discovery, images, namespace and cleanup.
+- `.github/workflows/publish-preview.yaml`: verified PR image publishing and URL comment.
+- Source repositories: `.github/workflows/preview.yaml` calls the pinned shared workflow.
+- `utility-apps/argocd/preview-access/`: Vault-backed generator credentials and namespace lookup permission.
+- `utility-apps/playground-staging/`: reused database/network charts with `ephemeral: true`.
 
 ### Other applications
 

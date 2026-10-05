@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: playground-preview-generator
+automountServiceAccountToken: false
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: playground-preview-generator
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: playground-preview-generator
+    serviceAccount: playground-preview-generator
+    audiences: [vault]
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: playground-preview-github
+spec:
+  vaultAuthRef: playground-preview-generator
+  mount: kv
+  type: kv-v2
+  path: ci/github-app
+  refreshAfter: 1h
+  destination:
+    create: true
+    name: playground-preview-github
+    transformation:
+      excludeRaw: true
+      excludes: [".*"]
+      templates:
+        githubAppID:
+          text: '{{ `{{ get .Secrets "app_id" }}` }}'
+        githubAppInstallationID:
+          text: '{{ `{{ get .Secrets "installation_id" }}` }}'
+        githubAppPrivateKey:
+          text: '{{ `{{ get .Secrets "private_key" }}` }}'
+---
+# Vault checks the preview namespace label before issuing a runtime token.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vault-preview-namespace-reader
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vault-preview-namespace-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vault-preview-namespace-reader
+subjects:
+  - kind: ServiceAccount
+    name: vault
+    namespace: vault-system

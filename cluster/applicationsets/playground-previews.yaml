@@ -5,23 +5,78 @@ metadata:
   namespace: argocd
 spec:
   goTemplate: true
-  goTemplateOptions:
-    - missingkey=error
+  goTemplateOptions: [missingkey=error]
   generators:
-    - git:
-        repoURL: https://github.com/anomaly51/general-1-argocd.git
-        revision: main
-        requeueAfterSeconds: 30
-        files:
-          # Only active environment manifests create Applications. Lifecycle
-          # records and the shared configuration are deliberately not matched.
-          - path: previews/active/*.json
+    - pullRequest:
+        github:
+          owner: anomaly51
+          repo: playground-order-service
+          appSecretName: playground-preview-github
+          labels: [preview]
+        requeueAfterSeconds: 60
+        values: {service: order-service}
+    - pullRequest:
+        github:
+          owner: anomaly51
+          repo: playground-pricing-service
+          appSecretName: playground-preview-github
+          labels: [preview]
+        requeueAfterSeconds: 60
+        values: {service: pricing-service}
+    - pullRequest:
+        github:
+          owner: anomaly51
+          repo: playground-inventory-service
+          appSecretName: playground-preview-github
+          labels: [preview]
+        requeueAfterSeconds: 60
+        values: {service: inventory-service}
+    - pullRequest:
+        github:
+          owner: anomaly51
+          repo: playground-event-hub
+          appSecretName: playground-preview-github
+          labels: [preview]
+        requeueAfterSeconds: 60
+        values: {service: event-hub}
+    - pullRequest:
+        github:
+          owner: anomaly51
+          repo: playground-analytics-service
+          appSecretName: playground-preview-github
+          labels: [preview]
+        requeueAfterSeconds: 60
+        values: {service: analytics-service}
+    - pullRequest:
+        github:
+          owner: anomaly51
+          repo: playground-shell
+          appSecretName: playground-preview-github
+          labels: [preview]
+        requeueAfterSeconds: 60
+        values: {service: shell}
+    - pullRequest:
+        github:
+          owner: anomaly51
+          repo: playground-topology-mfe
+          appSecretName: playground-preview-github
+          labels: [preview]
+        requeueAfterSeconds: 60
+        values: {service: topology-mfe}
+    - pullRequest:
+        github:
+          owner: anomaly51
+          repo: playground-traffic-mfe
+          appSecretName: playground-preview-github
+          labels: [preview]
+        requeueAfterSeconds: 60
+        values: {service: traffic-mfe}
   syncPolicy:
     applicationsSync: sync
     preserveResourcesOnDeletion: false
   template:
     metadata:
-      name: '{{ .name }}'
+      name: 'preview-{{ .values.service }}-{{ .number }}'
       namespace: argocd
       labels:
         app.kubernetes.io/part-of: microservices-playground
@@ -30,31 +85,85 @@ spec:
         - resources-finalizer.argocd.argoproj.io
       annotations:
         argocd.argoproj.io/compare-options: ServerSideDiff=true
-        preview.api-api-api.com/branch: '{{ .branch }}'
-        preview.api-api-api.com/url: '{{ .url }}'
+        preview.api-api-api.com/url: 'https://preview-{{ .values.service }}-{{ .number }}.internal.api-api-api.com'
     spec:
+      # Never derive project, source paths or chart revisions from PR content.
       project: gitops-apps
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{ .namespace }}'
+        namespace: 'preview-{{ .values.service }}-{{ .number }}'
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
-          allowEmpty: true
         retry:
-          limit: 1
+          limit: 5
           backoff:
-            duration: 5s
-            factor: 1
-            maxDuration: 5s
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true
-  # The trusted central lifecycle workflow validates and pins every source.
-  # All components belong to the same Application and namespace, so closing
-  # one component's PR cannot independently delete the shared environment.
+  # Reuse staging profiles, but deploy the entire stack into this PR's namespace.
+  # Only the changed service uses its PR image; other images retain staging pins.
   templatePatch: |
+    {{- $host := printf "preview-%s-%s.internal.api-api-api.com" .values.service .number }}
     spec:
       sources:
-    {{ .sources | toYaml | nindent 4 }}
+        - repoURL: https://github.com/anomaly51/general-1-argocd.git
+          targetRevision: main
+          ref: values
+    {{- range $service := list "order-service" "pricing-service" "inventory-service" "event-hub" "analytics-service" "shell" "topology-mfe" "traffic-mfe" }}
+        - repoURL: harbor.internal.api-api-api.com/helm-charts
+          chart: app
+          targetRevision: 0.6.0
+          helm:
+            releaseName: {{ $service }}
+            valueFiles:
+              - $values/apps/playground-{{ $service }}/values/staging.yaml
+            valuesObject:
+              ephemeral: true
+              nodeSelector:
+                kubernetes.io/hostname: {{ if eq $service "order-service" }}general-1-worker-3{{ else }}general-1-worker-2{{ end }}
+    {{- if or (eq $service "order-service") (eq $service "event-hub") }}
+              env:
+                CORS_ORIGINS: {{ printf "https://%s" $host | toJson }}
+    {{- end }}
+    {{- if eq $service $.values.service }}
+              image:
+                repository: harbor.internal.api-api-api.com/playground-previews/{{ $service }}
+                tag: {{ printf "pr-%s" $.head_sha | toJson }}
+    {{- end }}
+    {{- end }}
+    {{- range $utility := list "namespace" "edge" "kafka" "rabbitmq" "postgres" "mysql" "redis" }}
+        - repoURL: https://github.com/anomaly51/general-1-argocd.git
+          targetRevision: main
+          path: utility-apps/playground-staging/{{ $utility }}
+          helm:
+            releaseName: {{ $utility }}
+            valuesObject:
+              ephemeral: true
+    {{- if eq $utility "namespace" }}
+              vault:
+                role: playground-preview
+                envPath: apps/playground-preview
+                registryPath: apps/playground-preview/registry
+    {{- else if eq $utility "edge" }}
+              hostname: {{ $host | toJson }}
+              resources:
+                requests: {memory: 16Mi}
+    {{- else }}
+              vaultPath: apps/playground-preview
+              storage:
+                size: {{ if eq $utility "kafka" }}2Gi{{ else }}1Gi{{ end }}
+                nodeName: {{ if has $utility (list "postgres" "redis") }}general-1-worker-3{{ else }}general-1-worker-1{{ end }}
+              resources:
+                requests:
+                  memory: {{ get (dict "kafka" "512Mi" "mysql" "192Mi" "rabbitmq" "160Mi" "postgres" "128Mi" "redis" "32Mi") $utility }}
+    {{- if eq $utility "kafka" }}
+              topicOperatorResources:
+                requests: {memory: 64Mi}
+    {{- end }}
+    {{- end }}
+    {{- end }}

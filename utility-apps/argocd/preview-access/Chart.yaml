@@ -1,0 +1,4 @@
+apiVersion: v2
+name: preview-access
+version: 0.1.0
+description: Vault-backed GitHub credentials for the native PR generator

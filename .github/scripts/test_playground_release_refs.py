@@ -1,4 +1,4 @@
-"""Regression coverage for commit-pinned playground promotion and previews."""
+"""Regression coverage for commit-pinned playground promotion."""
 from __future__ import annotations
 
 import copy
@@ -13,7 +13,6 @@ import zipfile
 
 import yaml
 
-import playground_preview as preview
 import promote_playground as promotion
 
 SOURCE_SHA = "a" * 40
@@ -185,56 +184,6 @@ class ProvenanceTests(unittest.TestCase):
                     chart.assert_called_once()
                     self.assertEqual(yaml.safe_load(path.read_text())["image"]["tag"], tag)
 
-
-class PreviewBaselineTests(unittest.TestCase):
-    def snapshot(self, values):
-        with tempfile.TemporaryDirectory(prefix="playground-ref-test-") as temporary:
-            root = Path(temporary)
-            path = root / "apps/playground-shell/values/staging.yaml"
-            path.parent.mkdir(parents=True)
-            path.write_text(yaml.safe_dump(values))
-            with patch.object(preview, "ROOT", root), patch.object(preview, "SERVICES", ("shell",)):
-                return preview.baseline_snapshot()
-
-    def test_accepts_legacy_baseline_without_source_commit(self):
-        values = profile("staging@" + IMAGE_DIGEST)
-        del values["_release"]["sourceCommit"]
-        del values["_release"]["sourceBranch"]
-        self.assertEqual(self.snapshot(values)["shell"], values)
-
-    def test_accepts_main_baseline_with_bound_source_metadata(self):
-        values = profile("main-" + SOURCE_SHA + "@" + IMAGE_DIGEST)
-        self.assertEqual(self.snapshot(values)["shell"], values)
-
-    def test_rejects_main_baseline_with_missing_or_wrong_source_metadata(self):
-        for key, value in (("sourceCommit", ""), ("sourceCommit", OTHER_SHA),
-                           ("sourceBranch", "dev"), ("sourceRepository", "anomaly51/other")):
-            with self.subTest(key=key, value=value):
-                values = profile("main-" + SOURCE_SHA + "@" + IMAGE_DIGEST)
-                values["_release"][key] = value
-                with self.assertRaises(ValueError):
-                    self.snapshot(values)
-
-    def test_rejects_dev_baseline(self):
-        with self.assertRaises(ValueError):
-            self.snapshot(profile("dev-" + SOURCE_SHA + "@" + IMAGE_DIGEST))
-
-    def test_unchanged_preview_service_keeps_exact_main_pin(self):
-        tag = "main-" + SOURCE_SHA + "@" + IMAGE_DIGEST
-        state = {"baseline": {"shell": profile(tag)}, "images": {}, "utilities": {},
-                 "url": "https://preview.example"}
-        with patch.object(preview, "SERVICES", ("shell",)), patch.object(preview, "UTILITIES", ()):
-            sources = preview.sources_for(state, GITOPS_SHA)
-            self.assertEqual(sources[0]["helm"]["valuesObject"]["image"]["tag"], tag)
-            self.assertEqual(state["baseline"]["shell"]["image"]["tag"], tag)
-
-    def test_changed_preview_service_still_uses_verified_preview_digest(self):
-        state = {"baseline": {"shell": profile("main-" + SOURCE_SHA + "@" + IMAGE_DIGEST)},
-                 "images": {"shell": {"digest": OTHER_DIGEST}}, "utilities": {},
-                 "url": "https://preview.example"}
-        with patch.object(preview, "SERVICES", ("shell",)), patch.object(preview, "UTILITIES", ()):
-            sources = preview.sources_for(state, GITOPS_SHA)
-            self.assertEqual(sources[0]["helm"]["valuesObject"]["image"]["tag"], "preview@" + OTHER_DIGEST)
 
 
 if __name__ == "__main__":
