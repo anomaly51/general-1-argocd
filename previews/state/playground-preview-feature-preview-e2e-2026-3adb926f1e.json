@@ -2,9 +2,11 @@
   "baseline": {
     "analytics-service": {
       "_release": {
+        "chart": "app",
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "b6a4599262afabdf362474479333bec449403c07",
+        "repository": "harbor.internal.api-api-api.com/helm-charts",
+        "revision": "0.6.0",
         "sourceRepository": "anomaly51/playground-analytics-service"
       },
       "affinity": {
@@ -180,9 +182,11 @@
     },
     "event-hub": {
       "_release": {
+        "chart": "app",
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "b6a4599262afabdf362474479333bec449403c07",
+        "repository": "harbor.internal.api-api-api.com/helm-charts",
+        "revision": "0.6.0",
         "sourceRepository": "anomaly51/playground-event-hub"
       },
       "affinity": {
@@ -365,9 +369,11 @@
     },
     "inventory-service": {
       "_release": {
+        "chart": "app",
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "b6a4599262afabdf362474479333bec449403c07",
+        "repository": "harbor.internal.api-api-api.com/helm-charts",
+        "revision": "0.6.0",
         "sourceRepository": "anomaly51/playground-inventory-service"
       },
       "affinity": {
@@ -541,9 +547,11 @@
     },
     "order-service": {
       "_release": {
+        "chart": "app",
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "b6a4599262afabdf362474479333bec449403c07",
+        "repository": "harbor.internal.api-api-api.com/helm-charts",
+        "revision": "0.6.0",
         "sourceRepository": "anomaly51/playground-order-service"
       },
       "additionalWorkloads": {
@@ -797,9 +805,11 @@
     },
     "pricing-service": {
       "_release": {
+        "chart": "app",
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "b6a4599262afabdf362474479333bec449403c07",
+        "repository": "harbor.internal.api-api-api.com/helm-charts",
+        "revision": "0.6.0",
         "sourceRepository": "anomaly51/playground-pricing-service"
       },
       "affinity": {
@@ -972,9 +982,11 @@
     },
     "shell": {
       "_release": {
+        "chart": "app",
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "b6a4599262afabdf362474479333bec449403c07",
+        "repository": "harbor.internal.api-api-api.com/helm-charts",
+        "revision": "0.6.0",
         "sourceRepository": "anomaly51/playground-shell"
       },
       "affinity": {
@@ -1150,9 +1162,11 @@
     },
     "topology-mfe": {
       "_release": {
+        "chart": "app",
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "b6a4599262afabdf362474479333bec449403c07",
+        "repository": "harbor.internal.api-api-api.com/helm-charts",
+        "revision": "0.6.0",
         "sourceRepository": "anomaly51/playground-topology-mfe"
       },
       "affinity": {
@@ -1328,9 +1342,11 @@
     },
     "traffic-mfe": {
       "_release": {
+        "chart": "app",
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "b6a4599262afabdf362474479333bec449403c07",
+        "repository": "harbor.internal.api-api-api.com/helm-charts",
+        "revision": "0.6.0",
         "sourceRepository": "anomaly51/playground-traffic-mfe"
       },
       "affinity": {
@@ -1506,33 +1522,28 @@
     }
   },
   "branch": "feature/preview-e2e-20261004",
-  "cleanup_completed_at": "2026-10-05T01:09:01Z",
-  "cleanup_started_at": "2026-10-05T01:08:02Z",
-  "created_at": "2026-10-05T01:03:10Z",
-  "expires_at": "2026-10-05T01:20:02Z",
-  "generation": "c5060231-e682-45df-99a1-8cc51115c0ac",
-  "images": {
-    "order-service": {
-      "digest": "sha256:fe8c6c364057ab67d93cb80d74eb830884236bcfa20eb5fabf5b88b0c3ef6a47",
-      "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
-      "run_id": 37249686599
-    }
-  },
+  "created_at": "2026-10-05T01:53:40Z",
+  "expires_at": null,
+  "generation": "ece43f14-d357-4bfa-933b-e7cbd9de6483",
+  "images": {},
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
-  "phase": "closed",
-  "plan_hash": "1164d1c599641dcbb85a5f739166cb619fbbbbbceb4d8946df71f0d9bf17d055",
+  "phase": "starting",
   "prs": {
     "order-service": {
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
       "number": 1,
       "repository": "anomaly51/playground-order-service"
+    },
+    "shell": {
+      "head": "5cb975cbb2e404c102ab6e3ff22b10513683b2dd",
+      "number": 1,
+      "repository": "anomaly51/playground-shell"
     }
   },
-  "ready_at": "2026-10-05T01:05:02Z",
+  "ready_at": null,
   "revision": "b6a4599262afabdf362474479333bec449403c07",
   "schema": 1,
-  "startup_deadline": "2026-10-05T01:33:10Z",
-  "terminated_at": "2026-10-05T01:06:01Z",
+  "startup_deadline": "2026-10-05T02:23:40Z",
   "url": "https://playground-preview-feature-preview-e2e-2026-3adb926f1e.internal.api-api-api.com",
   "utilities": {
     "edge": {
