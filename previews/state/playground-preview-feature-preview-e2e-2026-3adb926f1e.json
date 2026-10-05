@@ -1509,9 +1509,16 @@
   "created_at": "2026-10-05T01:03:10Z",
   "expires_at": null,
   "generation": "c5060231-e682-45df-99a1-8cc51115c0ac",
-  "images": {},
+  "images": {
+    "order-service": {
+      "digest": "sha256:fe8c6c364057ab67d93cb80d74eb830884236bcfa20eb5fabf5b88b0c3ef6a47",
+      "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
+      "run_id": 37249686599
+    }
+  },
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
   "phase": "starting",
+  "plan_hash": "1164d1c599641dcbb85a5f739166cb619fbbbbbceb4d8946df71f0d9bf17d055",
   "prs": {
     "order-service": {
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
