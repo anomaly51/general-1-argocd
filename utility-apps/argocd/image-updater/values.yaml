@@ -16,7 +16,8 @@ argocd-image-updater:
     pullPolicy: IfNotPresent
   crds:
     install: true
-    keep: true
+    # Phase 1: let Argo CD adopt/prune the CRD after all ImageUpdater CRs finalize.
+    keep: false
     annotations:
       argocd.argoproj.io/sync-wave: "-3"
   config:
@@ -70,9 +71,14 @@ argocd-image-updater:
 webhook:
   vaultPath: ci/playground-image-updater-webhook
 
-# Only non-production channels may be managed by Image Updater.
-# Environments are activated in stages after namespace credentials are ready.
-environments: [dev, staging]
+# Phase 1 retirement: prune CRs while the controller can complete their finalizers.
+# Keep this chart in Git until its Application's PostDelete hooks have completed.
+environments: []
+
+cleanup:
+  image: docker.io/library/python@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e
+  leaseUID: 951ddcb3-4f7e-45d2-b0c3-00bf616cc2e0
+  leaseHolderIdentity: playground-image-updater-controller-65b9d84856-6vgvd_064bdfda-5457-41a9-a6ec-b86211976b04
 
 applications:
   - order-service

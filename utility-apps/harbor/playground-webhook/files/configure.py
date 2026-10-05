@@ -10,21 +10,29 @@ import urllib.request
 API = "https://harbor.internal.api-api-api.com/api/v2.0"
 POLICIES = "/projects/playground/webhook/policies"
 NAME = "playground-image-updater"
+DESCRIPTION = "Managed by general-1-argocd/utility-apps/harbor/playground-webhook"
 ENDPOINT = "http://playground-image-updater.argocd.svc.cluster.local:8080/webhook?type=harbor"
 FIELDS = ("name", "description", "enabled", "event_types", "targets")
 
 
-def desired_policy(config, token):
-    if set(config) != {"enabled", "endpoint"} or type(config["enabled"]) is not bool:
+def validate_config(config):
+    if (set(config) != {"enabled", "endpoint", "state", "expectedId"}
+            or type(config["enabled"]) is not bool
+            or config["state"] not in {"present", "absent"}
+            or type(config["expectedId"]) is not int or config["expectedId"] < 1):
         raise ValueError("Invalid policy configuration")
     if config["endpoint"] != ENDPOINT:
         raise ValueError("Only the private playground receiver is allowed")
+
+
+def desired_policy(config, token):
+    validate_config(config)
     if (len(token) < 32 or not token.isascii() or not token.isprintable()
             or any(c.isspace() for c in token)):
         raise ValueError("Webhook token must be at least 32 non-whitespace ASCII characters")
     return {
         "name": NAME,
-        "description": "Managed by general-1-argocd/utility-apps/harbor/playground-webhook",
+        "description": DESCRIPTION,
         "enabled": config["enabled"],
         "event_types": ["PUSH_ARTIFACT"],
         "targets": [{"type": "http", "address": ENDPOINT, "auth_header": token,
@@ -65,8 +73,26 @@ def managed_fields(policy):
 
 
 def configure(request, config, token):
-    desired = desired_policy(config, token)
+    validate_config(config)
     current = find_policy(request)
+    if current:
+        targets = current.get("targets")
+        if (current["id"] != config["expectedId"]
+                or current.get("description") != DESCRIPTION
+                or current.get("event_types") != ["PUSH_ARTIFACT"]
+                or not isinstance(targets, list) or len(targets) != 1
+                or not isinstance(targets[0], dict)
+                or targets[0].get("type") != "http"
+                or targets[0].get("address") != ENDPOINT):
+            raise ValueError("Managed policy ownership mismatch; refusing mutation")
+    if config["state"] == "absent":
+        if current is None:
+            return "absent"
+        request("DELETE", f"{POLICIES}/{current['id']}")
+        if find_policy(request) is not None:
+            raise ValueError("Harbor retained the retired policy")
+        return "deleted"
+    desired = desired_policy(config, token)
     if current and managed_fields(current) == desired:
         return "unchanged"
     if current:
@@ -95,10 +121,13 @@ def api_client(username, password):
         urllib.request.HTTPSHandler(context=ssl.create_default_context()), NoRedirect())
 
     def request(method, path, payload=None):
-        if method not in {"GET", "POST", "PUT"} or not (
+        if method not in {"GET", "POST", "PUT", "DELETE"} or not (
                 path == POLICIES or path.startswith(POLICIES + "?")
                 or (path.startswith(POLICIES + "/") and path[len(POLICIES) + 1:].isdigit())):
             raise ValueError("Out-of-scope Harbor operation")
+        if method == "DELETE" and (payload is not None or not (
+                path.startswith(POLICIES + "/") and path[len(POLICIES) + 1:].isdigit())):
+            raise ValueError("Only a single identified policy may be deleted")
         req = urllib.request.Request(
             API + path, method=method,
             data=None if payload is None else json.dumps(payload).encode(),
