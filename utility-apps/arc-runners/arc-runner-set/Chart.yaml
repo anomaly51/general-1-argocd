@@ -1,8 +1,8 @@
 apiVersion: v2
 name: arc-runner-set
-description: General organization CI runners with bounded Docker-in-Docker.
+description: Shared organization runners and persistent remote BuildKit.
 type: application
-version: 0.1.0
+version: 0.2.0
 dependencies:
   - name: gha-runner-scale-set
     version: 0.14.2

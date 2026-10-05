@@ -5,7 +5,7 @@ gha-runner-scale-set:
   scaleSetLabels:
     - arc-runner-set
   minRunners: 1
-  maxRunners: 2
+  maxRunners: 3
   controllerServiceAccount:
     namespace: arc-systems
     name: arc-controller-gha-rs-controller
@@ -119,3 +119,30 @@ gha-runner-scale-set:
         - name: dind-data
           emptyDir:
             sizeLimit: 6Gi
+
+# Shared image builder and persistent cache for this runner pool.
+buildkit:
+  image:
+    repository: moby/buildkit
+    tag: v0.32.2
+    pullPolicy: IfNotPresent
+  persistence:
+    storageClassName: local-path
+    size: 30Gi
+  service:
+    port: 1234
+  nodeSelector:
+    kubernetes.io/hostname: general-1-worker-3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+      ephemeral-storage: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+      ephemeral-storage: 2Gi
+  maxParallelism: 2
+  reservedSpace: 2GB
+  maxUsedSpace: 20GB
+  minFreeSpace: 10GB

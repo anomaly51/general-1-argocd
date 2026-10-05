@@ -11,5 +11,5 @@ spec:
     app.kubernetes.io/name: arc-buildkit
   ports:
     - name: buildkit
-      port: {{ .Values.service.port }}
+      port: {{ .Values.buildkit.service.port }}
       targetPort: buildkit

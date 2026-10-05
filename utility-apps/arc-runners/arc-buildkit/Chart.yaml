@@ -1,5 +1,0 @@
-apiVersion: v2
-name: arc-buildkit
-description: Persistent, internally restricted remote CI builder.
-type: application
-version: 0.1.0

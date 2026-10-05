@@ -17,4 +17,4 @@ spec:
               ci.api-api-api.com/buildkit-client: "true"
       ports:
         - protocol: TCP
-          port: {{ .Values.service.port }}
+          port: {{ .Values.buildkit.service.port }}

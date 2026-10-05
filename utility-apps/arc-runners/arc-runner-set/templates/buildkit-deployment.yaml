@@ -17,25 +17,25 @@ spec:
       labels:
         app.kubernetes.io/name: arc-buildkit
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/config: {{ include (print $.Template.BasePath "/buildkit-configmap.yaml") . | sha256sum }}
     spec:
       automountServiceAccountToken: false
       nodeSelector:
-        {{- toYaml .Values.nodeSelector | nindent 8 }}
+        {{- toYaml .Values.buildkit.nodeSelector | nindent 8 }}
       containers:
         - name: buildkitd
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "{{ .Values.buildkit.image.repository }}:{{ .Values.buildkit.image.tag }}"
+          imagePullPolicy: {{ .Values.buildkit.image.pullPolicy }}
           args:
             - --addr
-            - tcp://0.0.0.0:{{ .Values.service.port }}
+            - tcp://0.0.0.0:{{ .Values.buildkit.service.port }}
             - --config
             - /etc/buildkit/buildkitd.toml
           securityContext:
             privileged: true
           ports:
             - name: buildkit
-              containerPort: {{ .Values.service.port }}
+              containerPort: {{ .Values.buildkit.service.port }}
           readinessProbe:
             tcpSocket:
               port: buildkit
@@ -47,7 +47,7 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 20
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml .Values.buildkit.resources | nindent 12 }}
           volumeMounts:
             - name: cache
               mountPath: /var/lib/buildkit
