@@ -5,12 +5,17 @@ _release:
   policy: promote
   namespace: playground-dev
   sourceRepository: anomaly51/playground-topology-mfe
+  sourceCommit: e3c9233436041171078da6ac067704eb0e6d2260
+  sourceBranch: dev
+  runUrl: https://github.com/anomaly51/playground-topology-mfe/actions/runs/37273504901
+  imageKeys:
+  - image
 replicaCount: 1
 nodeSelector:
   kubernetes.io/hostname: general-1-worker-2
 image:
   repository: harbor.internal.api-api-api.com/playground/topology-mfe
-  tag: dev@sha256:b48da4b38059d08997930daee31f580fef7dfb1d490eab4adc2773d91251280c
+  tag: dev-e3c9233436041171078da6ac067704eb0e6d2260@sha256:f0e4d09329bd4041cd22bcc631a91fd934507618de9de991113b1d114f42f17b
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 env: {}
