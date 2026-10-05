@@ -5,12 +5,17 @@ _release:
   policy: promote
   namespace: playground-staging
   sourceRepository: anomaly51/playground-order-service
+  sourceCommit: 1d18ea6e9487a1ac6d98500de90e8aca6d8dd0f7
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/playground-order-service/actions/runs/37273504854
+  imageKeys:
+  - image
 replicaCount: 1
 nodeSelector:
   kubernetes.io/hostname: general-1-worker-2
 image:
   repository: harbor.internal.api-api-api.com/playground/order-service
-  tag: staging@sha256:0ebe8ff744fbcc85d15052748f5b8bd597911353ec8e9ddbbc1c4b9798431dd8
+  tag: main-1d18ea6e9487a1ac6d98500de90e8aca6d8dd0f7@sha256:b7ccd9bc495b57beb27794e79920edc768b0071967bda24a3c21cd45ab258df5
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 env:
