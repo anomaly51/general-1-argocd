@@ -1,18 +1,22 @@
-# Chart version used by Argo CD; the remaining keys are Helm values.
 _release:
-  revision: 0.1.13-recovery.1
+  revision: 0.1.18
   repository: harbor.internal.api-api-api.com/cutline-studio
-
-# Complete environment configuration; this chart has no shared values.yaml.
+  sourceRepository: anomaly51/cutline-studio
+  sourceCommit: abae812bf042f05b1790df306d22a7b1b92786ec
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/cutline-studio/commit/abae812bf042f05b1790df306d22a7b1b92786ec
+  imageKeys:
+  - images.api
+  - images.frontend
 images:
   api:
     repository: harbor.internal.api-api-api.com/cutline-studio/api
     pullPolicy: IfNotPresent
-    tag: sha-b474bb1f3962
+    tag: sha-abae812bf042@sha256:106b89d7684463e47a08d2cea8179f0e43846b5eb953fc2a6ee10049ed32383a
   frontend:
     repository: harbor.internal.api-api-api.com/cutline-studio/frontend
     pullPolicy: IfNotPresent
-    tag: sha-b474bb1f3962
+    tag: sha-abae812bf042@sha256:013b27e9f28192c5e0caf08038097d080713e768f6578f2aeba3bc7f077a22a1
   oauth2Proxy:
     repository: quay.io/oauth2-proxy/oauth2-proxy
     tag: v7.15.3
