@@ -1,5 +1,0 @@
-apiVersion: v2
-name: minio-mirror
-description: Preserve the existing MinIO image in Harbor from its verified node cache.
-type: application
-version: 0.1.0

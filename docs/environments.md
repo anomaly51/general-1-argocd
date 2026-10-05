@@ -149,24 +149,29 @@ For example, promote Shisha backend in GitOps Actions with
 `release_verified=true`, `dry_run=false`. Leave source_commit and chart_version
 empty for this application. Use dry_run=true to review the proposed diff first.
 
-Worker swap is managed by `utility-apps/maintenance/environments-swap`: dedicated
-16 GiB encrypted disks on each of the three workers add 48 GiB of swap. Verified
+We configured a dedicated 16 GiB encrypted swap disk on each of the three
+workers through one-time GitOps jobs (48 GiB in total). Verified
 totals are approximately 25/17/17 GiB, including earlier swap. Kubernetes LimitedSwap only
 helps eligible Burstable containers and does not increase allocatable RAM.
 
-Harbor's worker also has 64 GiB of additional persistent disk capacity, managed
-by `utility-apps/maintenance/harbor-storage`, because image uploads exhausted its
+Harbor's worker also has 64 GiB of additional persistent disk capacity from a
+completed storage-expansion job, because image uploads exhausted its
 original root disk. This storage is separate from swap and is included in VM
 backups. The CI worker in the utility cluster received a separate 64 GiB expansion.
 
 
 ## Operational notes
 
-Shisha dev/staging pull MinIO from the private Harbor mirror because the original
+Shisha dev/staging/prod pull MinIO from the private Harbor mirror because the original
 external image could not be pulled. The mirror was copied from the existing
 production image cache and verified against its SHA-256 manifest and layer
-digests. The one-time GitOps Job is in `utility-apps/maintenance/minio-mirror`.
-Production's existing MinIO image reference was preserved.
+digests.
+
+We retired the completed maintenance charts on 2026-10-05; their scripts remain
+in Git history. Keep the installed host swap configuration and attached LVM
+disks. Removing the completed jobs does not undo those host changes or delete
+the MinIO image from Harbor. Do not reapply historical maintenance charts
+without checking their host and disk preconditions.
 
 The staging promotion path passed a real GitHub Actions dry run:
 [CRM staging verification](https://github.com/anomaly51/general-1-argocd/actions/runs/36494908785).
