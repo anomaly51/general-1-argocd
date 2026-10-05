@@ -5,12 +5,17 @@ _release:
   policy: promote
   namespace: playground-dev
   sourceRepository: anomaly51/playground-analytics-service
+  sourceCommit: 2e1cef9d2d253c988103f4f0552de30f7a001c28
+  sourceBranch: dev
+  runUrl: https://github.com/anomaly51/playground-analytics-service/actions/runs/37273505155
+  imageKeys:
+  - image
 replicaCount: 1
 nodeSelector:
   kubernetes.io/hostname: general-1-worker-2
 image:
   repository: harbor.internal.api-api-api.com/playground/analytics-service
-  tag: dev@sha256:b7a21059c47082f0d5ef95b6e28b4eebf259b62b16fef75fc1d0a86efb2f4ebf
+  tag: dev-2e1cef9d2d253c988103f4f0552de30f7a001c28@sha256:f559d6e78a88ac06243e629a3dd5280f71c78afed53ea9c1e9c04fc95382ee81
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 env:
