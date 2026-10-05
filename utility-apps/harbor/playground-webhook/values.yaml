@@ -1,9 +1,0 @@
-image: docker.io/library/python@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e
-apiCredentialsVaultPath: ci/harbor-playground-webhook
-policy:
-  # Reconcile deletion before removing this Application and its API credentials.
-  state: absent
-  expectedId: 1
-  enabled: false
-  # Kubernetes Service DNS; the query selects Image Updater's Harbor parser.
-  endpoint: http://playground-image-updater.argocd.svc.cluster.local:8080/webhook?type=harbor
