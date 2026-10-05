@@ -726,7 +726,6 @@
   "images": {},
   "namespace": "playground-preview-feature-preview-parallel-0bf283995a",
   "phase": "starting",
-  "provisioning_until": "2026-10-05T00:23:39Z",
   "prs": {
     "shell": {
       "head": "57117fd92f6f95bbb928077bd84a005dd8600f15",
