@@ -1,5 +1,5 @@
 _release:
-  revision: e87769933b7bec6ad26803d5bdc39cca40148127
+  revision: b6a4599262afabdf362474479333bec449403c07
   policy: promote
   namespace: playground-prod
   sourceRepository: anomaly51/playground-analytics-service

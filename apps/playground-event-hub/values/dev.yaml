@@ -1,5 +1,5 @@
 _release:
-  revision: 5d94a90dd687b19e3e24f25a6cfdeea292b83137
+  revision: b6a4599262afabdf362474479333bec449403c07
   policy: promote
   namespace: playground-dev
   sourceRepository: anomaly51/playground-event-hub
