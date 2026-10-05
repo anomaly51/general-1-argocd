@@ -1507,7 +1507,7 @@
   },
   "branch": "feature/preview-e2e-20261004",
   "created_at": "2026-10-05T01:03:10Z",
-  "expires_at": null,
+  "expires_at": "2026-10-05T01:20:02Z",
   "generation": "c5060231-e682-45df-99a1-8cc51115c0ac",
   "images": {
     "order-service": {
@@ -1517,7 +1517,7 @@
     }
   },
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
-  "phase": "starting",
+  "phase": "ready",
   "plan_hash": "1164d1c599641dcbb85a5f739166cb619fbbbbbceb4d8946df71f0d9bf17d055",
   "prs": {
     "order-service": {
@@ -1526,7 +1526,7 @@
       "repository": "anomaly51/playground-order-service"
     }
   },
-  "ready_at": null,
+  "ready_at": "2026-10-05T01:05:02Z",
   "revision": "b6a4599262afabdf362474479333bec449403c07",
   "schema": 1,
   "startup_deadline": "2026-10-05T01:33:10Z",
