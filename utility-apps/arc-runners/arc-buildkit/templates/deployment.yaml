@@ -2,6 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: arc-buildkit
+  annotations:
+    # Temporary guard while ownership moves to the shared runner application.
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
   replicas: 1
   strategy:
