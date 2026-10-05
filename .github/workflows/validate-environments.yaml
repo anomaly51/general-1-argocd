@@ -27,6 +27,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install PyYAML==6.0.2
+      - name: Test image publishing and promotion guards
+        run: python -m unittest discover -s .github/scripts -p 'test_*.py'
       # Unprivileged PR CI cannot reach the LAN registry. Render each public source
       # release matching its OCI pin; deployment validation still pulls from OCI.
       - name: Fetch pinned public app chart sources

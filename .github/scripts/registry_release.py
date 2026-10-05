@@ -51,9 +51,11 @@ class Registry:
         digest = "sha256:" + hashlib.sha256(body).hexdigest()
         if headers.get("Docker-Content-Digest") != digest:
             raise ValueError("Registry manifest digest mismatch")
+        if reference.startswith("sha256:") and reference != digest:
+            raise ValueError("Registry returned a different manifest than the requested digest")
         return json.loads(body), digest
 
-    def image(self, reference, source_commit, require_main_label=True):
+    def image(self, reference, source_commit, require_main_label=True, source_branch=None):
         manifest, digest = self.manifest(reference)
         if "manifests" in manifest:
             platform = next(item for item in manifest["manifests"] if item.get("platform", {}).get("os") == "linux"
@@ -65,6 +67,8 @@ class Registry:
         labels = json.loads(body).get("config", {}).get("Labels", {})
         if labels.get("org.opencontainers.image.revision") != source_commit or (require_main_label and labels.get("io.gitops.source-branch") != "main"):
             raise ValueError("The image was not published by source main CI at the selected commit")
+        if source_branch is not None and labels.get("io.gitops.source-branch") != source_branch:
+            raise ValueError("The image source branch does not match the release")
         source = labels.get("org.opencontainers.image.source", "")
         if not re.fullmatch(r"https://github.com/anomaly51/[A-Za-z0-9_.-]+", source):
             raise ValueError("Unexpected source repository in image provenance")

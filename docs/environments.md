@@ -96,8 +96,19 @@ To upgrade the chart, publish an exact version and its matching `app-v<version>`
 Git tag in `anomaly51/platform-helm-charts`, then change the dev/staging pin.
 In the service's source repository, run **Promote to prod** after checking staging. Promotion keeps
 the production settings and copies the tested image digest and chart version;
-it rejects changes to the chart repository or name. Image Updater continues to
-write dev/staging image digests to these Git values files.
+it rejects changes to the chart repository or name.
+
+After the image build succeeds, the source CI calls `publish-playground.yaml`.
+The publisher checks the same-run artifact against the source commit and Harbor
+provenance, then commits `dev-<full SHA>@sha256:…` or `main-<full SHA>@sha256:…`
+to the corresponding values file. It preserves the chart pin, rejects superseded
+builds, retries competing Git pushes and checks the running Argo CD release.
+The GitHub App token can write only to `general-1-argocd`; Vault binds each
+publishing role to its source repository, dev/main push and pinned reusable workflow.
+Pull requests cannot use these credentials. Production still needs approval.
+
+Argo CD receives GitHub push webhooks and reconciles the Git values. There is no
+registry webhook or image-scanning controller in this release path.
 
 GitHub-hosted validation renders the public source tag for each referenced chart
 version, without cluster credentials. Release validation renders the OCI package

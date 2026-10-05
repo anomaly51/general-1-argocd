@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "utility-apps/playground-previews/lifecycle/files"))
 from lifecycle import APIError, GitDatabase, GitHub, app_chart_release  # noqa: E402
 from registry_release import Registry  # noqa: E402
+from promote_playground import STAGED_IMAGE, staged_image_digest  # noqa: E402
 
 SERVICES = ("order-service", "pricing-service", "inventory-service", "event-hub",
             "analytics-service", "shell", "topology-mfe", "traffic-mfe")
@@ -234,8 +235,14 @@ def baseline_snapshot():
     baseline = {}
     for service in SERVICES:
         values = yaml.safe_load((ROOT / f"apps/playground-{service}/values/staging.yaml").read_text())
-        if not re.fullmatch(r"staging@sha256:[0-9a-f]{64}", values["image"]["tag"]):
-            raise ValueError("Staging baseline must use a pinned staging digest")
+        tag = values["image"]["tag"]
+        staged_image_digest(tag)
+        if STAGED_IMAGE.fullmatch(tag).group("revision"):
+            release = values["_release"]
+            if (release.get("sourceBranch") != "main"
+                    or release.get("sourceRepository") != "anomaly51/playground-" + service):
+                raise ValueError("Staging baseline must belong to this service's main release")
+            staged_image_digest(tag, release.get("sourceCommit", ""))
         app_chart_release(values)
         baseline[service] = values
     return baseline

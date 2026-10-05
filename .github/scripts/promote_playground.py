@@ -25,7 +25,7 @@ from registry_release import Registry
 SERVICES = {"order-service", "pricing-service", "inventory-service", "event-hub",
             "analytics-service", "shell", "topology-mfe", "traffic-mfe"}
 SHA = re.compile(r"[0-9a-f]{40}")
-STAGED_IMAGE = re.compile(r"staging@(sha256:[0-9a-f]{64})")
+STAGED_IMAGE = re.compile(r"(?:staging|main-(?P<revision>[0-9a-f]{40}))@(?P<digest>sha256:[0-9a-f]{64})")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 MAX_RESPONSE_BYTES = 1024 * 1024
 MAX_RELEASE_BYTES = 64 * 1024
@@ -127,6 +127,17 @@ def validate_caller(service: str) -> str:
             or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"):
         raise ValueError("Promotion must be manually started from this service's main branch")
     return repository
+
+
+def staged_image_digest(tag: str, revision: str | None = None) -> str:
+    """Accept legacy staging pins or main pins bound to the verified source SHA."""
+    match = STAGED_IMAGE.fullmatch(tag)
+    if not match:
+        raise ValueError("Staging must pin a legacy staging or full main-commit image digest")
+    if revision is not None and (not SHA.fullmatch(revision)
+            or match.group("revision") not in {None, revision}):
+        raise ValueError("Staging image tag does not match the verified main source commit")
+    return match.group("digest")
 
 
 def image_manifest(registry: Registry, digest: str) -> tuple[dict, str]:
@@ -238,8 +249,7 @@ def promoted_values(production: dict, staging: dict, service: str, commit: str, 
             raise ValueError("Unexpected environment namespace")
         if values["image"]["repository"] != repository:
             raise ValueError("Unexpected image repository")
-    if not STAGED_IMAGE.fullmatch(staging["image"].get("tag", "")):
-        raise ValueError("Staging must pin its image digest")
+    staged_image_digest(staging["image"].get("tag", ""), revision)
     result = copy.deepcopy(production)
     result["image"]["tag"] = staging["image"]["tag"]
     result["_release"].update(
@@ -262,15 +272,14 @@ def main() -> None:
         raise ValueError("Use a full GitOps commit SHA or leave it empty")
     subprocess.run(["git", "merge-base", "--is-ancestor", commit, "HEAD"], check=True)
     staging = yaml.safe_load(git("show", f"{commit}:apps/{app}/values/staging.yaml"))
-    tag = STAGED_IMAGE.fullmatch(staging["image"].get("tag", ""))
-    if not tag:
-        raise ValueError("Staging does not yet have a registry-verified digest")
+    digest = staged_image_digest(staging["image"].get("tag", ""))
     expected_repository = "harbor.internal.api-api-api.com/playground/" + args.service
     if staging["image"]["repository"] != expected_repository:
         raise ValueError("Unexpected staging registry")
     registry = Registry(expected_repository)
-    revision = source_revision(registry, tag.group(1), repository)
-    verify_build_artifact(registry, tag.group(1), repository, revision, args.service)
+    revision = source_revision(registry, digest, repository)
+    staged_image_digest(staging["image"]["tag"], revision)
+    verify_build_artifact(registry, digest, repository, revision, args.service)
     # imageKeys is release metadata, excluded from the rendered application values.
     staging["_release"]["imageKeys"] = ["image"]
     wait(app, "staging", staging, timeout=180)
@@ -279,7 +288,7 @@ def main() -> None:
     proposed = promoted_values(production, staging, args.service, commit, revision)
     validate_chart(app, proposed)
     path.write_text(yaml.safe_dump(proposed, sort_keys=False))
-    print(f"Verified healthy {app}/staging, main {revision}, digest {tag.group(1)}")
+    print(f"Verified healthy {app}/staging, main {revision}, digest {digest}")
     print("Production URLs, credentials, resources, storage, and replicas are unchanged.")
 
 

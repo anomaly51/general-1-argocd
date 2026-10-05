@@ -124,11 +124,11 @@ def updated_profile(values: dict, images: list[dict], source: dict, chart_revisi
             raise ValueError("An image release cannot change its registry/repository")
         if not DIGEST.fullmatch(image["digest"]):
             raise ValueError("Every image must have a verified registry digest")
-        expected_tag = "sha-" + source["commit"][:12]
-        if image["tag"] != expected_tag:
+        expected_tags = {"sha-" + source["commit"][:12], f'{source["branch"]}-{source["commit"]}'}
+        if image["tag"] not in expected_tags:
             raise ValueError("Image tag must identify the exact source commit")
         # Works with charts that render repository:tag, including older pinned charts.
-        target["tag"] = f'{expected_tag}@{image["digest"]}'
+        target["tag"] = f'{image["tag"]}@{image["digest"]}'
         if "digest" in target:
             target["digest"] = image["digest"]
     release = result["_release"]
@@ -148,7 +148,8 @@ def release_output(environment: str) -> None:
             file.write(f"commit={git('rev-parse', 'HEAD')}\nenvironment={environment}\nactive={str(active).lower()}\n")
 
 
-def publish(app: str, environment: str, images: list[dict], source: dict, chart_revision: str | None) -> None:
+def publish(app: str, environment: str, images: list[dict], source: dict, chart_revision: str | None,
+            *, preserve_chart: bool = False) -> None:
     validate_automatic_release(app, environment, source)
     path = profile(app, environment)
     for attempt in range(5):
@@ -172,7 +173,7 @@ def publish(app: str, environment: str, images: list[dict], source: dict, chart_
         if environment == "prod" and chart_revision and chart_revision != values["_release"]["revision"]:
             raise ValueError("Automatic production cannot override the configured chart pin")
         revision = chart_revision or (values["_release"]["revision"]
-            if environment == "prod" or "repository" in values["_release"] else git("rev-parse", "HEAD"))
+            if preserve_chart or environment == "prod" or "repository" in values["_release"] else git("rev-parse", "HEAD"))
         updated = updated_profile(values, images, source, revision)
         if updated == values:
             print("This release is already recorded.")
