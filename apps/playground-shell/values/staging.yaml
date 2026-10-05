@@ -5,12 +5,17 @@ _release:
   policy: promote
   namespace: playground-staging
   sourceRepository: anomaly51/playground-shell
+  sourceCommit: 0cdea4f5dec08b0f51d7e1cd537c5de38b285b6f
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/playground-shell/actions/runs/37273193636
+  imageKeys:
+  - image
 replicaCount: 1
 nodeSelector:
   kubernetes.io/hostname: general-1-worker-2
 image:
   repository: harbor.internal.api-api-api.com/playground/shell
-  tag: staging@sha256:96b5bf793f81d8fdcf7c067364e4ceabc4a98a4e2dc08449757ed7d43351f79a
+  tag: main-0cdea4f5dec08b0f51d7e1cd537c5de38b285b6f@sha256:e39c5cdaa9f69ec94bed97cf04301ae30c0bcbae1fc14c0cdc02bfb769803963
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 env: {}
