@@ -1,0 +1,5 @@
+# Adopt the empty former lifecycle namespace before pruning it through GitOps.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: playground-previews
