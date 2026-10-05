@@ -32,7 +32,7 @@ gha-runner-scale-set:
     spec:
       automountServiceAccountToken: false
       nodeSelector:
-        kubernetes.io/hostname: general-1-worker-1
+        kubernetes.io/hostname: general-1-worker-2
       initContainers:
         - name: init-dind-externals
           image: ghcr.io/actions/actions-runner:2.337.0@sha256:5036480998280bb21e32ade9fe1b02b493861ac314b62ba1aea320b94f56ec97
