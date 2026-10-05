@@ -5,12 +5,17 @@ _release:
   policy: promote
   namespace: playground-dev
   sourceRepository: anomaly51/playground-pricing-service
+  sourceCommit: d3ae895cff2d2cb59fccf54510844ed9fe319c79
+  sourceBranch: dev
+  runUrl: https://github.com/anomaly51/playground-pricing-service/actions/runs/37273505141
+  imageKeys:
+  - image
 replicaCount: 1
 nodeSelector:
   kubernetes.io/hostname: general-1-worker-2
 image:
   repository: harbor.internal.api-api-api.com/playground/pricing-service
-  tag: dev@sha256:4e30418ddd0ad17f3b8d8e4427e2b1264b5cdf29c2613763c507a46211b716b4
+  tag: dev-d3ae895cff2d2cb59fccf54510844ed9fe319c79@sha256:36475f87ae2a764d2d231bcf9856989cceaf7e63fd8aac1c1e4247f037a1b2a6
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 env:
