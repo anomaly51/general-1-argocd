@@ -731,7 +731,7 @@
     }
   },
   "namespace": "playground-preview-feature-preview-parallel-0bf283995a",
-  "phase": "ready",
+  "phase": "closed",
   "plan_hash": "2e7e2fa62a87ab32de8e82714e170c1dffa6e19736edf62cd5af669b71b3ada7",
   "prs": {
     "shell": {
@@ -744,6 +744,7 @@
   "revision": "e04285291f1686cb5e4d091e22b0c48aafcc9584",
   "schema": 1,
   "startup_deadline": "2026-10-05T00:48:34Z",
+  "terminated_at": "2026-10-05T00:33:02Z",
   "url": "https://playground-preview-feature-preview-parallel-0bf283995a.internal.api-api-api.com",
   "utilities": {
     "edge": {
