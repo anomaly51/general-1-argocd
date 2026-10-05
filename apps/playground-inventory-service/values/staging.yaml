@@ -5,12 +5,17 @@ _release:
   policy: promote
   namespace: playground-staging
   sourceRepository: anomaly51/playground-inventory-service
+  sourceCommit: efde45f404756ccffc8c9b49edaeacfdc4bbcdb3
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/playground-inventory-service/actions/runs/37273505154
+  imageKeys:
+  - image
 replicaCount: 1
 nodeSelector:
   kubernetes.io/hostname: general-1-worker-2
 image:
   repository: harbor.internal.api-api-api.com/playground/inventory-service
-  tag: staging@sha256:eecd662bac76b12daaadb5bdfe4cbce472e408b534f73ba95f5ed9673d8b17d4
+  tag: main-efde45f404756ccffc8c9b49edaeacfdc4bbcdb3@sha256:956115686ce7973e2822fbfa64e75c50bf1536fa282aa4aae081598314930abf
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 env:
