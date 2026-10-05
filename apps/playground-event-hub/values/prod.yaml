@@ -1,25 +1,40 @@
-# Complete production configuration; releases require explicit promotion.
 _release:
   revision: e87769933b7bec6ad26803d5bdc39cca40148127
   policy: promote
   namespace: playground-prod
   sourceRepository: anomaly51/playground-event-hub
-
 replicaCount: 1
-component: backend
-appService:
-  name: event-hub
-  port: 3003
 image:
   repository: harbor.internal.api-api-api.com/playground/event-hub
   tag: prod@sha256:efc0ed07a5c875272b0cf98912cfe150110f024314e02f693942a5db8abfdf6a
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
-imagePullSecret: playground-registry
-envSecret: playground-env
-probes:
-  livenessPath: /healthz
-  readinessPath: /readyz
+env:
+  NODE_ENV: production
+  LOG_LEVEL: info
+  HOST: 0.0.0.0
+  PORT: '3003'
+  CORS_ORIGINS: https://playground.internal.api-api-api.com
+  KAFKA_BROKERS: playground-kafka-kafka-bootstrap:9092
+  KAFKA_CLIENT_ID: flashdrop-event-hub
+  KAFKA_GROUP_ID: flashdrop-event-hub-v1
+  KAFKA_ORDERS_TOPIC: flashdrop.orders.v1
+  KAFKA_TRACE_TOPIC: flashdrop.traces.v1
+  KAFKA_ANALYTICS_GROUP_ID: flashdrop-analytics-v1
+  RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+  GATEWAY_OPERATIONS_URL: http://order-service:3000/operations/snapshot
+  RELAY_OPERATIONS_URL: http://outbox-relay:3005/operations/snapshot
+  PRICING_OPERATIONS_URL: http://pricing-service:8001/operations/snapshot
+  ANALYTICS_OPERATIONS_URL: http://analytics-service:8002/operations/snapshot
+  INVENTORY_OPERATIONS_URL: http://inventory-service:3004/operations/snapshot
+  AIRFLOW_HEALTH_URL: ''
+  OPERATIONS_SAMPLE_INTERVAL_MS: '2000'
+  OPERATIONS_REQUEST_TIMEOUT_MS: '1500'
+  OPERATIONS_STALE_AFTER_MS: '6000'
+  EVENT_BUFFER_SIZE: '2000'
+  RECENT_DEFAULT_LIMIT: '200'
+  SSE_HEARTBEAT_MS: '15000'
+  SSE_MAX_BUFFER_BYTES: '1048576'
 podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
@@ -33,7 +48,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-      - ALL
+    - ALL
 resources:
   requests:
     cpu: 50m
@@ -43,33 +58,73 @@ resources:
     cpu: 500m
     memory: 256Mi
     ephemeral-storage: 128Mi
-scratchVolumes:
-  - name: tmp
-    mountPath: /tmp
+name: event-hub
+resourceName: event-hub
+containerName: event-hub
+includeStandardLabels: false
+labels:
+  app.kubernetes.io/name: event-hub
+  app.kubernetes.io/part-of: playground
+podLabels:
+  app.kubernetes.io/part-of: playground
+  app.kubernetes.io/component: backend
+revisionHistoryLimit: 2
+progressDeadlineSeconds: 600
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+automountServiceAccountToken: false
+terminationGracePeriodSeconds: 30
+imagePullSecrets:
+- name: playground-registry
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.kubernetes.io/control-plane
+          operator: DoesNotExist
+        - key: node-role.kubernetes.io/master
+          operator: DoesNotExist
+ports:
+- name: http
+  containerPort: 3003
+service:
+  enabled: true
+  type: ClusterIP
+  port: 3003
+  targetPort: http
+  protocol: TCP
+extraVolumes:
+- name: tmp
+  emptyDir:
     sizeLimit: 32Mi
-env:
-  NODE_ENV: "production"
-  LOG_LEVEL: "info"
-  HOST: "0.0.0.0"
-  PORT: "3003"
-  CORS_ORIGINS: "https://playground.internal.api-api-api.com"
-  KAFKA_BROKERS: "playground-kafka-kafka-bootstrap:9092"
-  KAFKA_CLIENT_ID: "flashdrop-event-hub"
-  KAFKA_GROUP_ID: "flashdrop-event-hub-v1"
-  KAFKA_ORDERS_TOPIC: "flashdrop.orders.v1"
-  KAFKA_TRACE_TOPIC: "flashdrop.traces.v1"
-  KAFKA_ANALYTICS_GROUP_ID: "flashdrop-analytics-v1"
-  RABBITMQ_MANAGEMENT_URL: "http://rabbitmq:15672"
-  GATEWAY_OPERATIONS_URL: "http://order-service:3000/operations/snapshot"
-  RELAY_OPERATIONS_URL: "http://outbox-relay:3005/operations/snapshot"
-  PRICING_OPERATIONS_URL: "http://pricing-service:8001/operations/snapshot"
-  ANALYTICS_OPERATIONS_URL: "http://analytics-service:8002/operations/snapshot"
-  INVENTORY_OPERATIONS_URL: "http://inventory-service:3004/operations/snapshot"
-  AIRFLOW_HEALTH_URL: ""
-  OPERATIONS_SAMPLE_INTERVAL_MS: "2000"
-  OPERATIONS_REQUEST_TIMEOUT_MS: "1500"
-  OPERATIONS_STALE_AFTER_MS: "6000"
-  EVENT_BUFFER_SIZE: "2000"
-  RECENT_DEFAULT_LIMIT: "200"
-  SSE_HEARTBEAT_MS: "15000"
-  SSE_MAX_BUFFER_BYTES: "1048576"
+extraVolumeMounts:
+- name: tmp
+  mountPath: /tmp
+envFrom:
+- secretRef:
+    name: playground-env
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 60
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: http
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 20
+  timeoutSeconds: 3
+  failureThreshold: 3

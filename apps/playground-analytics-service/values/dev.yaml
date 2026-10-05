@@ -1,27 +1,35 @@
-# Complete dev configuration; Image Updater tracks its immutable channel digest.
 _release:
   revision: 5d94a90dd687b19e3e24f25a6cfdeea292b83137
   policy: promote
   namespace: playground-dev
   sourceRepository: anomaly51/playground-analytics-service
-
 replicaCount: 1
 nodeSelector:
   kubernetes.io/hostname: general-1-worker-2
-component: backend
-appService:
-  name: analytics-service
-  port: 8002
 image:
   repository: harbor.internal.api-api-api.com/playground/analytics-service
   tag: dev@sha256:b7a21059c47082f0d5ef95b6e28b4eebf259b62b16fef75fc1d0a86efb2f4ebf
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
-imagePullSecret: playground-registry
-envSecret: playground-env
-probes:
-  livenessPath: /healthz
-  readinessPath: /readyz
+env:
+  PYTHONUNBUFFERED: '1'
+  PYTHONDONTWRITEBYTECODE: '1'
+  FLASHDROP_ANALYTICS_HOST: 0.0.0.0
+  LAB_ANALYTICS_PORT: '8002'
+  LAB_KAFKA_ENABLED: 'true'
+  FLASHDROP_KAFKA_BOOTSTRAP_SERVERS: playground-kafka-kafka-bootstrap:9092
+  FLASHDROP_KAFKA_ORDERS_TOPIC: flashdrop.orders.v1
+  FLASHDROP_KAFKA_ANALYTICS_TOPIC: flashdrop.analytics.v1
+  FLASHDROP_KAFKA_TRACE_TOPIC: flashdrop.traces.v1
+  FLASHDROP_ANALYTICS_GROUP_ID: flashdrop-analytics-v1
+  FLASHDROP_ANALYTICS_KAFKA_CLIENT_ID: flashdrop-analytics
+  LAB_KAFKA_PUBLISH_TIMEOUT_SECONDS: '3.0'
+  LAB_KAFKA_PROBE_INTERVAL_SECONDS: '2.0'
+  LAB_KAFKA_PROBE_TIMEOUT_SECONDS: '1.0'
+  FLASHDROP_ANALYTICS_RETRY_MAX_SECONDS: '10.0'
+  LAB_ANALYTICS_POSTGRES_OPERATION_TIMEOUT_SECONDS: '3.0'
+  LAB_ANALYTICS_POSTGRES_PROBE_INTERVAL_SECONDS: '2.0'
+  LAB_ANALYTICS_POSTGRES_PROBE_TIMEOUT_SECONDS: '1.0'
 podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
@@ -35,7 +43,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-      - ALL
+    - ALL
 resources:
   requests:
     cpu: 50m
@@ -45,26 +53,73 @@ resources:
     cpu: 500m
     memory: 256Mi
     ephemeral-storage: 128Mi
-scratchVolumes:
-  - name: tmp
-    mountPath: /tmp
+name: analytics-service
+resourceName: analytics-service
+containerName: analytics-service
+includeStandardLabels: false
+labels:
+  app.kubernetes.io/name: analytics-service
+  app.kubernetes.io/part-of: playground
+podLabels:
+  app.kubernetes.io/part-of: playground
+  app.kubernetes.io/component: backend
+revisionHistoryLimit: 2
+progressDeadlineSeconds: 600
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+automountServiceAccountToken: false
+terminationGracePeriodSeconds: 30
+imagePullSecrets:
+- name: playground-registry
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.kubernetes.io/control-plane
+          operator: DoesNotExist
+        - key: node-role.kubernetes.io/master
+          operator: DoesNotExist
+ports:
+- name: http
+  containerPort: 8002
+service:
+  enabled: true
+  type: ClusterIP
+  port: 8002
+  targetPort: http
+  protocol: TCP
+extraVolumes:
+- name: tmp
+  emptyDir:
     sizeLimit: 32Mi
-env:
-  PYTHONUNBUFFERED: "1"
-  PYTHONDONTWRITEBYTECODE: "1"
-  FLASHDROP_ANALYTICS_HOST: "0.0.0.0"
-  LAB_ANALYTICS_PORT: "8002"
-  LAB_KAFKA_ENABLED: "true"
-  FLASHDROP_KAFKA_BOOTSTRAP_SERVERS: "playground-kafka-kafka-bootstrap:9092"
-  FLASHDROP_KAFKA_ORDERS_TOPIC: "flashdrop.orders.v1"
-  FLASHDROP_KAFKA_ANALYTICS_TOPIC: "flashdrop.analytics.v1"
-  FLASHDROP_KAFKA_TRACE_TOPIC: "flashdrop.traces.v1"
-  FLASHDROP_ANALYTICS_GROUP_ID: "flashdrop-analytics-v1"
-  FLASHDROP_ANALYTICS_KAFKA_CLIENT_ID: "flashdrop-analytics"
-  LAB_KAFKA_PUBLISH_TIMEOUT_SECONDS: "3.0"
-  LAB_KAFKA_PROBE_INTERVAL_SECONDS: "2.0"
-  LAB_KAFKA_PROBE_TIMEOUT_SECONDS: "1.0"
-  FLASHDROP_ANALYTICS_RETRY_MAX_SECONDS: "10.0"
-  LAB_ANALYTICS_POSTGRES_OPERATION_TIMEOUT_SECONDS: "3.0"
-  LAB_ANALYTICS_POSTGRES_PROBE_INTERVAL_SECONDS: "2.0"
-  LAB_ANALYTICS_POSTGRES_PROBE_TIMEOUT_SECONDS: "1.0"
+extraVolumeMounts:
+- name: tmp
+  mountPath: /tmp
+envFrom:
+- secretRef:
+    name: playground-env
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 60
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: http
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 20
+  timeoutSeconds: 3
+  failureThreshold: 3

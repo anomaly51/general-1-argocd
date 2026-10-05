@@ -1,27 +1,39 @@
-# Complete dev configuration; Image Updater tracks its immutable channel digest.
 _release:
   revision: 5d94a90dd687b19e3e24f25a6cfdeea292b83137
   policy: promote
   namespace: playground-dev
   sourceRepository: anomaly51/playground-order-service
-
 replicaCount: 1
 nodeSelector:
   kubernetes.io/hostname: general-1-worker-2
-component: backend
-appService:
-  name: order-service
-  port: 3000
 image:
   repository: harbor.internal.api-api-api.com/playground/order-service
   tag: dev@sha256:2a2f2265c754d2c0af534afd85da9702deecc8b1b056f798ae10cbb78647511d
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
-imagePullSecret: playground-registry
-envSecret: playground-env
-probes:
-  livenessPath: /healthz
-  readinessPath: /readyz
+env:
+  NODE_ENV: production
+  LOG_LEVEL: info
+  HOST: 0.0.0.0
+  PORT: '3000'
+  CORS_ORIGINS: https://playground-dev.internal.api-api-api.com
+  KAFKA_BROKERS: playground-kafka-kafka-bootstrap:9092
+  KAFKA_CLIENT_ID: lab-gateway
+  KAFKA_SSL: 'false'
+  PROCESSOR_HTTP_URL: http://pricing-service:8001
+  INVENTORY_SERVICE_URL: http://inventory-service:3004
+  POSTGRES_POOL_SIZE: '5'
+  POSTGRES_CONNECTION_TIMEOUT_MS: '5000'
+  REDIS_CONNECT_TIMEOUT_MS: '500'
+  REDIS_COMMAND_TIMEOUT_MS: '250'
+  READINESS_TIMEOUT_MS: '500'
+  PROCESSOR_HTTP_TIMEOUT_MS: '3000'
+  INVENTORY_HTTP_TIMEOUT_MS: '2000'
+  REQUEST_TIMEOUT_MS: '15000'
+  LAB_SCENARIOS_ENABLED: 'false'
+  OUTBOX_POLL_MS: '100'
+  OUTBOX_BATCH_SIZE: '100'
+  OUTBOX_RETRY_MAX_MS: '30000'
 podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
@@ -35,7 +47,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-      - ALL
+    - ALL
 resources:
   requests:
     cpu: 50m
@@ -45,51 +57,129 @@ resources:
     cpu: 500m
     memory: 384Mi
     ephemeral-storage: 128Mi
-scratchVolumes:
-  - name: tmp
-    mountPath: /tmp
-    sizeLimit: 32Mi
-env:
-  NODE_ENV: "production"
-  LOG_LEVEL: "info"
-  HOST: "0.0.0.0"
-  PORT: "3000"
-  CORS_ORIGINS: "https://playground-dev.internal.api-api-api.com"
-  KAFKA_BROKERS: "playground-kafka-kafka-bootstrap:9092"
-  KAFKA_CLIENT_ID: "lab-gateway"
-  KAFKA_SSL: "false"
-  PROCESSOR_HTTP_URL: "http://pricing-service:8001"
-  INVENTORY_SERVICE_URL: "http://inventory-service:3004"
-  POSTGRES_POOL_SIZE: "5"
-  POSTGRES_CONNECTION_TIMEOUT_MS: "5000"
-  REDIS_CONNECT_TIMEOUT_MS: "500"
-  REDIS_COMMAND_TIMEOUT_MS: "250"
-  READINESS_TIMEOUT_MS: "500"
-  PROCESSOR_HTTP_TIMEOUT_MS: "3000"
-  INVENTORY_HTTP_TIMEOUT_MS: "2000"
-  REQUEST_TIMEOUT_MS: "15000"
-  LAB_SCENARIOS_ENABLED: "false"
-  OUTBOX_POLL_MS: "100"
-  OUTBOX_BATCH_SIZE: "100"
-  OUTBOX_RETRY_MAX_MS: "30000"
-
-relayService:
-  name: outbox-relay
-  port: 3005
-relay:
-  # Source initialization serializes API and relay schema changes with an advisory lock.
+name: order-service
+resourceName: order-service
+containerName: order-service
+includeStandardLabels: false
+labels:
+  app.kubernetes.io/name: order-service
+  app.kubernetes.io/part-of: playground
+podLabels:
+  app.kubernetes.io/part-of: playground
+  app.kubernetes.io/component: backend
+revisionHistoryLimit: 2
+progressDeadlineSeconds: 600
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+automountServiceAccountToken: false
+terminationGracePeriodSeconds: 30
+imagePullSecrets:
+- name: playground-registry
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.kubernetes.io/control-plane
+          operator: DoesNotExist
+        - key: node-role.kubernetes.io/master
+          operator: DoesNotExist
+ports:
+- name: http
+  containerPort: 3000
+service:
   enabled: true
-  replicaCount: 1
-  env:
-    KAFKA_CLIENT_ID: "flashdrop-outbox-relay"
-    RELAY_OPERATIONS_HOST: "0.0.0.0"
-    RELAY_OPERATIONS_PORT: "3005"
-  resources:
-    requests:
-      cpu: 25m
-      memory: 96Mi
-      ephemeral-storage: 16Mi
-    limits:
-      cpu: 250m
-      memory: 256Mi
-      ephemeral-storage: 128Mi
+  type: ClusterIP
+  port: 3000
+  targetPort: http
+  protocol: TCP
+extraVolumes:
+- name: tmp
+  emptyDir:
+    sizeLimit: 32Mi
+extraVolumeMounts:
+- name: tmp
+  mountPath: /tmp
+envFrom:
+- secretRef:
+    name: playground-env
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 60
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: http
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 20
+  timeoutSeconds: 3
+  failureThreshold: 3
+additionalWorkloads:
+  outbox-relay:
+    labels:
+      app.kubernetes.io/name: outbox-relay
+      app.kubernetes.io/part-of: playground
+    service:
+      enabled: true
+      type: ClusterIP
+      port: 3005
+      targetPort: http
+      protocol: TCP
+    startupProbe:
+      httpGet:
+        path: /healthz
+        port: http
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 60
+    readinessProbe:
+      httpGet:
+        path: /readyz
+        port: http
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: http
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 3
+    name: outbox-relay
+    resourceName: outbox-relay
+    containerName: outbox-relay
+    replicaCount: 1
+    env:
+      KAFKA_CLIENT_ID: flashdrop-outbox-relay
+      RELAY_OPERATIONS_HOST: 0.0.0.0
+      RELAY_OPERATIONS_PORT: '3005'
+    command:
+    - node
+    - --enable-source-maps
+    - dist/relay.js
+    resources:
+      requests:
+        cpu: 25m
+        memory: 96Mi
+        ephemeral-storage: 16Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+        ephemeral-storage: 128Mi
+    ports:
+    - name: http
+      containerPort: 3005

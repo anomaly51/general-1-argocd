@@ -1,25 +1,31 @@
-# Complete production configuration; releases require explicit promotion.
 _release:
   revision: e87769933b7bec6ad26803d5bdc39cca40148127
   policy: promote
   namespace: playground-prod
   sourceRepository: anomaly51/playground-inventory-service
-
 replicaCount: 1
-component: backend
-appService:
-  name: inventory-service
-  port: 3004
 image:
   repository: harbor.internal.api-api-api.com/playground/inventory-service
   tag: prod@sha256:53f27fb681c3477ad3df41a0e529cd020b573fc1320abcd56f21aa2b81d715be
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
-imagePullSecret: playground-registry
-envSecret: playground-env
-probes:
-  livenessPath: /healthz
-  readinessPath: /readyz
+env:
+  NODE_ENV: production
+  LOG_LEVEL: info
+  HOST: 0.0.0.0
+  PORT: '3004'
+  KAFKA_BROKERS: playground-kafka-kafka-bootstrap:9092
+  KAFKA_CLIENT_ID: flashdrop-inventory-worker
+  KAFKA_TRACE_TOPIC: flashdrop.traces.v1
+  MYSQL_POOL_SIZE: '5'
+  MYSQL_CONNECTION_TIMEOUT_MS: '5000'
+  READINESS_TIMEOUT_MS: '500'
+  RABBIT_QUEUE_TYPE: quorum
+  RABBITMQ_PREFETCH: '10'
+  RABBITMQ_MAX_ATTEMPTS: '3'
+  RABBITMQ_RETRY_DELAY_MS: '3000'
+  PROCESSING_DELAY_MS: '150'
+  LAB_INVENTORY_RESET_ENABLED: 'false'
 podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
@@ -33,7 +39,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-      - ALL
+    - ALL
 resources:
   requests:
     cpu: 50m
@@ -43,24 +49,73 @@ resources:
     cpu: 500m
     memory: 256Mi
     ephemeral-storage: 128Mi
-scratchVolumes:
-  - name: tmp
-    mountPath: /tmp
+name: inventory-service
+resourceName: inventory-service
+containerName: inventory-service
+includeStandardLabels: false
+labels:
+  app.kubernetes.io/name: inventory-service
+  app.kubernetes.io/part-of: playground
+podLabels:
+  app.kubernetes.io/part-of: playground
+  app.kubernetes.io/component: backend
+revisionHistoryLimit: 2
+progressDeadlineSeconds: 600
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+automountServiceAccountToken: false
+terminationGracePeriodSeconds: 30
+imagePullSecrets:
+- name: playground-registry
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.kubernetes.io/control-plane
+          operator: DoesNotExist
+        - key: node-role.kubernetes.io/master
+          operator: DoesNotExist
+ports:
+- name: http
+  containerPort: 3004
+service:
+  enabled: true
+  type: ClusterIP
+  port: 3004
+  targetPort: http
+  protocol: TCP
+extraVolumes:
+- name: tmp
+  emptyDir:
     sizeLimit: 32Mi
-env:
-  NODE_ENV: "production"
-  LOG_LEVEL: "info"
-  HOST: "0.0.0.0"
-  PORT: "3004"
-  KAFKA_BROKERS: "playground-kafka-kafka-bootstrap:9092"
-  KAFKA_CLIENT_ID: "flashdrop-inventory-worker"
-  KAFKA_TRACE_TOPIC: "flashdrop.traces.v1"
-  MYSQL_POOL_SIZE: "5"
-  MYSQL_CONNECTION_TIMEOUT_MS: "5000"
-  READINESS_TIMEOUT_MS: "500"
-  RABBIT_QUEUE_TYPE: "quorum"
-  RABBITMQ_PREFETCH: "10"
-  RABBITMQ_MAX_ATTEMPTS: "3"
-  RABBITMQ_RETRY_DELAY_MS: "3000"
-  PROCESSING_DELAY_MS: "150"
-  LAB_INVENTORY_RESET_ENABLED: "false"
+extraVolumeMounts:
+- name: tmp
+  mountPath: /tmp
+envFrom:
+- secretRef:
+    name: playground-env
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 60
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: http
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 20
+  timeoutSeconds: 3
+  failureThreshold: 3

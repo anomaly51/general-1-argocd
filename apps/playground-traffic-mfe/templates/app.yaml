@@ -1,0 +1,1 @@
+{{- include "app.workloads" (dict "Values" (mergeOverwrite (deepCopy .Subcharts.app.Values) (omit .Values "app")) "Release" .Release "Chart" .Subcharts.app.Chart) }}

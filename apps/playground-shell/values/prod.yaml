@@ -10,20 +10,12 @@ _release:
   - image
   runUrl: https://github.com/anomaly51/playground-shell/commit/060ec532e8adc061131582eb4692b371d86e6d67
 replicaCount: 1
-component: frontend
-appService:
-  name: shell
-  port: 80
 image:
   repository: harbor.internal.api-api-api.com/playground/shell
   tag: staging@sha256:9c90aa730916133f7b2ed291177102917d7e570fabff53c5e7029eee5a2b3fea
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
-imagePullSecret: playground-registry
-envSecret: ''
-probes:
-  livenessPath: /healthz
-  readinessPath: /healthz
+env: {}
 podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
@@ -52,14 +44,80 @@ resources:
     cpu: 100m
     memory: 96Mi
     ephemeral-storage: 192Mi
-scratchVolumes:
+name: shell
+resourceName: shell
+containerName: shell
+includeStandardLabels: false
+labels:
+  app.kubernetes.io/name: shell
+  app.kubernetes.io/part-of: playground
+podLabels:
+  app.kubernetes.io/part-of: playground
+  app.kubernetes.io/component: frontend
+revisionHistoryLimit: 2
+progressDeadlineSeconds: 600
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+automountServiceAccountToken: false
+terminationGracePeriodSeconds: 30
+imagePullSecrets:
+- name: playground-registry
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.kubernetes.io/control-plane
+          operator: DoesNotExist
+        - key: node-role.kubernetes.io/master
+          operator: DoesNotExist
+ports:
+- name: http
+  containerPort: 80
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  targetPort: http
+  protocol: TCP
+extraVolumes:
+- name: tmp
+  emptyDir:
+    sizeLimit: 32Mi
+- name: nginx-cache
+  emptyDir:
+    sizeLimit: 64Mi
+- name: nginx-run
+  emptyDir:
+    sizeLimit: 16Mi
+extraVolumeMounts:
 - name: tmp
   mountPath: /tmp
-  sizeLimit: 32Mi
 - name: nginx-cache
   mountPath: /var/cache/nginx
-  sizeLimit: 64Mi
 - name: nginx-run
   mountPath: /var/run
-  sizeLimit: 16Mi
-env: {}
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 60
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 20
+  timeoutSeconds: 3
+  failureThreshold: 3

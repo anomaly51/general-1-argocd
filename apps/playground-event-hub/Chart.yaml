@@ -2,4 +2,8 @@ apiVersion: v2
 name: playground-event-hub
 description: FlashDrop event-hub production workload.
 type: application
-version: 0.1.0
+version: 0.2.0
+dependencies:
+  - name: app
+    version: 0.6.0
+    repository: oci://harbor.internal.api-api-api.com/helm-charts
