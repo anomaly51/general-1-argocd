@@ -1,5 +1,0 @@
-apiVersion: v2
-name: controller-placement
-description: Preserve the bootstrap Argo controller while reserving worker placement.
-type: application
-version: 0.1.0

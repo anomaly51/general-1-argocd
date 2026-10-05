@@ -39,14 +39,3 @@ spec:
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true
-  templatePatch: |
-    {{- if eq .path.path "utility-apps/argocd/controller-placement" }}
-    spec:
-      syncPolicy:
-        syncOptions:
-          - CreateNamespace=true
-          - ServerSideApply=true
-          - Validate=false
-          # Preserve bootstrap ownership of image, replicas, env and volumes.
-          - ClientSideApplyMigration=false
-    {{- end }}
