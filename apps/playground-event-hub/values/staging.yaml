@@ -5,12 +5,17 @@ _release:
   policy: promote
   namespace: playground-staging
   sourceRepository: anomaly51/playground-event-hub
+  sourceCommit: b2e3abbfa34a92749af31e6420f3b77559185659
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/playground-event-hub/actions/runs/37273505214
+  imageKeys:
+  - image
 replicaCount: 1
 nodeSelector:
   kubernetes.io/hostname: general-1-worker-2
 image:
   repository: harbor.internal.api-api-api.com/playground/event-hub
-  tag: staging@sha256:28e86b2651bc175a76c8375f87c2a63cd3f9e35696eb6e74fce7f2871cdcd087
+  tag: main-b2e3abbfa34a92749af31e6420f3b77559185659@sha256:30ef46c065c8725aaaa323c5548c122744a9dcbb583d47fc8e7b1466fe736284
   pullPolicy: IfNotPresent
 serviceAccountName: playground-runtime
 env:
