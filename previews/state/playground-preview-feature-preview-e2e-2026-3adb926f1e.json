@@ -4,14 +4,31 @@
       "_release": {
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "5d94a90dd687b19e3e24f25a6cfdeea292b83137",
+        "revision": "b6a4599262afabdf362474479333bec449403c07",
         "sourceRepository": "anomaly51/playground-analytics-service"
       },
-      "appService": {
-        "name": "analytics-service",
-        "port": 8002
+      "affinity": {
+        "nodeAffinity": {
+          "requiredDuringSchedulingIgnoredDuringExecution": {
+            "nodeSelectorTerms": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "node-role.kubernetes.io/control-plane",
+                    "operator": "DoesNotExist"
+                  },
+                  {
+                    "key": "node-role.kubernetes.io/master",
+                    "operator": "DoesNotExist"
+                  }
+                ]
+              }
+            ]
+          }
+        }
       },
-      "component": "backend",
+      "automountServiceAccountToken": false,
+      "containerName": "analytics-service",
       "env": {
         "FLASHDROP_ANALYTICS_GROUP_ID": "flashdrop-analytics-v1",
         "FLASHDROP_ANALYTICS_HOST": "0.0.0.0",
@@ -32,15 +49,58 @@
         "PYTHONDONTWRITEBYTECODE": "1",
         "PYTHONUNBUFFERED": "1"
       },
-      "envSecret": "playground-env",
+      "envFrom": [
+        {
+          "secretRef": {
+            "name": "playground-env"
+          }
+        }
+      ],
+      "extraVolumeMounts": [
+        {
+          "mountPath": "/tmp",
+          "name": "tmp"
+        }
+      ],
+      "extraVolumes": [
+        {
+          "emptyDir": {
+            "sizeLimit": "32Mi"
+          },
+          "name": "tmp"
+        }
+      ],
       "image": {
         "pullPolicy": "IfNotPresent",
         "repository": "harbor.internal.api-api-api.com/playground/analytics-service",
         "tag": "staging@sha256:b51d01085902b261af0d6e070c63cecc5bdc90e6b398be44c4af18e23c48b2d4"
       },
-      "imagePullSecret": "playground-registry",
+      "imagePullSecrets": [
+        {
+          "name": "playground-registry"
+        }
+      ],
+      "includeStandardLabels": false,
+      "labels": {
+        "app.kubernetes.io/name": "analytics-service",
+        "app.kubernetes.io/part-of": "playground"
+      },
+      "livenessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 20,
+        "timeoutSeconds": 3
+      },
+      "name": "analytics-service",
       "nodeSelector": {
         "kubernetes.io/hostname": "general-1-worker-2"
+      },
+      "podLabels": {
+        "app.kubernetes.io/component": "backend",
+        "app.kubernetes.io/part-of": "playground"
       },
       "podSecurityContext": {
         "fsGroup": 10001,
@@ -49,11 +109,24 @@
           "type": "RuntimeDefault"
         }
       },
-      "probes": {
-        "livenessPath": "/healthz",
-        "readinessPath": "/readyz"
+      "ports": [
+        {
+          "containerPort": 8002,
+          "name": "http"
+        }
+      ],
+      "progressDeadlineSeconds": 600,
+      "readinessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/readyz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
       },
       "replicaCount": 1,
+      "resourceName": "analytics-service",
       "resources": {
         "limits": {
           "cpu": "500m",
@@ -66,13 +139,7 @@
           "memory": "96Mi"
         }
       },
-      "scratchVolumes": [
-        {
-          "mountPath": "/tmp",
-          "name": "tmp",
-          "sizeLimit": "32Mi"
-        }
-      ],
+      "revisionHistoryLimit": 2,
       "securityContext": {
         "allowPrivilegeEscalation": false,
         "capabilities": {
@@ -85,20 +152,61 @@
         "runAsNonRoot": true,
         "runAsUser": 10001
       },
-      "serviceAccountName": "playground-runtime"
+      "service": {
+        "enabled": true,
+        "port": 8002,
+        "protocol": "TCP",
+        "targetPort": "http",
+        "type": "ClusterIP"
+      },
+      "serviceAccountName": "playground-runtime",
+      "startupProbe": {
+        "failureThreshold": 60,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": 1,
+          "maxUnavailable": 0
+        },
+        "type": "RollingUpdate"
+      },
+      "terminationGracePeriodSeconds": 30
     },
     "event-hub": {
       "_release": {
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "5d94a90dd687b19e3e24f25a6cfdeea292b83137",
+        "revision": "b6a4599262afabdf362474479333bec449403c07",
         "sourceRepository": "anomaly51/playground-event-hub"
       },
-      "appService": {
-        "name": "event-hub",
-        "port": 3003
+      "affinity": {
+        "nodeAffinity": {
+          "requiredDuringSchedulingIgnoredDuringExecution": {
+            "nodeSelectorTerms": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "node-role.kubernetes.io/control-plane",
+                    "operator": "DoesNotExist"
+                  },
+                  {
+                    "key": "node-role.kubernetes.io/master",
+                    "operator": "DoesNotExist"
+                  }
+                ]
+              }
+            ]
+          }
+        }
       },
-      "component": "backend",
+      "automountServiceAccountToken": false,
+      "containerName": "event-hub",
       "env": {
         "AIRFLOW_HEALTH_URL": "",
         "ANALYTICS_OPERATIONS_URL": "http://analytics-service:8002/operations/snapshot",
@@ -126,15 +234,58 @@
         "SSE_HEARTBEAT_MS": "15000",
         "SSE_MAX_BUFFER_BYTES": "1048576"
       },
-      "envSecret": "playground-env",
+      "envFrom": [
+        {
+          "secretRef": {
+            "name": "playground-env"
+          }
+        }
+      ],
+      "extraVolumeMounts": [
+        {
+          "mountPath": "/tmp",
+          "name": "tmp"
+        }
+      ],
+      "extraVolumes": [
+        {
+          "emptyDir": {
+            "sizeLimit": "32Mi"
+          },
+          "name": "tmp"
+        }
+      ],
       "image": {
         "pullPolicy": "IfNotPresent",
         "repository": "harbor.internal.api-api-api.com/playground/event-hub",
         "tag": "staging@sha256:28e86b2651bc175a76c8375f87c2a63cd3f9e35696eb6e74fce7f2871cdcd087"
       },
-      "imagePullSecret": "playground-registry",
+      "imagePullSecrets": [
+        {
+          "name": "playground-registry"
+        }
+      ],
+      "includeStandardLabels": false,
+      "labels": {
+        "app.kubernetes.io/name": "event-hub",
+        "app.kubernetes.io/part-of": "playground"
+      },
+      "livenessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 20,
+        "timeoutSeconds": 3
+      },
+      "name": "event-hub",
       "nodeSelector": {
         "kubernetes.io/hostname": "general-1-worker-2"
+      },
+      "podLabels": {
+        "app.kubernetes.io/component": "backend",
+        "app.kubernetes.io/part-of": "playground"
       },
       "podSecurityContext": {
         "fsGroup": 1000,
@@ -143,11 +294,24 @@
           "type": "RuntimeDefault"
         }
       },
-      "probes": {
-        "livenessPath": "/healthz",
-        "readinessPath": "/readyz"
+      "ports": [
+        {
+          "containerPort": 3003,
+          "name": "http"
+        }
+      ],
+      "progressDeadlineSeconds": 600,
+      "readinessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/readyz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
       },
       "replicaCount": 1,
+      "resourceName": "event-hub",
       "resources": {
         "limits": {
           "cpu": "500m",
@@ -160,13 +324,7 @@
           "memory": "128Mi"
         }
       },
-      "scratchVolumes": [
-        {
-          "mountPath": "/tmp",
-          "name": "tmp",
-          "sizeLimit": "32Mi"
-        }
-      ],
+      "revisionHistoryLimit": 2,
       "securityContext": {
         "allowPrivilegeEscalation": false,
         "capabilities": {
@@ -179,20 +337,61 @@
         "runAsNonRoot": true,
         "runAsUser": 1000
       },
-      "serviceAccountName": "playground-runtime"
+      "service": {
+        "enabled": true,
+        "port": 3003,
+        "protocol": "TCP",
+        "targetPort": "http",
+        "type": "ClusterIP"
+      },
+      "serviceAccountName": "playground-runtime",
+      "startupProbe": {
+        "failureThreshold": 60,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": 1,
+          "maxUnavailable": 0
+        },
+        "type": "RollingUpdate"
+      },
+      "terminationGracePeriodSeconds": 30
     },
     "inventory-service": {
       "_release": {
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "5d94a90dd687b19e3e24f25a6cfdeea292b83137",
+        "revision": "b6a4599262afabdf362474479333bec449403c07",
         "sourceRepository": "anomaly51/playground-inventory-service"
       },
-      "appService": {
-        "name": "inventory-service",
-        "port": 3004
+      "affinity": {
+        "nodeAffinity": {
+          "requiredDuringSchedulingIgnoredDuringExecution": {
+            "nodeSelectorTerms": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "node-role.kubernetes.io/control-plane",
+                    "operator": "DoesNotExist"
+                  },
+                  {
+                    "key": "node-role.kubernetes.io/master",
+                    "operator": "DoesNotExist"
+                  }
+                ]
+              }
+            ]
+          }
+        }
       },
-      "component": "backend",
+      "automountServiceAccountToken": false,
+      "containerName": "inventory-service",
       "env": {
         "HOST": "0.0.0.0",
         "KAFKA_BROKERS": "playground-kafka-kafka-bootstrap:9092",
@@ -211,15 +410,58 @@
         "RABBIT_QUEUE_TYPE": "quorum",
         "READINESS_TIMEOUT_MS": "500"
       },
-      "envSecret": "playground-env",
+      "envFrom": [
+        {
+          "secretRef": {
+            "name": "playground-env"
+          }
+        }
+      ],
+      "extraVolumeMounts": [
+        {
+          "mountPath": "/tmp",
+          "name": "tmp"
+        }
+      ],
+      "extraVolumes": [
+        {
+          "emptyDir": {
+            "sizeLimit": "32Mi"
+          },
+          "name": "tmp"
+        }
+      ],
       "image": {
         "pullPolicy": "IfNotPresent",
         "repository": "harbor.internal.api-api-api.com/playground/inventory-service",
         "tag": "staging@sha256:eecd662bac76b12daaadb5bdfe4cbce472e408b534f73ba95f5ed9673d8b17d4"
       },
-      "imagePullSecret": "playground-registry",
+      "imagePullSecrets": [
+        {
+          "name": "playground-registry"
+        }
+      ],
+      "includeStandardLabels": false,
+      "labels": {
+        "app.kubernetes.io/name": "inventory-service",
+        "app.kubernetes.io/part-of": "playground"
+      },
+      "livenessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 20,
+        "timeoutSeconds": 3
+      },
+      "name": "inventory-service",
       "nodeSelector": {
         "kubernetes.io/hostname": "general-1-worker-2"
+      },
+      "podLabels": {
+        "app.kubernetes.io/component": "backend",
+        "app.kubernetes.io/part-of": "playground"
       },
       "podSecurityContext": {
         "fsGroup": 1000,
@@ -228,11 +470,24 @@
           "type": "RuntimeDefault"
         }
       },
-      "probes": {
-        "livenessPath": "/healthz",
-        "readinessPath": "/readyz"
+      "ports": [
+        {
+          "containerPort": 3004,
+          "name": "http"
+        }
+      ],
+      "progressDeadlineSeconds": 600,
+      "readinessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/readyz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
       },
       "replicaCount": 1,
+      "resourceName": "inventory-service",
       "resources": {
         "limits": {
           "cpu": "500m",
@@ -245,13 +500,7 @@
           "memory": "96Mi"
         }
       },
-      "scratchVolumes": [
-        {
-          "mountPath": "/tmp",
-          "name": "tmp",
-          "sizeLimit": "32Mi"
-        }
-      ],
+      "revisionHistoryLimit": 2,
       "securityContext": {
         "allowPrivilegeEscalation": false,
         "capabilities": {
@@ -264,20 +513,135 @@
         "runAsNonRoot": true,
         "runAsUser": 1000
       },
-      "serviceAccountName": "playground-runtime"
+      "service": {
+        "enabled": true,
+        "port": 3004,
+        "protocol": "TCP",
+        "targetPort": "http",
+        "type": "ClusterIP"
+      },
+      "serviceAccountName": "playground-runtime",
+      "startupProbe": {
+        "failureThreshold": 60,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": 1,
+          "maxUnavailable": 0
+        },
+        "type": "RollingUpdate"
+      },
+      "terminationGracePeriodSeconds": 30
     },
     "order-service": {
       "_release": {
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "5d94a90dd687b19e3e24f25a6cfdeea292b83137",
+        "revision": "b6a4599262afabdf362474479333bec449403c07",
         "sourceRepository": "anomaly51/playground-order-service"
       },
-      "appService": {
-        "name": "order-service",
-        "port": 3000
+      "additionalWorkloads": {
+        "outbox-relay": {
+          "command": [
+            "node",
+            "--enable-source-maps",
+            "dist/relay.js"
+          ],
+          "containerName": "outbox-relay",
+          "env": {
+            "KAFKA_CLIENT_ID": "flashdrop-outbox-relay",
+            "RELAY_OPERATIONS_HOST": "0.0.0.0",
+            "RELAY_OPERATIONS_PORT": "3005"
+          },
+          "labels": {
+            "app.kubernetes.io/name": "outbox-relay",
+            "app.kubernetes.io/part-of": "playground"
+          },
+          "livenessProbe": {
+            "failureThreshold": 3,
+            "httpGet": {
+              "path": "/healthz",
+              "port": "http"
+            },
+            "periodSeconds": 20,
+            "timeoutSeconds": 3
+          },
+          "name": "outbox-relay",
+          "ports": [
+            {
+              "containerPort": 3005,
+              "name": "http"
+            }
+          ],
+          "readinessProbe": {
+            "failureThreshold": 3,
+            "httpGet": {
+              "path": "/readyz",
+              "port": "http"
+            },
+            "periodSeconds": 5,
+            "timeoutSeconds": 3
+          },
+          "replicaCount": 1,
+          "resourceName": "outbox-relay",
+          "resources": {
+            "limits": {
+              "cpu": "250m",
+              "ephemeral-storage": "128Mi",
+              "memory": "256Mi"
+            },
+            "requests": {
+              "cpu": "25m",
+              "ephemeral-storage": "16Mi",
+              "memory": "96Mi"
+            }
+          },
+          "service": {
+            "enabled": true,
+            "port": 3005,
+            "protocol": "TCP",
+            "targetPort": "http",
+            "type": "ClusterIP"
+          },
+          "startupProbe": {
+            "failureThreshold": 60,
+            "httpGet": {
+              "path": "/healthz",
+              "port": "http"
+            },
+            "periodSeconds": 5,
+            "timeoutSeconds": 3
+          }
+        }
       },
-      "component": "backend",
+      "affinity": {
+        "nodeAffinity": {
+          "requiredDuringSchedulingIgnoredDuringExecution": {
+            "nodeSelectorTerms": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "node-role.kubernetes.io/control-plane",
+                    "operator": "DoesNotExist"
+                  },
+                  {
+                    "key": "node-role.kubernetes.io/master",
+                    "operator": "DoesNotExist"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "automountServiceAccountToken": false,
+      "containerName": "order-service",
       "env": {
         "CORS_ORIGINS": "https://playground-staging.internal.api-api-api.com",
         "HOST": "0.0.0.0",
@@ -302,15 +666,58 @@
         "REDIS_CONNECT_TIMEOUT_MS": "500",
         "REQUEST_TIMEOUT_MS": "15000"
       },
-      "envSecret": "playground-env",
+      "envFrom": [
+        {
+          "secretRef": {
+            "name": "playground-env"
+          }
+        }
+      ],
+      "extraVolumeMounts": [
+        {
+          "mountPath": "/tmp",
+          "name": "tmp"
+        }
+      ],
+      "extraVolumes": [
+        {
+          "emptyDir": {
+            "sizeLimit": "32Mi"
+          },
+          "name": "tmp"
+        }
+      ],
       "image": {
         "pullPolicy": "IfNotPresent",
         "repository": "harbor.internal.api-api-api.com/playground/order-service",
         "tag": "staging@sha256:0ebe8ff744fbcc85d15052748f5b8bd597911353ec8e9ddbbc1c4b9798431dd8"
       },
-      "imagePullSecret": "playground-registry",
+      "imagePullSecrets": [
+        {
+          "name": "playground-registry"
+        }
+      ],
+      "includeStandardLabels": false,
+      "labels": {
+        "app.kubernetes.io/name": "order-service",
+        "app.kubernetes.io/part-of": "playground"
+      },
+      "livenessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 20,
+        "timeoutSeconds": 3
+      },
+      "name": "order-service",
       "nodeSelector": {
         "kubernetes.io/hostname": "general-1-worker-2"
+      },
+      "podLabels": {
+        "app.kubernetes.io/component": "backend",
+        "app.kubernetes.io/part-of": "playground"
       },
       "podSecurityContext": {
         "fsGroup": 1000,
@@ -319,36 +726,24 @@
           "type": "RuntimeDefault"
         }
       },
-      "probes": {
-        "livenessPath": "/healthz",
-        "readinessPath": "/readyz"
-      },
-      "relay": {
-        "enabled": true,
-        "env": {
-          "KAFKA_CLIENT_ID": "flashdrop-outbox-relay",
-          "RELAY_OPERATIONS_HOST": "0.0.0.0",
-          "RELAY_OPERATIONS_PORT": "3005"
-        },
-        "replicaCount": 1,
-        "resources": {
-          "limits": {
-            "cpu": "250m",
-            "ephemeral-storage": "128Mi",
-            "memory": "256Mi"
-          },
-          "requests": {
-            "cpu": "25m",
-            "ephemeral-storage": "16Mi",
-            "memory": "96Mi"
-          }
+      "ports": [
+        {
+          "containerPort": 3000,
+          "name": "http"
         }
-      },
-      "relayService": {
-        "name": "outbox-relay",
-        "port": 3005
+      ],
+      "progressDeadlineSeconds": 600,
+      "readinessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/readyz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
       },
       "replicaCount": 1,
+      "resourceName": "order-service",
       "resources": {
         "limits": {
           "cpu": "500m",
@@ -361,13 +756,7 @@
           "memory": "128Mi"
         }
       },
-      "scratchVolumes": [
-        {
-          "mountPath": "/tmp",
-          "name": "tmp",
-          "sizeLimit": "32Mi"
-        }
-      ],
+      "revisionHistoryLimit": 2,
       "securityContext": {
         "allowPrivilegeEscalation": false,
         "capabilities": {
@@ -380,20 +769,61 @@
         "runAsNonRoot": true,
         "runAsUser": 1000
       },
-      "serviceAccountName": "playground-runtime"
+      "service": {
+        "enabled": true,
+        "port": 3000,
+        "protocol": "TCP",
+        "targetPort": "http",
+        "type": "ClusterIP"
+      },
+      "serviceAccountName": "playground-runtime",
+      "startupProbe": {
+        "failureThreshold": 60,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": 1,
+          "maxUnavailable": 0
+        },
+        "type": "RollingUpdate"
+      },
+      "terminationGracePeriodSeconds": 30
     },
     "pricing-service": {
       "_release": {
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "5d94a90dd687b19e3e24f25a6cfdeea292b83137",
+        "revision": "b6a4599262afabdf362474479333bec449403c07",
         "sourceRepository": "anomaly51/playground-pricing-service"
       },
-      "appService": {
-        "name": "pricing-service",
-        "port": 8001
+      "affinity": {
+        "nodeAffinity": {
+          "requiredDuringSchedulingIgnoredDuringExecution": {
+            "nodeSelectorTerms": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "node-role.kubernetes.io/control-plane",
+                    "operator": "DoesNotExist"
+                  },
+                  {
+                    "key": "node-role.kubernetes.io/master",
+                    "operator": "DoesNotExist"
+                  }
+                ]
+              }
+            ]
+          }
+        }
       },
-      "component": "backend",
+      "automountServiceAccountToken": false,
+      "containerName": "pricing-service",
       "env": {
         "FLASHDROP_KAFKA_CLIENT_ID": "flashdrop-pricing-service",
         "FLASHDROP_KAFKA_TRACE_TOPIC": "flashdrop.traces.v1",
@@ -411,15 +841,58 @@
         "PYTHONDONTWRITEBYTECODE": "1",
         "PYTHONUNBUFFERED": "1"
       },
-      "envSecret": "playground-env",
+      "envFrom": [
+        {
+          "secretRef": {
+            "name": "playground-env"
+          }
+        }
+      ],
+      "extraVolumeMounts": [
+        {
+          "mountPath": "/tmp",
+          "name": "tmp"
+        }
+      ],
+      "extraVolumes": [
+        {
+          "emptyDir": {
+            "sizeLimit": "32Mi"
+          },
+          "name": "tmp"
+        }
+      ],
       "image": {
         "pullPolicy": "IfNotPresent",
         "repository": "harbor.internal.api-api-api.com/playground/pricing-service",
         "tag": "staging@sha256:3c49adb7cca05542f9adea2aa1e966cff082e0ad61949def705e51388907362e"
       },
-      "imagePullSecret": "playground-registry",
+      "imagePullSecrets": [
+        {
+          "name": "playground-registry"
+        }
+      ],
+      "includeStandardLabels": false,
+      "labels": {
+        "app.kubernetes.io/name": "pricing-service",
+        "app.kubernetes.io/part-of": "playground"
+      },
+      "livenessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 20,
+        "timeoutSeconds": 3
+      },
+      "name": "pricing-service",
       "nodeSelector": {
         "kubernetes.io/hostname": "general-1-worker-2"
+      },
+      "podLabels": {
+        "app.kubernetes.io/component": "backend",
+        "app.kubernetes.io/part-of": "playground"
       },
       "podSecurityContext": {
         "fsGroup": 10001,
@@ -428,11 +901,24 @@
           "type": "RuntimeDefault"
         }
       },
-      "probes": {
-        "livenessPath": "/healthz",
-        "readinessPath": "/readyz"
+      "ports": [
+        {
+          "containerPort": 8001,
+          "name": "http"
+        }
+      ],
+      "progressDeadlineSeconds": 600,
+      "readinessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/readyz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
       },
       "replicaCount": 1,
+      "resourceName": "pricing-service",
       "resources": {
         "limits": {
           "cpu": "500m",
@@ -445,13 +931,7 @@
           "memory": "64Mi"
         }
       },
-      "scratchVolumes": [
-        {
-          "mountPath": "/tmp",
-          "name": "tmp",
-          "sizeLimit": "32Mi"
-        }
-      ],
+      "revisionHistoryLimit": 2,
       "securityContext": {
         "allowPrivilegeEscalation": false,
         "capabilities": {
@@ -464,30 +944,127 @@
         "runAsNonRoot": true,
         "runAsUser": 10001
       },
-      "serviceAccountName": "playground-runtime"
+      "service": {
+        "enabled": true,
+        "port": 8001,
+        "protocol": "TCP",
+        "targetPort": "http",
+        "type": "ClusterIP"
+      },
+      "serviceAccountName": "playground-runtime",
+      "startupProbe": {
+        "failureThreshold": 60,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": 1,
+          "maxUnavailable": 0
+        },
+        "type": "RollingUpdate"
+      },
+      "terminationGracePeriodSeconds": 30
     },
     "shell": {
       "_release": {
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "5d94a90dd687b19e3e24f25a6cfdeea292b83137",
+        "revision": "b6a4599262afabdf362474479333bec449403c07",
         "sourceRepository": "anomaly51/playground-shell"
       },
-      "appService": {
-        "name": "shell",
-        "port": 80
+      "affinity": {
+        "nodeAffinity": {
+          "requiredDuringSchedulingIgnoredDuringExecution": {
+            "nodeSelectorTerms": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "node-role.kubernetes.io/control-plane",
+                    "operator": "DoesNotExist"
+                  },
+                  {
+                    "key": "node-role.kubernetes.io/master",
+                    "operator": "DoesNotExist"
+                  }
+                ]
+              }
+            ]
+          }
+        }
       },
-      "component": "frontend",
+      "automountServiceAccountToken": false,
+      "containerName": "shell",
       "env": {},
-      "envSecret": "",
+      "extraVolumeMounts": [
+        {
+          "mountPath": "/tmp",
+          "name": "tmp"
+        },
+        {
+          "mountPath": "/var/cache/nginx",
+          "name": "nginx-cache"
+        },
+        {
+          "mountPath": "/var/run",
+          "name": "nginx-run"
+        }
+      ],
+      "extraVolumes": [
+        {
+          "emptyDir": {
+            "sizeLimit": "32Mi"
+          },
+          "name": "tmp"
+        },
+        {
+          "emptyDir": {
+            "sizeLimit": "64Mi"
+          },
+          "name": "nginx-cache"
+        },
+        {
+          "emptyDir": {
+            "sizeLimit": "16Mi"
+          },
+          "name": "nginx-run"
+        }
+      ],
       "image": {
         "pullPolicy": "IfNotPresent",
         "repository": "harbor.internal.api-api-api.com/playground/shell",
         "tag": "staging@sha256:96b5bf793f81d8fdcf7c067364e4ceabc4a98a4e2dc08449757ed7d43351f79a"
       },
-      "imagePullSecret": "playground-registry",
+      "imagePullSecrets": [
+        {
+          "name": "playground-registry"
+        }
+      ],
+      "includeStandardLabels": false,
+      "labels": {
+        "app.kubernetes.io/name": "shell",
+        "app.kubernetes.io/part-of": "playground"
+      },
+      "livenessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 20,
+        "timeoutSeconds": 3
+      },
+      "name": "shell",
       "nodeSelector": {
         "kubernetes.io/hostname": "general-1-worker-2"
+      },
+      "podLabels": {
+        "app.kubernetes.io/component": "frontend",
+        "app.kubernetes.io/part-of": "playground"
       },
       "podSecurityContext": {
         "fsGroup": 101,
@@ -496,11 +1073,24 @@
           "type": "RuntimeDefault"
         }
       },
-      "probes": {
-        "livenessPath": "/healthz",
-        "readinessPath": "/healthz"
+      "ports": [
+        {
+          "containerPort": 80,
+          "name": "http"
+        }
+      ],
+      "progressDeadlineSeconds": 600,
+      "readinessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
       },
       "replicaCount": 1,
+      "resourceName": "shell",
       "resources": {
         "limits": {
           "cpu": "100m",
@@ -513,23 +1103,7 @@
           "memory": "32Mi"
         }
       },
-      "scratchVolumes": [
-        {
-          "mountPath": "/tmp",
-          "name": "tmp",
-          "sizeLimit": "32Mi"
-        },
-        {
-          "mountPath": "/var/cache/nginx",
-          "name": "nginx-cache",
-          "sizeLimit": "64Mi"
-        },
-        {
-          "mountPath": "/var/run",
-          "name": "nginx-run",
-          "sizeLimit": "16Mi"
-        }
-      ],
+      "revisionHistoryLimit": 2,
       "securityContext": {
         "allowPrivilegeEscalation": false,
         "capabilities": {
@@ -548,30 +1122,127 @@
         "runAsNonRoot": false,
         "runAsUser": 0
       },
-      "serviceAccountName": "playground-runtime"
+      "service": {
+        "enabled": true,
+        "port": 80,
+        "protocol": "TCP",
+        "targetPort": "http",
+        "type": "ClusterIP"
+      },
+      "serviceAccountName": "playground-runtime",
+      "startupProbe": {
+        "failureThreshold": 60,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": 1,
+          "maxUnavailable": 0
+        },
+        "type": "RollingUpdate"
+      },
+      "terminationGracePeriodSeconds": 30
     },
     "topology-mfe": {
       "_release": {
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "5d94a90dd687b19e3e24f25a6cfdeea292b83137",
+        "revision": "b6a4599262afabdf362474479333bec449403c07",
         "sourceRepository": "anomaly51/playground-topology-mfe"
       },
-      "appService": {
-        "name": "topology-mfe",
-        "port": 80
+      "affinity": {
+        "nodeAffinity": {
+          "requiredDuringSchedulingIgnoredDuringExecution": {
+            "nodeSelectorTerms": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "node-role.kubernetes.io/control-plane",
+                    "operator": "DoesNotExist"
+                  },
+                  {
+                    "key": "node-role.kubernetes.io/master",
+                    "operator": "DoesNotExist"
+                  }
+                ]
+              }
+            ]
+          }
+        }
       },
-      "component": "frontend",
+      "automountServiceAccountToken": false,
+      "containerName": "topology-mfe",
       "env": {},
-      "envSecret": "",
+      "extraVolumeMounts": [
+        {
+          "mountPath": "/tmp",
+          "name": "tmp"
+        },
+        {
+          "mountPath": "/var/cache/nginx",
+          "name": "nginx-cache"
+        },
+        {
+          "mountPath": "/var/run",
+          "name": "nginx-run"
+        }
+      ],
+      "extraVolumes": [
+        {
+          "emptyDir": {
+            "sizeLimit": "32Mi"
+          },
+          "name": "tmp"
+        },
+        {
+          "emptyDir": {
+            "sizeLimit": "64Mi"
+          },
+          "name": "nginx-cache"
+        },
+        {
+          "emptyDir": {
+            "sizeLimit": "16Mi"
+          },
+          "name": "nginx-run"
+        }
+      ],
       "image": {
         "pullPolicy": "IfNotPresent",
         "repository": "harbor.internal.api-api-api.com/playground/topology-mfe",
         "tag": "staging@sha256:1ee148bde123f005657eab9785c1ea881a52dc3d16753ee1c7481979b65d472a"
       },
-      "imagePullSecret": "playground-registry",
+      "imagePullSecrets": [
+        {
+          "name": "playground-registry"
+        }
+      ],
+      "includeStandardLabels": false,
+      "labels": {
+        "app.kubernetes.io/name": "topology-mfe",
+        "app.kubernetes.io/part-of": "playground"
+      },
+      "livenessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 20,
+        "timeoutSeconds": 3
+      },
+      "name": "topology-mfe",
       "nodeSelector": {
         "kubernetes.io/hostname": "general-1-worker-2"
+      },
+      "podLabels": {
+        "app.kubernetes.io/component": "frontend",
+        "app.kubernetes.io/part-of": "playground"
       },
       "podSecurityContext": {
         "fsGroup": 101,
@@ -580,11 +1251,24 @@
           "type": "RuntimeDefault"
         }
       },
-      "probes": {
-        "livenessPath": "/healthz",
-        "readinessPath": "/healthz"
+      "ports": [
+        {
+          "containerPort": 80,
+          "name": "http"
+        }
+      ],
+      "progressDeadlineSeconds": 600,
+      "readinessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
       },
       "replicaCount": 1,
+      "resourceName": "topology-mfe",
       "resources": {
         "limits": {
           "cpu": "100m",
@@ -597,23 +1281,7 @@
           "memory": "32Mi"
         }
       },
-      "scratchVolumes": [
-        {
-          "mountPath": "/tmp",
-          "name": "tmp",
-          "sizeLimit": "32Mi"
-        },
-        {
-          "mountPath": "/var/cache/nginx",
-          "name": "nginx-cache",
-          "sizeLimit": "64Mi"
-        },
-        {
-          "mountPath": "/var/run",
-          "name": "nginx-run",
-          "sizeLimit": "16Mi"
-        }
-      ],
+      "revisionHistoryLimit": 2,
       "securityContext": {
         "allowPrivilegeEscalation": false,
         "capabilities": {
@@ -632,30 +1300,127 @@
         "runAsNonRoot": false,
         "runAsUser": 0
       },
-      "serviceAccountName": "playground-runtime"
+      "service": {
+        "enabled": true,
+        "port": 80,
+        "protocol": "TCP",
+        "targetPort": "http",
+        "type": "ClusterIP"
+      },
+      "serviceAccountName": "playground-runtime",
+      "startupProbe": {
+        "failureThreshold": 60,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": 1,
+          "maxUnavailable": 0
+        },
+        "type": "RollingUpdate"
+      },
+      "terminationGracePeriodSeconds": 30
     },
     "traffic-mfe": {
       "_release": {
         "namespace": "playground-staging",
         "policy": "promote",
-        "revision": "5d94a90dd687b19e3e24f25a6cfdeea292b83137",
+        "revision": "b6a4599262afabdf362474479333bec449403c07",
         "sourceRepository": "anomaly51/playground-traffic-mfe"
       },
-      "appService": {
-        "name": "traffic-mfe",
-        "port": 80
+      "affinity": {
+        "nodeAffinity": {
+          "requiredDuringSchedulingIgnoredDuringExecution": {
+            "nodeSelectorTerms": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "node-role.kubernetes.io/control-plane",
+                    "operator": "DoesNotExist"
+                  },
+                  {
+                    "key": "node-role.kubernetes.io/master",
+                    "operator": "DoesNotExist"
+                  }
+                ]
+              }
+            ]
+          }
+        }
       },
-      "component": "frontend",
+      "automountServiceAccountToken": false,
+      "containerName": "traffic-mfe",
       "env": {},
-      "envSecret": "",
+      "extraVolumeMounts": [
+        {
+          "mountPath": "/tmp",
+          "name": "tmp"
+        },
+        {
+          "mountPath": "/var/cache/nginx",
+          "name": "nginx-cache"
+        },
+        {
+          "mountPath": "/var/run",
+          "name": "nginx-run"
+        }
+      ],
+      "extraVolumes": [
+        {
+          "emptyDir": {
+            "sizeLimit": "32Mi"
+          },
+          "name": "tmp"
+        },
+        {
+          "emptyDir": {
+            "sizeLimit": "64Mi"
+          },
+          "name": "nginx-cache"
+        },
+        {
+          "emptyDir": {
+            "sizeLimit": "16Mi"
+          },
+          "name": "nginx-run"
+        }
+      ],
       "image": {
         "pullPolicy": "IfNotPresent",
         "repository": "harbor.internal.api-api-api.com/playground/traffic-mfe",
         "tag": "staging@sha256:20cf87915978bc190702a9de90b87e3538026e977ccafdd5ce5010bd7ebb3a0c"
       },
-      "imagePullSecret": "playground-registry",
+      "imagePullSecrets": [
+        {
+          "name": "playground-registry"
+        }
+      ],
+      "includeStandardLabels": false,
+      "labels": {
+        "app.kubernetes.io/name": "traffic-mfe",
+        "app.kubernetes.io/part-of": "playground"
+      },
+      "livenessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 20,
+        "timeoutSeconds": 3
+      },
+      "name": "traffic-mfe",
       "nodeSelector": {
         "kubernetes.io/hostname": "general-1-worker-2"
+      },
+      "podLabels": {
+        "app.kubernetes.io/component": "frontend",
+        "app.kubernetes.io/part-of": "playground"
       },
       "podSecurityContext": {
         "fsGroup": 101,
@@ -664,11 +1429,24 @@
           "type": "RuntimeDefault"
         }
       },
-      "probes": {
-        "livenessPath": "/healthz",
-        "readinessPath": "/healthz"
+      "ports": [
+        {
+          "containerPort": 80,
+          "name": "http"
+        }
+      ],
+      "progressDeadlineSeconds": 600,
+      "readinessProbe": {
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
       },
       "replicaCount": 1,
+      "resourceName": "traffic-mfe",
       "resources": {
         "limits": {
           "cpu": "100m",
@@ -681,23 +1459,7 @@
           "memory": "32Mi"
         }
       },
-      "scratchVolumes": [
-        {
-          "mountPath": "/tmp",
-          "name": "tmp",
-          "sizeLimit": "32Mi"
-        },
-        {
-          "mountPath": "/var/cache/nginx",
-          "name": "nginx-cache",
-          "sizeLimit": "64Mi"
-        },
-        {
-          "mountPath": "/var/run",
-          "name": "nginx-run",
-          "sizeLimit": "16Mi"
-        }
-      ],
+      "revisionHistoryLimit": 2,
       "securityContext": {
         "allowPrivilegeEscalation": false,
         "capabilities": {
@@ -716,25 +1478,40 @@
         "runAsNonRoot": false,
         "runAsUser": 0
       },
-      "serviceAccountName": "playground-runtime"
+      "service": {
+        "enabled": true,
+        "port": 80,
+        "protocol": "TCP",
+        "targetPort": "http",
+        "type": "ClusterIP"
+      },
+      "serviceAccountName": "playground-runtime",
+      "startupProbe": {
+        "failureThreshold": 60,
+        "httpGet": {
+          "path": "/healthz",
+          "port": "http"
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": 1,
+          "maxUnavailable": 0
+        },
+        "type": "RollingUpdate"
+      },
+      "terminationGracePeriodSeconds": 30
     }
   },
   "branch": "feature/preview-e2e-20261004",
-  "cleanup_completed_at": "2026-10-05T00:36:02Z",
-  "cleanup_started_at": "2026-10-05T00:35:02Z",
-  "created_at": "2026-10-05T00:16:46Z",
-  "expires_at": "2026-10-05T00:46:15Z",
-  "generation": "b7feb2e4-1445-47ea-95c3-947c48f3a725",
-  "images": {
-    "order-service": {
-      "digest": "sha256:fe8c6c364057ab67d93cb80d74eb830884236bcfa20eb5fabf5b88b0c3ef6a47",
-      "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
-      "run_id": 37243667669
-    }
-  },
+  "created_at": "2026-10-05T01:03:10Z",
+  "expires_at": null,
+  "generation": "c5060231-e682-45df-99a1-8cc51115c0ac",
+  "images": {},
   "namespace": "playground-preview-feature-preview-e2e-2026-3adb926f1e",
-  "phase": "closed",
-  "plan_hash": "758f6516ba25a095101d6d095d1628181f59b079e96c55f5eb538a6c6e956391",
+  "phase": "starting",
   "prs": {
     "order-service": {
       "head": "718be008fd5ca32ad61d86eac6d1629c9dc96cc5",
@@ -742,11 +1519,10 @@
       "repository": "anomaly51/playground-order-service"
     }
   },
-  "ready_at": "2026-10-05T00:19:02Z",
-  "revision": "e04285291f1686cb5e4d091e22b0c48aafcc9584",
+  "ready_at": null,
+  "revision": "b6a4599262afabdf362474479333bec449403c07",
   "schema": 1,
-  "startup_deadline": "2026-10-05T00:46:46Z",
-  "terminated_at": "2026-10-05T00:33:02Z",
+  "startup_deadline": "2026-10-05T01:33:10Z",
   "url": "https://playground-preview-feature-preview-e2e-2026-3adb926f1e.internal.api-api-api.com",
   "utilities": {
     "edge": {
