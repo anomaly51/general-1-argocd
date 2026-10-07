@@ -13,7 +13,7 @@ authorization = "Basic " + base64.b64encode(f"admin:{password}".encode()).decode
 
 
 def request(path, payload=None, method=None, dashboards=False):
-    base = "http://opensearch-dashboards:5601" if dashboards else "https://opensearch:9200"
+    base = "http://opensearch-logs-dashboards:5601" if dashboards else "https://opensearch-logs:9200"
     headers = {"Authorization": authorization, "Content-Type": "application/json"}
     if dashboards:
         headers.update({"osd-xsrf": "true", "securitytenant": "global"})
@@ -26,25 +26,13 @@ def request(path, payload=None, method=None, dashboards=False):
 for attempt in range(120):
     try:
         health = request("/_cluster/health")
-        if health["status"] != "red":
+        if health["status"] != "red" and health["number_of_nodes"] == 3:
             break
     except (OSError, ValueError):
         pass
     time.sleep(5)
 else:
     raise RuntimeError("OpenSearch did not become ready")
-
-request("/_plugins/_security/api/roles/log_ingest", {
-    "cluster_permissions": ["cluster:monitor/main", "cluster:monitor/health",
-                            "cluster:monitor/state", "indices:data/write/bulk*"],
-    "index_permissions": [
-        {"index_patterns": ["logs-*"], "allowed_actions": [
-            "indices:admin/create", "indices:admin/mapping/put",
-            "indices:data/write/index", "indices:data/write/bulk*"]},
-        # Data Prepper discovers aliases at startup; this grants no document reads.
-        {"index_patterns": ["*"], "allowed_actions": ["indices:admin/aliases/get"]},
-    ],
-}, "PUT")
 
 policy = {"policy": {
     "description": "Delete General1 daily log indices after seven days.",
@@ -64,20 +52,10 @@ except urllib.error.HTTPError as error:
     if error.code != 404:
         raise
 request(policy_path, policy, "PUT")
-# ISM's config and history indices default to one replica; this lab has one data node.
-request("/_template/ism-history-single-node", {
-    "index_patterns": [".opendistro-ism-managed-index-history-*"],
-    "order": 100,
-    "settings": {"index.auto_expand_replicas": "0-1"},
-}, "PUT")
-request("/.opendistro-ism-*/_settings?expand_wildcards=all&allow_no_indices=true", {
-    "index": {"auto_expand_replicas": "0-1"},
-}, "PUT")
-
 request("/_index_template/logs", {
     "index_patterns": ["logs-*"], "priority": 100,
     "template": {
-        "settings": {"number_of_shards": 1, "number_of_replicas": 0},
+        "settings": {"number_of_shards": 1, "number_of_replicas": 1},
         "mappings": {
             "dynamic_templates": [{"strings": {"match_mapping_type": "string",
                 "mapping": {"type": "keyword", "ignore_above": 512}}}],
