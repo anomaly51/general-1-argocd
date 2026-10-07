@@ -1,0 +1,5 @@
+apiVersion: v2
+name: data-prepper
+description: OpenTelemetry log ingestion into OpenSearch.
+type: application
+version: 0.1.0

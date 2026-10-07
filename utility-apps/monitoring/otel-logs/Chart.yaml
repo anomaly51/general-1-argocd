@@ -1,0 +1,5 @@
+apiVersion: v2
+name: otel-logs
+description: Kubernetes container logs and events.
+type: application
+version: 0.1.0

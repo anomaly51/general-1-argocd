@@ -1,0 +1,207 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-logs
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-logs
+rules:
+  - apiGroups: [""]
+    resources: [pods, namespaces, nodes]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [get, list, watch]
+  - apiGroups: [events.k8s.io]
+    resources: [events]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-logs
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-logs
+subjects:
+  - kind: ServiceAccount
+    name: otel-logs
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: node-logs
+spec:
+  mode: daemonset
+  image: otel/opentelemetry-collector-contrib:0.160.0
+  serviceAccount: otel-logs
+  tolerations:
+    - operator: Exists
+  env:
+    - name: K8S_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: GOMEMLIMIT
+      value: 200MiB
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+  securityContext:
+    runAsUser: 0
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+  volumes:
+    - name: pod-logs
+      hostPath: {path: /var/log/pods, type: Directory}
+    - name: storage
+      hostPath: {path: /var/lib/otel-logs, type: DirectoryOrCreate}
+    - name: ca
+      secret:
+        secretName: logging-ca
+        items:
+          - {key: tls.crt, path: ca.crt}
+  volumeMounts:
+    - {name: pod-logs, mountPath: /var/log/pods, readOnly: true}
+    - {name: storage, mountPath: /var/lib/otel-logs}
+    - {name: ca, mountPath: /etc/otel/ca, readOnly: true}
+  config:
+    extensions:
+      file_storage:
+        directory: /var/lib/otel-logs
+        create_directory: true
+    receivers:
+      filelog:
+        include: [/var/log/pods/*/*/*.log]
+        exclude:
+          - /var/log/pods/monitoring_node-logs-collector-*/*/*.log
+        start_at: end
+        include_file_path: true
+        storage: file_storage
+        retry_on_failure: {enabled: true, max_elapsed_time: 0s}
+        operators:
+          - type: container
+            id: container-parser
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 200
+        spike_limit_mib: 40
+      k8sattributes:
+        auth_type: serviceAccount
+        filter: {node_from_env_var: K8S_NODE_NAME}
+        pod_association:
+          - sources:
+              - {from: resource_attribute, name: k8s.pod.uid}
+        extract:
+          metadata:
+            - k8s.namespace.name
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.node.name
+            - k8s.deployment.name
+      resource:
+        attributes:
+          - {key: k8s.cluster.name, value: general-1, action: upsert}
+          - {key: log.source, value: container, action: upsert}
+      transform:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - merge_maps(cache, ParseJSON(body), "upsert") where IsString(body) and IsMatch(body, "^\\s*\\{")
+              - set(attributes["message"], cache["msg"]) where IsString(cache["msg"])
+              - set(attributes["message"], cache["message"]) where IsString(cache["message"])
+              - set(attributes["correlation.id"], cache["reqId"]) where IsString(cache["reqId"])
+              - set(severity_text, "DEBUG") where cache["level"] == 20 or cache["level"] == "DEBUG"
+              - set(severity_text, "INFO") where cache["level"] == 30 or cache["level"] == "INFO"
+              - set(severity_text, "WARN") where cache["level"] == 40 or cache["level"] == "WARNING"
+              - set(severity_text, "ERROR") where cache["level"] == 50 or cache["level"] == "ERROR"
+              - set(severity_text, "FATAL") where cache["level"] == 60 or cache["level"] == "CRITICAL"
+      batch:
+        timeout: 2s
+        send_batch_size: 256
+        send_batch_max_size: 512
+    exporters:
+      otlp:
+        endpoint: data-prepper.monitoring.svc.cluster.local:21892
+        compression: gzip
+        tls: {ca_file: /etc/otel/ca/ca.crt}
+        retry_on_failure: {enabled: true, max_elapsed_time: 0s}
+        sending_queue:
+          storage: file_storage
+          queue_size: 1000
+          num_consumers: 2
+    service:
+      extensions: [file_storage]
+      pipelines:
+        logs:
+          receivers: [filelog]
+          processors: [memory_limiter, k8sattributes, resource, transform, batch]
+          exporters: [otlp]
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: cluster-events
+spec:
+  mode: deployment
+  replicas: 1
+  image: otel/opentelemetry-collector-contrib:0.160.0
+  serviceAccount: otel-logs
+  nodeSelector:
+    kubernetes.io/hostname: general-1-worker-2
+  resources:
+    requests: {cpu: 20m, memory: 64Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+  volumes:
+    - name: ca
+      secret:
+        secretName: logging-ca
+        items:
+          - {key: tls.crt, path: ca.crt}
+  volumeMounts:
+    - {name: ca, mountPath: /etc/otel/ca, readOnly: true}
+  config:
+    receivers:
+      k8sobjects:
+        auth_type: serviceAccount
+        objects:
+          - name: events
+            group: events.k8s.io
+            mode: watch
+            include_initial_state: true
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 96
+        spike_limit_mib: 20
+      resource:
+        attributes:
+          - {key: k8s.cluster.name, value: general-1, action: upsert}
+          - {key: log.source, value: kubernetes-event, action: upsert}
+      transform:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - set(body, ToJSON(body)) where IsMap(body)
+      batch: {timeout: 2s, send_batch_size: 128}
+    exporters:
+      otlp:
+        endpoint: data-prepper.monitoring.svc.cluster.local:21892
+        compression: gzip
+        tls: {ca_file: /etc/otel/ca/ca.crt}
+        retry_on_failure: {enabled: true, max_elapsed_time: 0s}
+    service:
+      pipelines:
+        logs:
+          receivers: [k8sobjects]
+          processors: [memory_limiter, resource, transform, batch]
+          exporters: [otlp]

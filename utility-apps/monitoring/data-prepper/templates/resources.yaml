@@ -1,0 +1,147 @@
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: data-prepper
+spec:
+  vaultAuthRef: monitoring
+  mount: kv
+  type: kv-v2
+  path: monitoring/opensearch-ingest
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: data-prepper
+    transformation:
+      excludeRaw: true
+      templates:
+        pipelines.yaml:
+          text: |
+            logs:
+              workers: 2
+              delay: 1000
+              source:
+                otel_logs_source:
+                  port: 21892
+                  ssl: true
+                  sslKeyCertChainFile: /certs/tls.crt
+                  sslKeyFile: /certs/tls.key
+                  compression: gzip
+                  thread_count: 4
+                  max_connection_count: 32
+                  output_format: otel
+              buffer:
+                bounded_blocking:
+                  buffer_size: 2048
+                  batch_size: 256
+              sink:
+                - opensearch:
+                    hosts: ["https://opensearch.monitoring.svc.cluster.local:9200"]
+                    cert: /certs/ca.crt
+                    username: ingest
+                    password: {{ `{{ .Secrets.password | mustToJson }}` }}
+                    index_type: management-disabled
+                    index: logs-%{yyyy.MM.dd}
+                    bulk_size: 2
+                    flush_timeout: 2000
+        data-prepper-config.yaml:
+          text: |
+            ssl: false
+            serverPort: 4900
+            authentication:
+              http_basic:
+                username: metrics
+                password: {{ `{{ .Secrets.password | mustToJson }}` }}
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: data-prepper
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: data-prepper
+spec:
+  secretName: data-prepper-tls
+  duration: 8760h
+  renewBefore: 720h
+  privateKey: {algorithm: RSA, size: 2048, encoding: PKCS8}
+  issuerRef: {name: logging-ca, kind: Issuer}
+  dnsNames:
+    - data-prepper
+    - data-prepper.monitoring.svc
+    - data-prepper.monitoring.svc.cluster.local
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-prepper
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: data-prepper}
+  template:
+    metadata:
+      labels: {app: data-prepper}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: general-1-worker-1
+      containers:
+        - name: data-prepper
+          image: opensearchproject/data-prepper:2.16.0
+          env:
+            - {name: JAVA_OPTS, value: "-Xms256m -Xmx512m"}
+          ports:
+            - {name: otlp, containerPort: 21892}
+          startupProbe:
+            tcpSocket: {port: otlp}
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket: {port: otlp}
+          livenessProbe:
+            tcpSocket: {port: otlp}
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            requests: {cpu: 100m, memory: 768Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: config, mountPath: /usr/share/data-prepper/pipelines/pipelines.yaml, subPath: pipelines.yaml, readOnly: true}
+            - {name: config, mountPath: /usr/share/data-prepper/config/data-prepper-config.yaml, subPath: data-prepper-config.yaml, readOnly: true}
+            - {name: tls, mountPath: /certs, readOnly: true}
+      volumes:
+        - name: config
+          secret: {secretName: data-prepper}
+        - name: tls
+          secret: {secretName: data-prepper-tls}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-prepper
+spec:
+  selector: {app: data-prepper}
+  ports:
+    - {name: otlp, port: 21892, targetPort: otlp}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: data-prepper
+spec:
+  podSelector:
+    matchLabels: {app: data-prepper}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [node-logs-collector, cluster-events-collector]
+      ports:
+        - {protocol: TCP, port: 21892}
