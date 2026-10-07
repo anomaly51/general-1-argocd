@@ -16,9 +16,9 @@ spec:
     - opensearch-logs.monitoring.svc.cluster.local
     - '*.opensearch-logs-discovery.monitoring.svc.cluster.local'
     - opensearch-logs-bootstrap-0
-    - opensearch-logs-nodes-0
-    - opensearch-logs-nodes-1
-    - opensearch-logs-nodes-2
+    - opensearch-logs-workers-0
+    - opensearch-logs-workers-1
+    - opensearch-logs-workers-2
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate

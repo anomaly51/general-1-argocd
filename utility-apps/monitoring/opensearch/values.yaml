@@ -1,4 +1,4 @@
-operatorClusterEnabled: false
+operatorClusterEnabled: true
 opensearch:
   fullnameOverride: opensearch
   clusterName: general-1-logs
