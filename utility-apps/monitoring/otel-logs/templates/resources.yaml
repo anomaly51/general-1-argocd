@@ -172,11 +172,11 @@ spec:
     receivers:
       k8sobjects:
         auth_type: serviceAccount
+        include_initial_state: true
         objects:
           - name: events
             group: events.k8s.io
             mode: watch
-            include_initial_state: true
     processors:
       memory_limiter:
         check_interval: 1s
@@ -191,7 +191,7 @@ spec:
         log_statements:
           - context: log
             statements:
-              - set(body, ToJSON(body)) where IsMap(body)
+              - set(body, String(body)) where IsMap(body)
       batch: {timeout: 2s, send_batch_size: 128}
     exporters:
       otlp:

@@ -20,7 +20,7 @@ spec:
               workers: 2
               delay: 1000
               source:
-                otel_logs_source:
+                otlp_logs:
                   port: 21892
                   ssl: true
                   sslKeyCertChainFile: /certs/tls.crt
@@ -39,7 +39,7 @@ spec:
                     cert: /certs/ca.crt
                     username: ingest
                     password: {{ `{{ .Secrets.password | mustToJson }}` }}
-                    index_type: management-disabled
+                    index_type: management_disabled
                     index: logs-%{yyyy.MM.dd}
                     bulk_size: 2
                     flush_timeout: 2000
