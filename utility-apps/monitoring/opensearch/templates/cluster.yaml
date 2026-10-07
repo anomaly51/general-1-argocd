@@ -1,0 +1,146 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: opensearch-logs
+spec:
+  secretName: opensearch-logs-tls
+  commonName: opensearch-logs
+  duration: 8760h
+  renewBefore: 720h
+  privateKey: {algorithm: RSA, size: 2048, encoding: PKCS8}
+  usages: [server auth, client auth]
+  issuerRef: {name: logging-ca, kind: Issuer}
+  dnsNames:
+    - opensearch-logs
+    - opensearch-logs.monitoring.svc
+    - opensearch-logs.monitoring.svc.cluster.local
+    - '*.opensearch-logs-discovery.monitoring.svc.cluster.local'
+    - opensearch-logs-bootstrap-0
+    - opensearch-logs-nodes-0
+    - opensearch-logs-nodes-1
+    - opensearch-logs-nodes-2
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: opensearch-admin
+spec:
+  secretName: opensearch-admin-tls
+  commonName: opensearch-admin
+  duration: 8760h
+  renewBefore: 720h
+  privateKey: {algorithm: RSA, size: 2048, encoding: PKCS8}
+  usages: [client auth]
+  issuerRef: {name: logging-ca, kind: Issuer}
+---
+apiVersion: opensearch.org/v1
+kind: OpenSearchCluster
+metadata:
+  name: opensearch-logs
+spec:
+  general:
+    serviceName: opensearch-logs
+    version: 3.9.0
+    setVMMaxMapCount: true
+    additionalConfig:
+      plugins.security.audit.type: noop
+      plugins.security.restapi.roles_enabled: '[all_access, security_rest_api_access]'
+      cluster.routing.allocation.disk.watermark.low: 8gb
+      cluster.routing.allocation.disk.watermark.high: 5gb
+      cluster.routing.allocation.disk.watermark.flood_stage: 3gb
+  security:
+    tls:
+      transport:
+        generate: false
+        perNode: false
+        secret: {name: opensearch-logs-tls}
+        nodesDn: [CN=opensearch-logs]
+      http:
+        generate: false
+        secret: {name: opensearch-logs-tls}
+        adminDn: [CN=opensearch-admin]
+    config:
+      securityConfigSecret: {name: opensearch-security}
+      adminCredentialsSecret: {name: opensearch-admin}
+      adminSecret: {name: opensearch-admin-tls}
+      operatorClientCert: {name: opensearch-admin-tls}
+      updateJob:
+        resources:
+          requests: {cpu: 50m, memory: 256Mi}
+          limits: {cpu: 500m, memory: 512Mi}
+  bootstrap:
+    nodeSelector:
+      kubernetes.io/hostname: general-1-worker-1
+    jvm: -Xms256m -Xmx256m
+    resources:
+      requests: {cpu: 100m, memory: 768Mi}
+      limits: {cpu: "1", memory: 1Gi}
+  nodePools:
+    - component: nodes
+      replicas: 3
+      roles: [cluster_manager, data, ingest]
+      jvm: -Xms1g -Xmx1g
+      diskSize: 20Gi
+      persistence:
+        pvc:
+          storageClass: local-path
+      resources:
+        requests: {cpu: 250m, memory: 2Gi}
+        limits: {cpu: "2", memory: 2Gi}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [general-1-worker-1, general-1-worker-2, general-1-worker-3]
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  opensearch.org/opensearch-cluster: opensearch-logs
+                  opensearch.org/nodepool: nodes
+  dashboards:
+    enable: true
+    version: 3.9.0
+    replicas: 1
+    opensearchCredentialsSecret: {name: opensearch-dashboards}
+    nodeSelector:
+      kubernetes.io/hostname: general-1-worker-3
+    resources:
+      requests: {cpu: 100m, memory: 512Mi}
+      limits: {cpu: "1", memory: 1Gi}
+    env:
+      - {name: NODE_OPTIONS, value: --max-old-space-size=640}
+    additionalConfig:
+      server.name: General1 Logs
+      opensearch.ssl.verificationMode: full
+      opensearch.requestHeadersAllowlist: '[authorization, securitytenant]'
+      opensearch_security.cookie.secure: 'true'
+      opensearch_security.multitenancy.enabled: 'true'
+      opensearch_security.multitenancy.tenants.preferred: '[Global]'
+      opensearch_security.readonly_mode.roles: '[logs_read]'
+      uiSettings.overrides: '{defaultRoute: /app/discover}'
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: opensearch-logs
+spec:
+  podSelector:
+    matchLabels:
+      opensearch.org/opensearch-cluster: opensearch-logs
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - {protocol: TCP, port: 9200}
+    - from:
+        - podSelector:
+            matchLabels:
+              opensearch.org/opensearch-cluster: opensearch-logs
+      ports:
+        - {protocol: TCP, port: 9300}
