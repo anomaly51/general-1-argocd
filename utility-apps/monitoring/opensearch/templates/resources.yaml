@@ -25,25 +25,6 @@ metadata:
 spec:
   ca: {secretName: logging-ca}
 ---
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: opensearch
-spec:
-  secretName: opensearch-tls
-  commonName: opensearch
-  duration: 8760h
-  renewBefore: 720h
-  privateKey: {algorithm: RSA, size: 2048, encoding: PKCS8}
-  usages: [server auth, client auth]
-  issuerRef: {name: logging-ca, kind: Issuer}
-  dnsNames:
-    - opensearch
-    - opensearch.monitoring.svc
-    - opensearch.monitoring.svc.cluster.local
-    - opensearch-0
-    - '*.opensearch-headless.monitoring.svc.cluster.local'
----
 {{- range $name := list "admin" "dashboards" "security" "viewer" }}
 apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultStaticSecret
@@ -60,21 +41,3 @@ spec:
     name: opensearch-{{ $name }}
 ---
 {{- end }}
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: opensearch
-spec:
-  podSelector:
-    matchLabels: {app.kubernetes.io/name: opensearch, app.kubernetes.io/instance: opensearch}
-  policyTypes: [Ingress]
-  ingress:
-    - from:
-        - podSelector: {}
-      ports:
-        - {protocol: TCP, port: 9200}
-    - from:
-        - podSelector:
-            matchLabels: {app.kubernetes.io/name: opensearch, app.kubernetes.io/instance: opensearch}
-      ports:
-        - {protocol: TCP, port: 9300}
