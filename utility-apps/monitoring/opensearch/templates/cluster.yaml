@@ -130,7 +130,7 @@ spec:
       opensearch_security.cookie.secure: 'true'
       opensearch_security.multitenancy.enabled: 'true'
       opensearch_security.multitenancy.tenants.preferred: '[Global]'
-      opensearch_security.readonly_mode.roles: '[logs_read]'
+      # logs_read enforces read-only data access; UI readonly_mode hides Discover.
       uiSettings.overrides: '{defaultRoute: /app/discover}'
 ---
 apiVersion: networking.k8s.io/v1
