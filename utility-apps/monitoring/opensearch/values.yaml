@@ -1,0 +1,48 @@
+opensearch:
+  fullnameOverride: opensearch
+  clusterName: general-1-logs
+  masterService: opensearch
+  singleNode: true
+  roles: [cluster_manager, data, ingest]
+  nodeSelector:
+    kubernetes.io/hostname: general-1-worker-2
+  opensearchJavaOpts: -Xms2g -Xmx2g
+  resources:
+    requests: {cpu: 500m, memory: 4Gi}
+    limits: {cpu: "2", memory: 4Gi}
+  persistence:
+    storageClass: local-path
+    size: 20Gi
+  sysctlInit:
+    enabled: true
+  extraEnvs:
+    - {name: DISABLE_INSTALL_DEMO_CONFIG, value: "true"}
+  secretMounts:
+    - name: tls
+      secretName: opensearch-tls
+      path: /usr/share/opensearch/config/tls
+  securityConfig:
+    config:
+      securityConfigSecret: opensearch-security
+  config:
+    opensearch.yml: |
+      cluster.name: general-1-logs
+      network.host: 0.0.0.0
+      plugins.security.ssl.transport.pemcert_filepath: tls/tls.crt
+      plugins.security.ssl.transport.pemkey_filepath: tls/tls.key
+      plugins.security.ssl.transport.pemtrustedcas_filepath: tls/ca.crt
+      plugins.security.ssl.transport.enforce_hostname_verification: true
+      plugins.security.ssl.http.enabled: true
+      plugins.security.ssl.http.pemcert_filepath: tls/tls.crt
+      plugins.security.ssl.http.pemkey_filepath: tls/tls.key
+      plugins.security.ssl.http.pemtrustedcas_filepath: tls/ca.crt
+      plugins.security.allow_default_init_securityindex: true
+      plugins.security.nodes_dn:
+        - CN=opensearch
+      plugins.security.authcz.admin_dn:
+        - CN=opensearch-admin
+      plugins.security.restapi.roles_enabled: [all_access, security_rest_api_access]
+      plugins.security.audit.type: noop
+      cluster.routing.allocation.disk.watermark.low: 8gb
+      cluster.routing.allocation.disk.watermark.high: 5gb
+      cluster.routing.allocation.disk.watermark.flood_stage: 3gb

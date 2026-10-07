@@ -1,0 +1,37 @@
+opensearch-dashboards:
+  fullnameOverride: opensearch-dashboards
+  opensearchHosts: https://opensearch.monitoring.svc.cluster.local:9200
+  opensearchAccount:
+    secret: opensearch-dashboards
+  serviceAccount:
+    automountServiceAccountToken: false
+  rbac:
+    create: false
+  nodeSelector:
+    kubernetes.io/hostname: general-1-worker-2
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1Gi}
+  extraEnvs:
+    - {name: NODE_OPTIONS, value: --max-old-space-size=640}
+  extraVolumes:
+    - name: ca
+      secret:
+        secretName: logging-ca
+        items:
+          - {key: tls.crt, path: ca.crt}
+  extraVolumeMounts:
+    - {name: ca, mountPath: /usr/share/opensearch-dashboards/config/tls, readOnly: true}
+  config:
+    opensearch_dashboards.yml:
+      server.host: 0.0.0.0
+      server.name: General1 Logs
+      opensearch.ssl.verificationMode: full
+      opensearch.ssl.certificateAuthorities: [/usr/share/opensearch-dashboards/config/tls/ca.crt]
+      opensearch.requestHeadersAllowlist: [authorization, securitytenant]
+      opensearch_security.cookie.secure: true
+      opensearch_security.multitenancy.enabled: true
+      opensearch_security.multitenancy.tenants.preferred: [Global]
+      opensearch_security.readonly_mode.roles: [logs_read]
+      uiSettings.overrides:
+        defaultRoute: /app/discover

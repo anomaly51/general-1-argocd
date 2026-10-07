@@ -1,0 +1,80 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: logging-selfsigned
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: logging-ca
+spec:
+  isCA: true
+  commonName: general-1-logging-ca
+  secretName: logging-ca
+  duration: 87600h
+  renewBefore: 8760h
+  privateKey: {algorithm: RSA, size: 2048, encoding: PKCS8}
+  issuerRef: {name: logging-selfsigned, kind: Issuer}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: logging-ca
+spec:
+  ca: {secretName: logging-ca}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: opensearch
+spec:
+  secretName: opensearch-tls
+  commonName: opensearch
+  duration: 8760h
+  renewBefore: 720h
+  privateKey: {algorithm: RSA, size: 2048, encoding: PKCS8}
+  usages: [server auth, client auth]
+  issuerRef: {name: logging-ca, kind: Issuer}
+  dnsNames:
+    - opensearch
+    - opensearch.monitoring.svc
+    - opensearch.monitoring.svc.cluster.local
+    - opensearch-0
+    - '*.opensearch-headless.monitoring.svc.cluster.local'
+---
+{{- range $name := list "admin" "dashboards" "security" "viewer" }}
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: opensearch-{{ $name }}
+spec:
+  vaultAuthRef: monitoring
+  mount: kv
+  type: kv-v2
+  path: monitoring/opensearch-{{ $name }}
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: opensearch-{{ $name }}
+---
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: opensearch
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: opensearch, app.kubernetes.io/instance: opensearch}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - {protocol: TCP, port: 9200}
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: opensearch, app.kubernetes.io/instance: opensearch}
+      ports:
+        - {protocol: TCP, port: 9300}
