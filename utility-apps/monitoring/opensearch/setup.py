@@ -5,6 +5,7 @@ import pathlib
 import ssl
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 context = ssl.create_default_context(cafile="/certs/ca.crt")
@@ -78,8 +79,17 @@ except urllib.error.HTTPError as error:
 
 for attempt in range(120):
     try:
+        query = urllib.parse.urlencode({
+            "pattern": "logs-*",
+            "meta_fields": ["_source", "_id", "_type", "_index", "_score"],
+        }, doseq=True)
+        fields = request("/api/index_patterns/_fields_for_wildcard?" + query,
+                         dashboards=True)["fields"]
+        if not any(field["name"] == "time" and field["type"] == "date" for field in fields):
+            raise ValueError("Log time field is not mapped as a date")
         request("/api/saved_objects/index-pattern/general1-logs?overwrite=true", {
-            "attributes": {"title": "logs-*", "timeFieldName": "time"},
+            "attributes": {"title": "logs-*", "timeFieldName": "time",
+                           "fields": json.dumps(fields)},
         }, "POST", dashboards=True)
         request("/api/opensearch-dashboards/settings", {
             "changes": {"defaultIndex": "general1-logs"},
