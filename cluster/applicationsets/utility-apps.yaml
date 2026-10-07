@@ -20,7 +20,8 @@ spec:
       finalizers:
         - resources-finalizer.argocd.argoproj.io
       annotations:
-        argocd.argoproj.io/compare-options: ServerSideDiff=true
+        # The OTel webhook defaults the config object; include it so config edits are detected.
+        argocd.argoproj.io/compare-options: 'ServerSideDiff=true{{ if eq .path.path "utility-apps/monitoring/otel-logs" }},IncludeMutationWebhook=true{{ end }}'
     spec:
       project: gitops-apps
       source:
