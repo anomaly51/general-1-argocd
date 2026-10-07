@@ -36,7 +36,7 @@ spec:
                   batch_size: 256
               sink:
                 - opensearch:
-                    hosts: ["https://opensearch.monitoring.svc.cluster.local:9200"]
+                    hosts: ["https://opensearch-logs.monitoring.svc.cluster.local:9200"]
                     cert: /certs/ca.crt
                     username: ingest
                     password: {{ `{{ .Secrets.password | mustToJson }}` }}
