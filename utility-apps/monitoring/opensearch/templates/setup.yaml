@@ -5,6 +5,8 @@ metadata:
 data:
   setup.py: |
 {{ .Files.Get "setup.py" | indent 4 }}
+  downloader.py: |
+{{ .Files.Get "downloader.py" | indent 4 }}
 ---
 apiVersion: batch/v1
 kind: Job

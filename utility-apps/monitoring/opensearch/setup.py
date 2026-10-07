@@ -8,6 +8,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from downloader import BOT_FILTER, MAPPING, PIPELINE, PIPELINE_ID, saved_objects
+
 context = ssl.create_default_context(cafile="/certs/ca.crt")
 password = pathlib.Path("/credentials/password").read_text().strip()
 authorization = "Basic " + base64.b64encode(f"admin:{password}".encode()).decode()
@@ -53,10 +55,12 @@ except urllib.error.HTTPError as error:
     if error.code != 404:
         raise
 request(policy_path, policy, "PUT")
+request("/_ingest/pipeline/" + PIPELINE_ID, PIPELINE, "PUT")
 request("/_index_template/logs", {
     "index_patterns": ["logs-*"], "priority": 100,
     "template": {
-        "settings": {"number_of_shards": 1, "number_of_replicas": 1},
+        "settings": {"number_of_shards": 1, "number_of_replicas": 1,
+                     "index.default_pipeline": PIPELINE_ID},
         "mappings": {
             "dynamic_templates": [{"strings": {"match_mapping_type": "string",
                 "mapping": {"type": "keyword", "ignore_above": 512}}}],
@@ -65,6 +69,7 @@ request("/_index_template/logs", {
                 "observedTimestamp": {"type": "date"},
                 "body": {"type": "text"},
                 "attributes": {"properties": {"message": {"type": "text"}}},
+                **MAPPING["properties"],
             },
         },
     },
@@ -76,6 +81,25 @@ except urllib.error.HTTPError as error:
     details = json.load(error)
     if details.get("error", {}).get("type") != "resource_already_exists_exception":
         raise
+
+# Apply the same additive enrichment to retained bot records, never re-ingest them.
+request("/logs-*/_mapping", MAPPING, "PUT")
+request("/logs-*/_settings", {"index.default_pipeline": PIPELINE_ID}, "PUT")
+task = request("/logs-*/_update_by_query?pipeline=" + PIPELINE_ID +
+               "&conflicts=proceed&refresh=true&wait_for_completion=false&requests_per_second=100", {
+    "query": {"bool": {"filter": BOT_FILTER,
+                       "must_not": [{"term": {"downloader.parser_version": 1}}]}},
+}, "POST")["task"]
+for attempt in range(240):
+    result = request("/_tasks/" + task)
+    if result.get("completed"):
+        if result.get("error") or result.get("response", {}).get("failures"):
+            raise RuntimeError("Downloader log enrichment failed")
+        print("Downloader records enriched:", result["response"]["updated"])
+        break
+    time.sleep(2)
+else:
+    raise RuntimeError("Downloader log enrichment did not finish")
 
 for attempt in range(120):
     try:
@@ -99,4 +123,9 @@ for attempt in range(120):
         time.sleep(5)
 else:
     raise RuntimeError("Dashboards data view setup failed")
-print("Log retention, index template and Dashboards data view configured.")
+
+for saved in saved_objects():
+    request(f'/api/saved_objects/{saved["type"]}/{saved["id"]}?overwrite=true', {
+        "attributes": saved["attributes"], "references": saved.get("references", []),
+    }, "POST", dashboards=True)
+print("Log retention, data view and Downloader Bot Overview configured.")
