@@ -116,9 +116,17 @@ spec:
       limits: {cpu: "1", memory: 1Gi}
     env:
       - {name: NODE_OPTIONS, value: --max-old-space-size=640}
+    additionalVolumes:
+      - name: logging-ca
+        path: /usr/share/opensearch-dashboards/config/logging-ca
+        secret:
+          secretName: logging-ca
+          items:
+            - {key: tls.crt, path: ca.crt}
     additionalConfig:
       server.name: General1 Logs
       opensearch.ssl.verificationMode: full
+      opensearch.ssl.certificateAuthorities: '[/usr/share/opensearch-dashboards/config/logging-ca/ca.crt]'
       opensearch.requestHeadersAllowlist: '[authorization, securitytenant]'
       opensearch_security.cookie.secure: 'true'
       opensearch_security.multitenancy.enabled: 'true'
