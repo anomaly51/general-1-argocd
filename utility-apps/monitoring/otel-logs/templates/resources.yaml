@@ -35,6 +35,8 @@ apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: node-logs
+  annotations:
+    argocd.argoproj.io/sync-options: ServerSideApply=false
 spec:
   mode: daemonset
   image: otel/opentelemetry-collector-contrib:0.160.0
@@ -150,6 +152,8 @@ apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: cluster-events
+  annotations:
+    argocd.argoproj.io/sync-options: ServerSideApply=false
 spec:
   mode: deployment
   replicas: 1
