@@ -52,6 +52,10 @@ except urllib.error.HTTPError as error:
     if error.code != 404:
         raise
 request(policy_path, policy, "PUT")
+# ISM's own index defaults to one replica; this lab has one data node.
+request("/.opendistro-ism-config/_settings", {
+    "index": {"auto_expand_replicas": "0-1"},
+}, "PUT")
 
 request("/_index_template/logs", {
     "index_patterns": ["logs-*"], "priority": 100,
