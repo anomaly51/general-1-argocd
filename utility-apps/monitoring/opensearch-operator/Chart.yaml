@@ -1,0 +1,9 @@
+apiVersion: v2
+name: opensearch-operator
+description: Official operator managing OpenSearch and Dashboards.
+type: application
+version: 0.1.0
+dependencies:
+  - name: opensearch-operator
+    version: 3.0.14
+    repository: https://opensearch-project.github.io/opensearch-k8s-operator/
