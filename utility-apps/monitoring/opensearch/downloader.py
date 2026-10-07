@@ -209,20 +209,18 @@ def saved_objects():
         return {"type": "terms", "schema": schema,
                 "params": {"field": "downloader." + field, "size": 12, "order": "desc", "orderBy": "1"}}
 
-    add("notes", "How to read this overview", "markdown", {"markdown":
-        "**Downloader Bot · Overview** — Telegram application logs only. "
-        "Errors count **failed steps**, including recovered downloads; not failed requests. "
-        "Timings cover logged download/encoding stages, not end-to-end latency. "
-        "Request IDs exist for the proxy flow. Raw logs remain available in Discover.", "openLinksInNewTab": False}, [], (0, 0, 48, 3))
+    add("notes", "Reading the overview", "markdown", {"markdown":
+        "Errors count **failed steps**, not failed requests. Timings cover direct download and slideshow only. "
+        "Source platforms are known only for proxy downloads.", "openLinksInNewTab": False}, [], (0, 0, 48, 4))
     for i, (slug, title, query) in enumerate([
         ("received", "Incoming messages", 'downloader.event:"link_received"'),
         ("sent", "Content sent", 'downloader.event:"content_sent"'),
-        ("proxy-starts", "Proxy downloads started", 'downloader.event:"start"'),
-        ("errors", "Error events · not failed requests", 'downloader.outcome:"error"'),
+        ("proxy-starts", "Proxy starts", 'downloader.event:"start"'),
+        ("errors", "Error events", 'downloader.outcome:"error"'),
     ]):
         add(slug, title, "metric", {"metric": {"style": {"fontSize": 32}, "labels": {"show": False},
             "colorSchema": "Greens", "colorsRange": [{"from": 0, "to": 10000}], "invertColors": False,
-            "percentageMode": False, "useRanges": False}}, [count()], (i * 12, 3, 12, 5), query)
+            "percentageMode": False, "useRanges": False}}, [count()], (i * 12, 4, 12, 5), query)
 
     filters = {"type": "filters", "schema": "group", "params": {"filters": [
         {"input": {"query": 'downloader.event:"' + event + '"', "language": "kuery"}, "label": label}
@@ -237,25 +235,25 @@ def saved_objects():
         "seriesParams": [{"show": True, "type": "histogram", "mode": "normal", "data": {"id": "1", "label": "Events"},
                           "valueAxis": "ValueAxis-1", "drawLinesBetweenPoints": True, "showCircles": False}]},
         [count(), {"type": "date_histogram", "schema": "segment", "params": {"field": "time", "interval": "auto",
-                                                                                 "min_doc_count": 0}}, filters], (0, 8, 32, 11))
+                                                                                 "min_doc_count": 0}}, filters], (0, 9, 32, 11))
     pie = {"type": "pie", "isDonut": True, "addLegend": True, "addTooltip": True, "legendPosition": "bottom",
            "labels": {"show": False}}
-    add("sources", "Incoming messages by platform", "pie", pie, [count(), terms("platform")], (32, 8, 16, 11),
-        'downloader.event:"link_received"')
+    add("sources", "Proxy sources", "pie", pie, [count(), terms("platform")], (32, 9, 16, 11),
+        'downloader.event:"start"')
     table = {"perPage": 10, "showPartialRows": False, "showMetricsAtAllLevels": False, "showTotal": False,
              "totalFunc": "sum"}
-    add("errors-by-stage", "Errors by stage · recovered steps included", "table", table,
-        [count("Error events"), terms("stage"), terms("summary")], (0, 19, 24, 10), 'downloader.outcome:"error"')
-    add("download-events", "Download outcomes · individual stages", "table", table,
-        [count(), terms("summary")], (24, 19, 24, 10),
+    add("errors-by-stage", "Errors by stage", "table", table,
+        [count("Error events"), terms("stage", "bucket")], (0, 20, 24, 10), 'downloader.outcome:"error"')
+    add("download-events", "Download outcomes · steps", "table", table,
+        [count(), terms("summary", "bucket")], (24, 20, 24, 10),
         'downloader.event:("direct_download_completed" OR "direct_download_failed" OR "telegram_media_ok" OR '
         '"download_media_ok" OR "photo_album_video_ok" OR "response_timeout" OR "download_exhausted")')
-    add("duration", "Recorded stage duration · seconds", "table", table,
+    add("duration", "Stage duration (s)", "table", table,
         [count("Samples"), {"type": "avg", "schema": "metric", "params": {"field": "downloader.duration_seconds", "customLabel": "Average (s)"}},
          {"type": "max", "schema": "metric", "params": {"field": "downloader.duration_seconds", "customLabel": "Max (s)"}},
-         terms("stage")], (0, 29, 24, 9), 'downloader.duration_seconds:*')
-    add("media", "Media types · send attempts and proxy handoffs", "pie", pie,
-        [count(), terms("content_type")], (24, 29, 24, 9),
+         terms("stage", "bucket")], (0, 30, 24, 9), 'downloader.duration_seconds:*')
+    add("media", "Media types · prepared", "pie", pie,
+        [count(), terms("content_type")], (24, 30, 24, 9),
         '(downloader.event:"send_started" AND NOT downloader.content_type:"telegram_media") OR downloader.event:"telegram_media_ok"')
     source = {"query": {"language": "kuery", "query": base_query + ' AND NOT downloader.event:"application_message"'},
               "filter": [], "indexRefName": index_ref["name"]}
@@ -263,12 +261,12 @@ def saved_objects():
         "title": "Recent events · expand a row for raw log", "description": "Overview columns omit chat IDs, URLs and instructions.",
         "columns": ["downloader.stage", "downloader.summary", "downloader.level", "downloader.request_id"],
         "sort": [["time", "desc"]], "kibanaSavedObjectMeta": {"searchSourceJSON": json.dumps(source)}}})
-    panel("downloader-recent-events", "search", (0, 38, 48, 15))
+    panel("downloader-recent-events", "search", (0, 39, 48, 15))
     references = [{"name": p["panelRefName"], "type": p["type"], "id": p.pop("_id")} for p in panels]
     objects.append({"type": "dashboard", "id": "downloader-bot-overview", "references": references, "attributes": {
         "title": "Downloader Bot Overview", "description": "Activity, download paths, errors and recent Telegram bot events.",
         "panelsJSON": json.dumps(panels), "optionsJSON": json.dumps({"useMargins": True, "hidePanelTitles": False}),
-        "timeRestore": True, "timeFrom": "now-7d", "timeTo": "now", "refreshInterval": {"pause": False, "value": 60000},
+        "timeRestore": True, "timeFrom": "now-24h", "timeTo": "now", "refreshInterval": {"pause": False, "value": 60000},
         "version": 1, "kibanaSavedObjectMeta": {"searchSourceJSON": json.dumps({"query": {"language": "kuery", "query": ""}, "filter": []})},
     }})
     return objects

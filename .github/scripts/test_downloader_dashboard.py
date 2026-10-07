@@ -47,7 +47,10 @@ class DownloaderDashboardTests(unittest.TestCase):
         fields = module.MAPPING["properties"]["downloader"]["properties"]
         for item in objects:
             if item["type"] == "visualization":
-                for agg in json.loads(item["attributes"]["visState"])["aggs"]:
+                state = json.loads(item["attributes"]["visState"])
+                for agg in state["aggs"]:
+                    if state["type"] == "table" and agg["type"] == "terms":
+                        self.assertEqual(agg["schema"], "bucket")
                     field = agg["params"].get("field", "")
                     if field.startswith("downloader."):
                         self.assertIn(field.removeprefix("downloader."), fields)
