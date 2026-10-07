@@ -1,3 +1,4 @@
+{{- if .Values.operatorClusterEnabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -51,3 +52,4 @@ spec:
             secretName: logging-ca
             items:
               - {key: tls.crt, path: ca.crt}
+{{- end }}
