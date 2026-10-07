@@ -195,6 +195,11 @@ spec:
         log_statements:
           - context: log
             statements:
+              - set(time, observed_time) where time_unix_nano == 0
+              - set(time, Now()) where time_unix_nano == 0
+              - set(attributes["message"], body["object"]["note"]) where IsString(body["object"]["note"])
+              - set(severity_text, "WARN") where body["object"]["type"] == "Warning"
+              - set(severity_text, "INFO") where body["object"]["type"] == "Normal"
               - set(body, String(body)) where IsMap(body)
       batch: {timeout: 2s, send_batch_size: 128}
     exporters:
