@@ -34,6 +34,18 @@ for attempt in range(120):
 else:
     raise RuntimeError("OpenSearch did not become ready")
 
+request("/_plugins/_security/api/roles/log_ingest", {
+    "cluster_permissions": ["cluster:monitor/main", "cluster:monitor/health",
+                            "cluster:monitor/state", "indices:data/write/bulk*"],
+    "index_permissions": [
+        {"index_patterns": ["logs-*"], "allowed_actions": [
+            "indices:admin/create", "indices:admin/mapping/put",
+            "indices:data/write/index", "indices:data/write/bulk*"]},
+        # Data Prepper discovers aliases at startup; this grants no document reads.
+        {"index_patterns": ["*"], "allowed_actions": ["indices:admin/aliases/get"]},
+    ],
+}, "PUT")
+
 policy = {"policy": {
     "description": "Delete General1 daily log indices after seven days.",
     "default_state": "retain",
