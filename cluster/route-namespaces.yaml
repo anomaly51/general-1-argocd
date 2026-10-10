@@ -20,14 +20,6 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: authentik
-  labels:
-    gateway.api-api-api.com/public: "true"
-    gateway.api-api-api.com/internal: "true"
----
-apiVersion: v1
-kind: Namespace
-metadata:
   name: database-system
   labels:
     gateway.api-api-api.com/internal: "true"

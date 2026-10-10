@@ -17,8 +17,7 @@ Connect with `rtk proxy connect-cluster general-1-k3s`, then open
 `https://argo-server.argo-workflows.svc.cluster.local:2746` using the service
 mapping. Argo serves HTTPS with its own certificate and requires Kubernetes
 bearer-token authentication. We expose no Ingress, HTTPRoute, NodePort, or
-LoadBalancer. Authentik integration needs a dedicated provider/client and a
-Vault-backed secret before we add a route.
+LoadBalancer. Access remains private through the Kubernetes service mapping.
 
 An operator can issue a short-lived token for service account `argo-viewer` in
 `argo-workflows` through Kubernetes TokenRequest and enter `Bearer <token>` in
