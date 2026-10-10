@@ -1,10 +1,10 @@
 _release:
-  revision: 0.1.18
+  revision: 0.1.19
   repository: harbor.internal.api-api-api.com/cutline-studio
   sourceRepository: anomaly51/cutline-studio
-  sourceCommit: abae812bf042f05b1790df306d22a7b1b92786ec
+  sourceCommit: cf9b104b5ad7816be57d2e710e17b601f9a5a282
   sourceBranch: main
-  runUrl: https://github.com/anomaly51/cutline-studio/commit/abae812bf042f05b1790df306d22a7b1b92786ec
+  runUrl: https://github.com/anomaly51/cutline-studio/actions/runs/38094548754
   imageKeys:
   - images.api
   - images.frontend
@@ -12,15 +12,11 @@ images:
   api:
     repository: harbor.internal.api-api-api.com/cutline-studio/api
     pullPolicy: IfNotPresent
-    tag: sha-abae812bf042@sha256:106b89d7684463e47a08d2cea8179f0e43846b5eb953fc2a6ee10049ed32383a
+    tag: sha-cf9b104b5ad7@sha256:cb1581354110d8a6f108abc14047554155f477a148be8638cf279fd045e10b50
   frontend:
     repository: harbor.internal.api-api-api.com/cutline-studio/frontend
     pullPolicy: IfNotPresent
-    tag: sha-abae812bf042@sha256:013b27e9f28192c5e0caf08038097d080713e768f6578f2aeba3bc7f077a22a1
-  oauth2Proxy:
-    repository: quay.io/oauth2-proxy/oauth2-proxy
-    tag: v7.15.3
-    pullPolicy: IfNotPresent
+    tag: sha-cf9b104b5ad7@sha256:10c9c1c7c91bb9a50b469b39a16dbb7190f465a212a64556848332d2af1d9250
   postgres:
     repository: docker.io/library/postgres
     tag: 17-bookworm
@@ -28,10 +24,10 @@ images:
 replicas:
   api: 1
   frontend: 1
-  oauth2Proxy: 1
 migration:
   enabled: false
 routes:
+  enabled: true
   hostname: cutline-general1.api-api-api.com
   gatewayName: public
   gatewayNamespace: networking
@@ -45,7 +41,6 @@ vault:
   authMount: kubernetes
   role: cutline-studio
   envPath: apps/cutline-studio/env
-  authPath: apps/cutline-studio/auth
   refreshAfter: 1m
 storage:
   className: nfs-csi
@@ -61,17 +56,9 @@ api:
   purgeLegacyData: false
   telegramBotEnabled: false
   telegramDailyMemesEnabled: false
-auth:
-  allowedGroup: cutline-studio-owner
-  cookieExpire: 8h
-  cookieRefresh: 15m
-  upstreamTimeout: 30m
-  trustedProxyCIDR: 10.42.0.0/16
 networkPolicy:
   gatewayNamespace: kube-system
   gatewayPodLabel: traefik
-  identityNamespace: authentik
-  internalGatewayCIDR: 192.168.1.3/32
 resources:
   api:
     requests:
@@ -89,13 +76,6 @@ resources:
     limits:
       cpu: 100m
       memory: 128Mi
-  oauth2Proxy:
-    requests:
-      cpu: 20m
-      memory: 64Mi
-    limits:
-      cpu: 250m
-      memory: 192Mi
   postgres:
     requests:
       cpu: 100m

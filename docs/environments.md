@@ -183,7 +183,8 @@ Argo discovers isolated dev/staging profiles for Shisha backend/frontend, CRM,
 Online Shop and Uptime Monitor. Uptime uses separate RabbitMQ users/vhosts; its
 non-production bot has zero replicas and no Telegram token. Optional production
 email, payment and Google OAuth credentials are excluded from these test profiles.
-Cutline remains prod-only until separate owner-gated OIDC providers are configured.
+Cutline remains prod-only. Its public route reaches the frontend and same-origin
+API directly without a login layer; application and database storage are retained.
 Standalone Telegram bots are permanently prod-only under the current policy.
 The GitHub App `anomaly51-gitops-ci` is installed only on `general-1-argocd`;
 its validated private key is stored in Vault. Initial profile images are pinned

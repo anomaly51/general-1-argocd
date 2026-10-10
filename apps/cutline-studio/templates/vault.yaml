@@ -75,25 +75,6 @@ spec:
 apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultStaticSecret
 metadata:
-  name: {{ .Release.Name }}-auth
-  annotations:
-    argocd.argoproj.io/sync-wave: "-1"
-spec:
-  vaultAuthRef: {{ .Release.Name }}
-  mount: {{ .Values.vault.mount }}
-  type: kv-v2
-  path: {{ .Values.vault.authPath }}
-  refreshAfter: {{ .Values.vault.refreshAfter }}
-  destination:
-    create: true
-    name: {{ .Release.Name }}-auth
-  rolloutRestartTargets:
-    - kind: Deployment
-      name: {{ .Release.Name }}-oauth2-proxy
----
-apiVersion: secrets.hashicorp.com/v1beta1
-kind: VaultStaticSecret
-metadata:
   name: {{ .Release.Name }}-registry
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
