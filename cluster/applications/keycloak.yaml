@@ -5,18 +5,18 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/compare-options: ServerSideDiff=true,IncludeMutationWebhook=true
-  finalizers: [resources-finalizer.argocd.argoproj.io]
+  finalizers: []
 spec:
   project: gitops-apps
   source:
     repoURL: https://github.com/anomaly51/general-1-argocd.git
-    targetRevision: main
+    targetRevision: a94c0c492dc18971e49b67b729fe948ea75affb1
     path: cluster/keycloak
   destination:
     server: https://kubernetes.default.svc
     namespace: keycloak
   syncPolicy:
-    automated: {prune: true, selfHeal: true}
+    automated: {enabled: false, prune: false, selfHeal: false}
     retry:
       limit: 5
       backoff: {duration: 10s, factor: 2, maxDuration: 3m}
