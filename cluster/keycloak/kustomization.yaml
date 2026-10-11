@@ -8,3 +8,4 @@ resources:
   - routes.yaml
   - network.yaml
   - backup.yaml
+  - acceptance.yaml
