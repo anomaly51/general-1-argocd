@@ -29,11 +29,17 @@ spec:
     postgres:
       secret: {name: postgres-ca}
   additionalOptions:
+    - {name: metrics-enabled, value: "true"}
     - {name: db-tls-mode, value: verify-server}
     - {name: db-tls-trust-store-file, value: /opt/keycloak/conf/truststores/secret-postgres-ca/ca.crt}
     - {name: http-max-queued-requests, value: "100"}
   scheduling:
     affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels: {app: keycloak, app.kubernetes.io/component: server}
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
