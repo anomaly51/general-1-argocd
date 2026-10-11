@@ -19,3 +19,4 @@ resources:
   - operators/rabbitmq-topology-operator.yaml
   - operators/keycloak.yaml
   - operators/barman-cloud.yaml
+  - applications/keycloak.yaml

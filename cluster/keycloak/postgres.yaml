@@ -1,0 +1,43 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.11-202610050823-minimal-trixie@sha256:ca2c3bb893d185fe4e5d0401a010454bd87dcb67c53003c38fd828804928f5d9
+  inheritedMetadata:
+    annotations:
+      argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak
+      secret: {name: keycloak-db}
+  managed:
+    roles:
+      - name: keycloak
+        login: true
+        passwordSecret: {name: keycloak-db}
+  storage:
+    storageClass: local-path
+    size: 5Gi
+  affinity:
+    podAntiAffinityType: required
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - {key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 768Mi}
+  postgresql:
+    pg_hba:
+      - hostnossl all all all reject
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: backups

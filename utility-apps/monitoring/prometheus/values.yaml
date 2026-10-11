@@ -147,3 +147,12 @@ prometheus:
       static_configs:
         - targets:
             - pve-exporter.monitoring.svc.cluster.local:9221
+
+    keycloak:
+      scheme: https
+      tls_config:
+        server_name: keycloak-general1.api-api-api.com
+      dns_sd_configs:
+        - names: [keycloak-metrics.keycloak.svc.cluster.local]
+          type: A
+          port: 9000

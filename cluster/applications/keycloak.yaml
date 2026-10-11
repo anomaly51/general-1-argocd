@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: gitops-apps
+  source:
+    repoURL: https://github.com/anomaly51/general-1-argocd.git
+    targetRevision: main
+    path: cluster/keycloak
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keycloak
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    retry:
+      limit: 5
+      backoff: {duration: 10s, factor: 2, maxDuration: 3m}
+    syncOptions: [ServerSideApply=true]

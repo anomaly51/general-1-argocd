@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres
+spec:
+  podSelector:
+    matchLabels: {cnpg.io/cluster: postgres}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app: keycloak, app.kubernetes.io/component: server}
+      ports:
+        - {port: 5432, protocol: TCP}
+    - from:
+        - podSelector:
+            matchLabels: {cnpg.io/cluster: postgres}
+      ports:
+        - {port: 5432, protocol: TCP}
+        - {port: 8000, protocol: TCP}
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: database-system}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: cloudnative-pg}
+      ports:
+        - {port: 8000, protocol: TCP}

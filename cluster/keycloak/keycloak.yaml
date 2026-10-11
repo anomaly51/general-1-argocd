@@ -1,0 +1,75 @@
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: keycloak
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  instances: 2
+  db:
+    vendor: postgres
+    host: postgres-rw
+    database: keycloak
+    usernameSecret: {name: keycloak-db, key: username}
+    passwordSecret: {name: keycloak-db, key: password}
+    poolMaxSize: 20
+  http:
+    tlsSecret: keycloak-tls
+  hostname:
+    hostname: https://keycloak-general1.api-api-api.com
+    admin: https://keycloak.internal.api-api-api.com
+  proxy:
+    headers: xforwarded
+  ingress:
+    enabled: false
+  bootstrapAdmin:
+    user:
+      secret: keycloak-bootstrap
+  truststores:
+    postgres:
+      secret: {name: postgres-ca}
+  additionalOptions:
+    - {name: db-tls-mode, value: verify-server}
+    - {name: db-tls-trust-store-file, value: /opt/keycloak/conf/truststores/secret-postgres-ca/ca.crt}
+    - {name: http-max-queued-requests, value: "100"}
+  scheduling:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - {key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}
+  networkPolicy:
+    https:
+      - namespaceSelector:
+          matchLabels: {kubernetes.io/metadata.name: kube-system}
+        podSelector:
+          matchLabels: {app.kubernetes.io/name: traefik}
+    management:
+      - namespaceSelector:
+          matchLabels: {kubernetes.io/metadata.name: monitoring}
+      - podSelector:
+          matchLabels: {app.kubernetes.io/name: keycloak-operator}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: keycloak
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: keycloak
+      app.kubernetes.io/component: server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-metrics
+spec:
+  clusterIP: None
+  selector:
+    app: keycloak
+    app.kubernetes.io/component: server
+  ports:
+    - {name: metrics, port: 9000, targetPort: 9000}
