@@ -8,4 +8,3 @@ resources:
   - routes.yaml
   - network.yaml
   - backup.yaml
-  - password-reset.yaml
