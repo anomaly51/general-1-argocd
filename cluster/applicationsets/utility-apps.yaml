@@ -20,8 +20,8 @@ spec:
       finalizers:
         - resources-finalizer.argocd.argoproj.io
       annotations:
-        # Use the legacy diff for OTel's unstructured config; server-side diff misses nested edits.
-        argocd.argoproj.io/compare-options: '{{ if eq .path.path "utility-apps/monitoring/otel-logs" }}ServerSideDiff=false{{ else }}ServerSideDiff=true{{ end }}'
+        # OTel needs legacy diff; Keycloak needs CNPG mutation defaults included.
+        argocd.argoproj.io/compare-options: '{{ if eq .path.path "utility-apps/monitoring/otel-logs" }}ServerSideDiff=false{{ else if eq .path.path "utility-apps/keycloak/keycloak" }}ServerSideDiff=true,IncludeMutationWebhook=true{{ else }}ServerSideDiff=true{{ end }}'
     spec:
       project: gitops-apps
       source:

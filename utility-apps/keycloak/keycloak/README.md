@@ -1,8 +1,10 @@
 # Keycloak
 
 Official namespace-scoped Keycloak Operator 26.8.0, reconciled by Argo CD.
-The operator installation is pinned in `../operators/keycloak.yaml`.
-This directory contains only the General-1 runtime configuration.
+The operator installation is pinned in `../../../cluster/operators/keycloak.yaml`.
+This minimal Helm chart contains the General-1 runtime configuration.
+The `utility-apps` ApplicationSet manages it as `keycloak-keycloak` in the
+`keycloak` namespace.
 
 - Public issuer base: https://keycloak-general1.api-api-api.com
 - Private administration: https://keycloak.internal.api-api-api.com/admin/
