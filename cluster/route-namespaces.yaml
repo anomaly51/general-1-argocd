@@ -81,3 +81,12 @@ metadata:
     gateway.api-api-api.com/internal: "true"
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: minio-system
+  labels:
+    gateway.api-api-api.com/internal: "true"
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
