@@ -9,3 +9,4 @@ resources:
   - network.yaml
   - backup.yaml
   - acceptance.yaml
+  - restore-check.yaml
