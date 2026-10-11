@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak-operator
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: gitops-apps
+  source:
+    repoURL: https://github.com/keycloak/keycloak-k8s-resources.git
+    targetRevision: 44077f21fbe3af2e8b7fca0312c866c43ff7889b # 26.8.0
+    path: kubernetes
+    kustomize:
+      patches:
+        - target:
+            kind: CustomResourceDefinition
+          patch: |-
+            - op: add
+              path: /metadata/annotations
+              value:
+                argocd.argoproj.io/sync-options: Prune=false,Delete=false
+        - target:
+            kind: Deployment
+            name: keycloak-operator
+          patch: |-
+            - op: add
+              path: /spec/template/spec/affinity
+              value:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                      - matchExpressions:
+                          - {key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keycloak
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]

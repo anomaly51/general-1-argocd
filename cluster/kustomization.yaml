@@ -17,3 +17,5 @@ resources:
   - applications/juggluco.yaml
   - operators/rabbitmq-cluster-operator.yaml
   - operators/rabbitmq-topology-operator.yaml
+  - operators/keycloak.yaml
+  - operators/barman-cloud.yaml
