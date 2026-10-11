@@ -23,3 +23,11 @@ not an off-site backup. General-1 currently has one control-plane node.
 
 Bootstrap credentials are temporary and are retired after permanent admin
 creation. Application realms/clients are added when an application is connected.
+
+Installation verified on 2026-10-11: OIDC authorization code flow with PKCE,
+public administration blocked, both Prometheus targets healthy, and service
+available during an operator rollout. Backup `20261011T003228` was restored
+into an isolated PostgreSQL cluster; schema, administrator and required MFA
+matched the live database. The temporary verification resources were removed.
+Standby backups may need to wait for the final WAL segment to be archived;
+the standard archive timeout is five minutes.
