@@ -12,9 +12,11 @@ external-dns:
     - crd
   domainFilters:
     - api-api-api.com
+  managedRecordTypes: [A, AAAA, CNAME, TXT]
   policy: sync
   registry: txt
   txtOwnerId: general-1-k3s
+  txtPrefix: "%{record_type}."
   interval: 1m
   extraArgs:
     - --cloudflare-proxied
