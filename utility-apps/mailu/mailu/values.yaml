@@ -15,6 +15,8 @@ mailu:
     existingSecret: mailu-tls
     tlsFlavorOverride: mail
   front:
+    podAnnotations: &mailConfig
+      checksum/config: '{{ include (print $.Template.BasePath "/envvars-configmap.yaml") . | sha256sum }}'
     nodeSelector: &mailNode
       kubernetes.io/hostname: general-1-worker-2
     hostPort:
@@ -39,6 +41,7 @@ mailu:
   persistence:
     single_pvc: false
   admin:
+    podAnnotations: *mailConfig
     nodeSelector: *mailNode
     extraEnvVars:
       - {name: WELCOME, value: "false"}
@@ -51,6 +54,7 @@ mailu:
       requests: {cpu: 50m, memory: 256Mi}
       limits: {memory: 512Mi}
   postfix:
+    podAnnotations: *mailConfig
     nodeSelector: *mailNode
     persistence:
       size: 1Gi
@@ -61,6 +65,7 @@ mailu:
       requests: {cpu: 25m, memory: 64Mi}
       limits: {memory: 256Mi}
   dovecot:
+    podAnnotations: *mailConfig
     nodeSelector: *mailNode
     persistence:
       size: 1Gi
@@ -71,6 +76,7 @@ mailu:
       requests: {cpu: 25m, memory: 64Mi}
       limits: {memory: 256Mi}
   rspamd:
+    podAnnotations: *mailConfig
     nodeSelector: *mailNode
     persistence:
       claimNameOverride: mailu-rspamd-data
