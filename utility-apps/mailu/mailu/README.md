@@ -37,8 +37,12 @@ iCloud port 25 timed out both from a Mailu pod and directly from its worker VM.
 The same worker reached Gmail ports 465/587 and HTTPS. Proxmox had no cluster,
 node or VM firewall rules for this VM; its NIC firewall was disabled. The worker's
 output policy accepts traffic and has no SMTP-specific blocking rules.
-The remaining network path is the Xiaomi router `192.168.1.1` and the ISP.
-DNS records alone do not remove this transport restriction.
+The LAN computer reproduced the same restriction. TCP traceroute on port 587
+reached BRIZ's gateway (`185.6.184.1`) and onward; port 25 stopped responding
+after the Xiaomi router. The public IP belongs to BRIZ, whose
+[FAQ](https://www.briz.ua/faq/texniceskie-voprosy/shcho-take-nesanktsionovanyi-dostup-i-yaki-iogo-naslidky)
+explicitly states that SMTP/25 is blocked on dynamic IPs and available with its
+static-IP service. DNS records alone do not remove this transport restriction.
 
 No public MX is advertised while inbound SMTP is unavailable. To use direct
 SMTP, allow outbound TCP/25 and ask the IP owner to set PTR for `213.231.50.44`
