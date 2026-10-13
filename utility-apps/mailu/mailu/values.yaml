@@ -15,6 +15,8 @@ mailu:
     existingSecret: mailu-tls
     tlsFlavorOverride: mail
   front:
+    nodeSelector: &mailNode
+      kubernetes.io/hostname: general-1-worker-2
     hostPort:
       enabled: false
     externalService:
@@ -31,38 +33,52 @@ mailu:
       - {name: PORTS, value: "80,465"}
     resources:
       requests: {cpu: 25m, memory: 64Mi}
+      limits: {memory: 256Mi}
 
   # SQLite and the mail queue use separate local volumes.
   persistence:
     single_pvc: false
   admin:
+    nodeSelector: *mailNode
     extraEnvVars:
       - {name: WELCOME, value: "false"}
     persistence:
       size: 1Gi
+      claimNameOverride: mailu-admin-data
     updateStrategy:
       type: Recreate
     resources:
-      requests: {cpu: 50m, memory: 128Mi}
+      requests: {cpu: 50m, memory: 256Mi}
+      limits: {memory: 512Mi}
   postfix:
+    nodeSelector: *mailNode
     persistence:
       size: 1Gi
+      claimNameOverride: mailu-postfix-data
     updateStrategy:
       type: Recreate
     resources:
       requests: {cpu: 25m, memory: 64Mi}
+      limits: {memory: 256Mi}
   dovecot:
+    nodeSelector: *mailNode
     persistence:
       size: 1Gi
+      claimNameOverride: mailu-dovecot-data
     updateStrategy:
       type: Recreate
     resources:
       requests: {cpu: 25m, memory: 64Mi}
+      limits: {memory: 256Mi}
   rspamd:
+    nodeSelector: *mailNode
+    persistence:
+      claimNameOverride: mailu-rspamd-data
     updateStrategy:
       type: Recreate
     resources:
-      requests: {cpu: 50m, memory: 128Mi}
+      requests: {cpu: 50m, memory: 256Mi}
+      limits: {memory: 512Mi}
 
   redis:
     enabled: false

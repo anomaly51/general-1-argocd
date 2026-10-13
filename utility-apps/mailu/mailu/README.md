@@ -11,6 +11,7 @@ Mailu 2024.06.58, upstream Helm chart 2.8.0. Argo CD manages this wrapper as
 - SMTP credentials: Vault `kv/keycloak/smtp`; this account has no admin rights.
 - Webmail, ClamAV, OLETools and optional fetching/indexing services are disabled.
 - SQLite, Postfix, Dovecot and Rspamd have separate 1 GiB local volumes.
+  Mailu is placed on `general-1-worker-2`, away from the small control-plane node.
   Redis uses the existing operator and ephemeral storage for its cache/counters.
   This is a single-instance setup without automatic mail-data backups.
 - Only Keycloak can reach the front SMTP listener; the internal gateway reaches
