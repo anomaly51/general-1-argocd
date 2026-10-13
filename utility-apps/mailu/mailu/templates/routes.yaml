@@ -8,6 +8,7 @@ spec:
   secretName: mailu-tls
   issuerRef: {kind: ClusterIssuer, name: letsencrypt-production}
   dnsNames:
+    - mail.api-api-api.com
     - smtp.internal.api-api-api.com
     - mailu.internal.api-api-api.com
 ---

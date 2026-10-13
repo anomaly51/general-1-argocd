@@ -1,6 +1,6 @@
 mailu:
   domain: api-api-api.com
-  hostnames: [smtp.internal.api-api-api.com, mailu.internal.api-api-api.com]
+  hostnames: [mail.api-api-api.com, smtp.internal.api-api-api.com, mailu.internal.api-api-api.com]
   existingSecret: mailu-credentials
   postmaster: admin
   initialAccount:

@@ -1,0 +1,26 @@
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: mailu-public
+spec:
+  endpoints:
+    - dnsName: mail.api-api-api.com
+      recordType: A
+      recordTTL: 300
+      targets: [213.231.50.44]
+      providerSpecific:
+        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          value: "false"
+    - dnsName: api-api-api.com
+      recordType: TXT
+      recordTTL: 300
+      targets: ['"v=spf1 a:mail.api-api-api.com ~all"']
+    - dnsName: dkim._domainkey.api-api-api.com
+      recordType: TXT
+      recordTTL: 300
+      targets:
+        - '"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu/+O1w3rtQFonQ/E+FZ4OG7PMcMcnFQg8jpuTari4TebQj1TiTMgw6tc0kxPtZwnnalr9kw3biMqY8AW5vQDk4aqSHZlbrvHoM13sqDHWGmtshEhIJcF77ndK6ZHNXu5EKSLjzGDmbiaKKHzNepucGIuaTB78gCQxswVd6MhreavgGnuLOH/v2oG8IzG7YSpvWBk41R5jcll+fPkWgKxNTcr1zqt2DORuzP1cOwvCkPRPp5Ru3cnwcwxvzKPgsgSwFpnHYvArLi8o+HDM4nzzF5ZoNnbxLkYSRGeDAaTHN1FJOZMnsFOwtDntr4k+Btt7Jowf4f2LH6ozvW+3lp+TwIDAQAB"'
+    - dnsName: _dmarc.api-api-api.com
+      recordType: TXT
+      recordTTL: 300
+      targets: ['"v=DMARC1; p=none"']
