@@ -1,0 +1,10 @@
+apiVersion: v2
+name: mailu
+description: Private Mailu SMTP for General-1 applications.
+type: application
+version: 0.1.0
+appVersion: "2024.06.58"
+dependencies:
+  - name: mailu
+    version: 2.8.0
+    repository: https://mailu.github.io/helm-charts

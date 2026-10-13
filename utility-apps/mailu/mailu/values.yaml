@@ -1,0 +1,81 @@
+mailu:
+  domain: api-api-api.com
+  hostnames: [smtp.internal.api-api-api.com, mailu.internal.api-api-api.com]
+  existingSecret: mailu-credentials
+  postmaster: admin
+  initialAccount:
+    enabled: true
+    username: admin
+    domain: api-api-api.com
+    existingSecret: mailu-credentials
+    mode: ifmissing
+
+  ingress:
+    enabled: false
+    existingSecret: mailu-tls
+    tlsFlavorOverride: mail
+  front:
+    hostPort:
+      enabled: false
+    externalService:
+      enabled: true
+      type: LoadBalancer
+      loadBalancerIP: 192.168.1.4
+      ports:
+        pop3s: false
+        imaps: false
+        smtp: false
+        smtps: true
+        manageSieve: false
+    extraEnvVars:
+      - {name: PORTS, value: "80,465"}
+    resources:
+      requests: {cpu: 25m, memory: 64Mi}
+
+  # SQLite and the mail queue use separate local volumes.
+  persistence:
+    single_pvc: false
+  admin:
+    extraEnvVars:
+      - {name: WELCOME, value: "false"}
+    persistence:
+      size: 1Gi
+    updateStrategy:
+      type: Recreate
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+  postfix:
+    persistence:
+      size: 1Gi
+    updateStrategy:
+      type: Recreate
+    resources:
+      requests: {cpu: 25m, memory: 64Mi}
+  dovecot:
+    persistence:
+      size: 1Gi
+    updateStrategy:
+      type: Recreate
+    resources:
+      requests: {cpu: 25m, memory: 64Mi}
+  rspamd:
+    updateStrategy:
+      type: Recreate
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+
+  redis:
+    enabled: false
+  externalRedis:
+    enabled: true
+    host: mailu-redis
+  webmail:
+    enabled: false
+  clamav:
+    enabled: false
+  oletools:
+    enabled: false
+  tika:
+    enabled: false
+  welcomeMessage:
+    enabled: false

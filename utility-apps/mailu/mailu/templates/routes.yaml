@@ -1,0 +1,38 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mailu-tls
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  secretName: mailu-tls
+  issuerRef: {kind: ClusterIssuer, name: letsencrypt-production}
+  dnsNames:
+    - smtp.internal.api-api-api.com
+    - mailu.internal.api-api-api.com
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mailu-admin
+spec:
+  parentRefs:
+    - {name: internal, namespace: networking, sectionName: https}
+  hostnames: [mailu.internal.api-api-api.com]
+  rules:
+    - backendRefs:
+        - {name: mailu-front, port: 80}
+---
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: mailu-smtp
+spec:
+  endpoints:
+    - dnsName: smtp.internal.api-api-api.com
+      recordType: A
+      recordTTL: 60
+      targets: [192.168.1.4]
+      providerSpecific:
+        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          value: "false"
