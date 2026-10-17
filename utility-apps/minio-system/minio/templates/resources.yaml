@@ -227,6 +227,8 @@ spec:
     spec:
       restartPolicy: Never
       automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: minio-registry
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -234,7 +236,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: setup
-          image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+          image: {{ .Values.image }}
           command: [/bin/sh, -ec]
           args:
             - |
