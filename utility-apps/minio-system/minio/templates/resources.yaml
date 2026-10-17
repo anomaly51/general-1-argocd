@@ -195,3 +195,82 @@ spec:
             readOnly: true
         - name: tmp
           emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: loki-s3
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: minio
+  mount: kv
+  type: kv-v2
+  path: monitoring/loki
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: loki-s3
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-loki-setup
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: setup
+          image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
+              mc mb --ignore-existing local/general1-loki
+              mc admin user add local "$LOKI_S3_ACCESS_KEY_ID" "$LOKI_S3_SECRET_ACCESS_KEY" >/dev/null
+              cat > /tmp/policy.json <<'POLICY'
+              {"Version":"2012-10-17","Statement":[
+                {"Effect":"Allow","Action":["s3:GetBucketLocation","s3:ListBucket","s3:ListBucketMultipartUploads"],"Resource":["arn:aws:s3:::general1-loki"]},
+                {"Effect":"Allow","Action":["s3:GetObject","s3:PutObject","s3:DeleteObject","s3:AbortMultipartUpload","s3:ListMultipartUploadParts"],"Resource":["arn:aws:s3:::general1-loki/*"]}
+              ]}
+              POLICY
+              mc admin policy create local loki-general1 /tmp/policy.json
+              if ! mc admin user info local "$LOKI_S3_ACCESS_KEY_ID" --json | grep -Eq '"policyName"[[:space:]]*:[[:space:]]*"loki-general1"'; then
+                mc admin policy attach local loki-general1 --user "$LOKI_S3_ACCESS_KEY_ID"
+              fi
+              echo "Loki bucket and scoped access are ready."
+          env:
+            - {name: MC_CONFIG_DIR, value: /tmp/mc}
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef: {name: minio-root, key: root_user}
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: minio-root, key: root_password}
+          envFrom:
+            - secretRef: {name: loki-s3}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 16Mi}
