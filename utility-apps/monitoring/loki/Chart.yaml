@@ -1,0 +1,10 @@
+apiVersion: v2
+name: loki
+description: Loki with the shared MinIO object store.
+type: application
+version: 1.0.0
+appVersion: "3.7.8"
+dependencies:
+  - name: loki
+    version: 18.17.0
+    repository: https://grafana-community.github.io/helm-charts
