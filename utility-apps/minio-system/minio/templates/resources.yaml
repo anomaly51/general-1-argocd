@@ -252,9 +252,11 @@ spec:
               ]}
               POLICY
               mc admin policy create local loki-general1 /tmp/policy.json
-              if ! mc admin user info local "$LOKI_S3_ACCESS_KEY_ID" --json | grep -Eq '"policyName"[[:space:]]*:[[:space:]]*"loki-general1"'; then
-                mc admin policy attach local loki-general1 --user "$LOKI_S3_ACCESS_KEY_ID"
-              fi
+              user_info=$(mc admin user info local "$LOKI_S3_ACCESS_KEY_ID" --json)
+              case "$user_info" in
+                *'"policyName": "loki-general1"'*|*'"policyName":"loki-general1"'*) ;;
+                *) mc admin policy attach local loki-general1 --user "$LOKI_S3_ACCESS_KEY_ID" ;;
+              esac
               echo "Loki bucket and scoped access are ready."
           env:
             - {name: MC_CONFIG_DIR, value: /tmp/mc}
