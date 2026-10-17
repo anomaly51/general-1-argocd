@@ -21,7 +21,7 @@ spec:
         - resources-finalizer.argocd.argoproj.io
       annotations:
         # OTel needs legacy diff; Keycloak needs CNPG mutation defaults included.
-        argocd.argoproj.io/compare-options: '{{ if eq .path.path "utility-apps/monitoring/otel-logs" }}ServerSideDiff=false{{ else if eq .path.path "utility-apps/keycloak/keycloak" }}ServerSideDiff=true,IncludeMutationWebhook=true{{ else }}ServerSideDiff=true{{ end }}'
+        argocd.argoproj.io/compare-options: '{{ if eq .path.path "utility-apps/monitoring/opentelemetry-logs" }}ServerSideDiff=false{{ else if eq .path.path "utility-apps/keycloak/keycloak" }}ServerSideDiff=true,IncludeMutationWebhook=true{{ else }}ServerSideDiff=true{{ end }}'
     spec:
       project: gitops-apps
       source:

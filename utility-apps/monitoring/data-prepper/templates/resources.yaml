@@ -141,9 +141,7 @@ spec:
   ingress:
     - from:
         - podSelector:
-            matchExpressions:
-              - key: app.kubernetes.io/name
-                operator: In
-                values: [node-logs-collector, cluster-events-collector]
+            matchLabels:
+              app.kubernetes.io/name: opentelemetry-logs-collector
       ports:
         - {protocol: TCP, port: 21892}

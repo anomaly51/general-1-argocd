@@ -1,0 +1,5 @@
+apiVersion: v2
+name: opentelemetry-logs
+description: Learn log collection with one demo application.
+type: application
+version: 0.1.0

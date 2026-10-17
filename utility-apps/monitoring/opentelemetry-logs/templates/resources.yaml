@@ -1,0 +1,82 @@
+# 1. A tiny application writes one message to stdout every five seconds.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: log-demo}
+  template:
+    metadata:
+      labels: {app: log-demo}
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: log-demo
+          image: busybox:1.37.0
+          command: [sh, -c]
+          args:
+            - while true; do echo "Hello from log-demo"; sleep 5; done
+          resources:
+            requests: {cpu: 5m, memory: 8Mi}
+            limits: {cpu: 50m, memory: 32Mi}
+---
+# 2. One Collector per node reads only log-demo logs and sends them to both stores.
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: opentelemetry-logs
+  annotations:
+    argocd.argoproj.io/sync-options: ServerSideApply=false
+spec:
+  mode: daemonset
+  image: otel/opentelemetry-collector-contrib:0.160.0
+  resources:
+    requests: {cpu: 20m, memory: 64Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+  securityContext:
+    runAsUser: 0
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities: {drop: [ALL]}
+  volumes:
+    - name: pod-logs
+      hostPath: {path: /var/log/pods, type: Directory}
+    - name: ca
+      secret:
+        secretName: logging-ca
+        items: [{key: tls.crt, path: ca.crt}]
+  volumeMounts:
+    - {name: pod-logs, mountPath: /var/log/pods, readOnly: true}
+    - {name: ca, mountPath: /etc/otel/ca, readOnly: true}
+  config:
+    receivers:
+      filelog:
+        include: [/var/log/pods/{{ .Release.Namespace }}_log-demo-*/*/*.log]
+        include_file_path: true
+        operators:
+          - type: container
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 96
+        spike_limit_mib: 20
+      resource:
+        attributes:
+          - {key: k8s.cluster.name, value: general-1, action: upsert}
+          - {key: log.source, value: container, action: upsert}
+      batch: {timeout: 2s}
+    exporters:
+      otlphttp/loki:
+        endpoint: http://loki.monitoring.svc.cluster.local:3100/otlp
+      otlp/opensearch:
+        endpoint: data-prepper.monitoring.svc.cluster.local:21892
+        compression: gzip
+        tls: {ca_file: /etc/otel/ca/ca.crt}
+    service:
+      pipelines:
+        logs:
+          receivers: [filelog]
+          processors: [memory_limiter, resource, batch]
+          exporters: [otlphttp/loki, otlp/opensearch]
