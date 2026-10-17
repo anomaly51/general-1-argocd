@@ -17,6 +17,8 @@ grafana:
 
   replicas: 1
   revisionHistoryLimit: 10
+  nodeSelector:
+    kubernetes.io/hostname: general-1-worker-1
 
   rbac:
     create: true
