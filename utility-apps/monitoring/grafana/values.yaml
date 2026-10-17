@@ -114,6 +114,12 @@ grafana:
           type: prometheus
           uid: prometheus
           url: http://prometheus-server.monitoring.svc.cluster.local
+        - access: proxy
+          editable: false
+          name: Loki
+          type: loki
+          uid: loki
+          url: http://loki.monitoring.svc.cluster.local:3100
 
   grafana.ini:
     analytics:

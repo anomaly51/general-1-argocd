@@ -131,6 +131,13 @@ spec:
         send_batch_size: 256
         send_batch_max_size: 512
     exporters:
+      otlphttp/loki:
+        endpoint: http://loki.monitoring.svc.cluster.local:3100/otlp
+        retry_on_failure: {enabled: true, max_elapsed_time: 0s}
+        sending_queue:
+          storage: file_storage
+          queue_size: 1000
+          num_consumers: 2
       otlp:
         endpoint: data-prepper.monitoring.svc.cluster.local:21892
         compression: gzip
@@ -146,7 +153,7 @@ spec:
         logs:
           receivers: [filelog]
           processors: [memory_limiter, k8sattributes, resource, transform, batch]
-          exporters: [otlp]
+          exporters: [otlp, otlphttp/loki]
 ---
 apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
@@ -203,6 +210,10 @@ spec:
               - set(body, String(body)) where IsMap(body)
       batch: {timeout: 2s, send_batch_size: 128}
     exporters:
+      otlphttp/loki:
+        endpoint: http://loki.monitoring.svc.cluster.local:3100/otlp
+        retry_on_failure: {enabled: true, max_elapsed_time: 0s}
+        sending_queue: {queue_size: 1000, num_consumers: 2}
       otlp:
         endpoint: data-prepper.monitoring.svc.cluster.local:21892
         compression: gzip
@@ -213,4 +224,4 @@ spec:
         logs:
           receivers: [k8sobjects]
           processors: [memory_limiter, resource, transform, batch]
-          exporters: [otlp]
+          exporters: [otlp, otlphttp/loki]
