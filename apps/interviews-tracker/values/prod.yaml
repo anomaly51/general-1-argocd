@@ -2,15 +2,20 @@ _release:
   policy: prod-only
   sourceRepository: anomaly51/interviews-tracker
   revision: 4ade17a7cbf95c63036b7fc9a9a3ec6b495f15e1
-
+  sourceCommit: 559742d2aff30f4ae38f11cbb04f15acb821d616
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/interviews-tracker/actions/runs/39939601348
+  imageKeys:
+  - images.api
+  - images.frontend
 hostname: interviews-tracker.api-api-api.com
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/interviews-tracker-api
-    tag: sha-559742d2aff3
+    tag: sha-559742d2aff3@sha256:b44e2f4ca08b3e1219ff489a76332182395a899200d1e45c5981f17d39bf3868
   frontend:
     repository: harbor.internal.api-api-api.com/applications/interviews-tracker-frontend
-    tag: sha-559742d2aff3
+    tag: sha-559742d2aff3@sha256:f41cbcbb0e39bda341f66226b891829f2d2d52fb49d74df76c5a6e3b0a1afcc2
   cassandra:
     repository: docker.io/library/cassandra
     tag: '5.0'
@@ -21,11 +26,23 @@ storage:
   size: 10Gi
 resources:
   api:
-    requests: {cpu: 50m, memory: 128Mi}
-    limits: {cpu: 500m, memory: 512Mi}
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
   frontend:
-    requests: {cpu: 10m, memory: 32Mi}
-    limits: {cpu: 100m, memory: 128Mi}
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
   cassandra:
-    requests: {cpu: 250m, memory: 1Gi}
-    limits: {cpu: '1', memory: 2Gi}
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: '1'
+      memory: 2Gi
