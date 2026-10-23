@@ -54,7 +54,7 @@ spec:
   mount: kv
   type: kv-v2
   path: apps/interviews-tracker
-  refreshAfter: 1h
+  refreshAfter: 1m
   destination:
     create: true
     name: interviews-tracker-oauth
