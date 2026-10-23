@@ -1,7 +1,7 @@
 _release:
   policy: prod-only
   sourceRepository: anomaly51/interviews-tracker
-  revision: 8a1d6c50d398ef0771285a40aad63ea8494fe0f3
+  revision: 4ade17a7cbf95c63036b7fc9a9a3ec6b495f15e1
 
 hostname: interviews-tracker.api-api-api.com
 images:
