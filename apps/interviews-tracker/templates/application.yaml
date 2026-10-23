@@ -29,6 +29,9 @@ spec:
             - {name: APP_STORAGE_BACKEND, value: cassandra}
             - {name: APP_CASSANDRA_HOSTS, value: interviews-tracker-cassandra}
             - {name: APP_CORS_ORIGINS, value: {{ printf "https://%s" $.Values.hostname | quote }}}
+            - {name: APP_PUBLIC_URL, value: {{ printf "https://%s" $.Values.hostname | quote }}}
+          envFrom:
+            - secretRef: {name: interviews-tracker-oauth}
           {{- end }}
           startupProbe:
             httpGet: {path: /health, port: http}

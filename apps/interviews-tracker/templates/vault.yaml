@@ -42,3 +42,23 @@ spec:
         .dockerconfigjson:
           text: |
             {"auths":{"harbor.internal.api-api-api.com":{"username":{{ `{{ .Secrets.username | mustToJson }}` }},"password":{{ `{{ .Secrets.password | mustToJson }}` }}}}}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: interviews-tracker-oauth
+  annotations:
+    argocd.argoproj.io/sync-wave: '-1'
+spec:
+  vaultAuthRef: interviews-tracker
+  mount: kv
+  type: kv-v2
+  path: apps/interviews-tracker
+  refreshAfter: 1h
+  destination:
+    create: true
+    name: interviews-tracker-oauth
+    transformation:
+      excludeRaw: true
+  rolloutRestartTargets:
+    - {kind: Deployment, name: interviews-tracker-api}
