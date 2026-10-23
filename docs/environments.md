@@ -2,12 +2,12 @@
 
 ## Deployment flow
 
-Standalone Telegram bots use **main → CI → prod.yaml commit → automatic Argo CD sync**.
+Standalone Telegram bots and Interviews Tracker use **main → CI → prod.yaml commit → automatic Argo CD sync**.
 They have only `values/prod.yaml`, with `_release.policy: prod-only` and the exact
 `sourceRepository`. Only a push to that repository's `main` may publish production.
 CI retains the configured chart pin, updates immutable image digests, then waits
 for the actual rollout. Pull requests run checks/builds only. There is no Promote
-step and no dev/staging environment for these bots.
+step and no dev/staging environment for these applications.
 
 Other applications keep this flow:
 

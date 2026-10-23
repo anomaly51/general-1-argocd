@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: interviews-tracker
+  annotations:
+    argocd.argoproj.io/sync-wave: '-2'
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: interviews-tracker
+  annotations:
+    argocd.argoproj.io/sync-wave: '-2'
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: interviews-tracker
+    serviceAccount: interviews-tracker
+    audiences: [vault]
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: interviews-tracker-registry
+  annotations:
+    argocd.argoproj.io/sync-wave: '-1'
+spec:
+  vaultAuthRef: interviews-tracker
+  mount: kv
+  type: kv-v2
+  path: apps/registry
+  refreshAfter: 1h
+  destination:
+    create: true
+    name: interviews-tracker-registry
+    type: kubernetes.io/dockerconfigjson
+    transformation:
+      excludeRaw: true
+      templates:
+        .dockerconfigjson:
+          text: |
+            {"auths":{"harbor.internal.api-api-api.com":{"username":{{ `{{ .Secrets.username | mustToJson }}` }},"password":{{ `{{ .Secrets.password | mustToJson }}` }}}}}

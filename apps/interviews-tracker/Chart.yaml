@@ -1,0 +1,5 @@
+apiVersion: v2
+name: interviews-tracker
+description: Interviews Tracker frontend, API, and persistent Cassandra.
+type: application
+version: 0.1.0

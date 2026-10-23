@@ -1,0 +1,79 @@
+{{- range $component := list "api" "frontend" }}
+{{- $name := printf "interviews-tracker-%s" $component }}
+{{- $port := ternary 8000 80 (eq $component "api") }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels: {app.kubernetes.io/name: {{ $name }}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: {{ $name }}}
+    spec:
+      serviceAccountName: interviews-tracker
+      automountServiceAccountToken: false
+      nodeSelector: {{ $.Values.nodeSelector | toJson }}
+      imagePullSecrets: [{name: interviews-tracker-registry}]
+      containers:
+        - name: {{ $component }}
+          image: {{ printf "%s:%s" (index $.Values.images $component).repository (index $.Values.images $component).tag | quote }}
+          ports: [{name: http, containerPort: {{ $port }}}]
+          {{- if eq $component "api" }}
+          env:
+            - {name: APP_ENVIRONMENT, value: production}
+            - {name: APP_STORAGE_BACKEND, value: cassandra}
+            - {name: APP_CASSANDRA_HOSTS, value: interviews-tracker-cassandra}
+            - {name: APP_CORS_ORIGINS, value: {{ printf "https://%s" $.Values.hostname | quote }}}
+          {{- end }}
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+            failureThreshold: 90
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            {{- if eq $component "api" }}
+            runAsUser: 10001
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+            {{- end }}
+          resources: {{ index $.Values.resources $component | toJson }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+spec:
+  selector: {app.kubernetes.io/name: {{ $name }}}
+  ports: [{name: http, port: 80, targetPort: http}]
+{{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: interviews-tracker
+spec:
+  parentRefs:
+    - {name: public, namespace: networking, sectionName: https}
+  hostnames: [{{ .Values.hostname | quote }}]
+  rules:
+    - matches:
+        {{- range list "/auth" "/applications" "/stats" "/imports" "/docs" "/redoc" "/openapi.json" "/health" }}
+        - path: {type: PathPrefix, value: {{ . | quote }}}
+        {{- end }}
+      backendRefs:
+        - {name: interviews-tracker-api, port: 80}
+    - matches:
+        - path: {type: PathPrefix, value: /}
+      backendRefs:
+        - {name: interviews-tracker-frontend, port: 80}

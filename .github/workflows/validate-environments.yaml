@@ -93,7 +93,6 @@ jobs:
               if "bot" in folder.name:
                   assert policy == "prod-only", "Standalone bots must be prod-only"
               if policy == "prod-only":
-                  assert "bot" in folder.name, "Only standalone bots may auto-deploy prod"
                   assert {path.stem for path in profiles} == {"prod"}, "Prod-only apps cannot have dev/staging"
                   assert re.fullmatch(r"anomaly51/[A-Za-z0-9_.-]+", production["_release"]["sourceRepository"])
               if folder.name in playground:

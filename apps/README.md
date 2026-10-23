@@ -43,3 +43,7 @@ main → build → commit prod.yaml → automatic deployment. Their source repos
 is bound by `_release.sourceRepository`. Bot chart names contain `bot`; Argo
 excludes their dev/staging profiles and CI rejects them. Promote is not used.
 Cutline keeps manual production deployment. See the management guide for details.
+
+Interviews Tracker also uses `prod-only`: its only profile is `values/prod.yaml`.
+A push to `anomaly51/interviews-tracker` main builds both images, updates that
+profile and automatically deploys production through the shared workflow.
