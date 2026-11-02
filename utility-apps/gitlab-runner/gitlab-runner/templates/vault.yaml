@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-secrets
+automountServiceAccountToken: false
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: gitlab-runner
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: gitlab-runner
+    serviceAccount: vault-secrets
+    audiences: [vault]
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: gitlab-runner-token
+spec:
+  vaultAuthRef: gitlab-runner
+  mount: kv
+  type: kv-v2
+  path: ci/gitlab-runner
+  refreshAfter: 1m
+  destination:
+    create: true
+    name: gitlab-runner-token
+    transformation:
+      excludeRaw: true
+      excludes: [".*"]
+      templates:
+        runner-token:
+          text: '{{ `{{ get .Secrets "token" }}` }}'
+        runner-registration-token:
+          text: ''

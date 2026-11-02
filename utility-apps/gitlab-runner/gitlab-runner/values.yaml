@@ -1,0 +1,39 @@
+gitlab-runner:
+  gitlabUrl: https://gitlab.com
+  concurrent: 1
+  rbac:
+    create: true
+    rules:
+      - resources: [pods]
+        verbs: [create, delete, get, list, watch]
+      - resources: [pods/attach, pods/exec]
+        verbs: [create, delete, get, patch]
+      - resources: [pods/log]
+        verbs: [get, list]
+      - resources: [secrets]
+        verbs: [create, delete, get, update]
+      - resources: [serviceaccounts]
+        verbs: [get]
+      - resources: [services]
+        verbs: [create, get]
+  serviceAccount:
+    create: true
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {memory: 256Mi}
+  runners:
+    secret: gitlab-runner-token
+    config: |
+      [[runners]]
+        [runners.kubernetes]
+          namespace = "{{ .Release.Namespace }}"
+          image = "alpine:3.22"
+          privileged = false
+          automount_service_account_token = false
+          cpu_request = "100m"
+          cpu_limit = "1"
+          memory_request = "128Mi"
+          memory_limit = "512Mi"
+          helper_cpu_request = "50m"
+          helper_memory_request = "64Mi"
+          helper_memory_limit = "256Mi"
