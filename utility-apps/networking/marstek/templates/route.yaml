@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: marstek
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: {{ .Values.upstream.port }}
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: marstek-lan
+  labels:
+    kubernetes.io/service-name: marstek
+    endpointslice.kubernetes.io/managed-by: gitops.api-api-api.com
+addressType: IPv4
+ports:
+  - name: http
+    protocol: TCP
+    port: {{ .Values.upstream.port }}
+endpoints:
+  - addresses:
+      - {{ .Values.upstream.address | quote }}
+    conditions:
+      ready: true
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: marstek
+spec:
+  parentRefs:
+    - name: public
+      namespace: networking
+      sectionName: https
+  hostnames:
+    - {{ .Values.hostname | quote }}
+  rules:
+    - matches:
+        {{- range list "/" "/index.html" "/app.js" "/style.css" "/api/status" "/health" }}
+        - method: GET
+          path:
+            type: Exact
+            value: {{ . | quote }}
+        {{- end }}
+      backendRefs:
+        - name: marstek
+          port: 80

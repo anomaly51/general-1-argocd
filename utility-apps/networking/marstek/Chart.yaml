@@ -1,0 +1,5 @@
+apiVersion: v2
+name: marstek
+description: Public read-only route to the existing Marstek LAN collector.
+type: application
+version: 0.1.0
