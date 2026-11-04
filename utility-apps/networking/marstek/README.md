@@ -34,3 +34,5 @@ POST is routed only for `/api/login`, `/api/logout`, `/api/power`.
 The LXC backend enforces owner sessions, same-origin requests and CSRF for power.
 Password hash lives in Vault `kv/apps/marstek` and `/etc/marstek/auth.json` in CT104.
 Never put credentials in Helm values. ConfigMap checksum rolls out proxy changes.
+
+Live telemetry: GET `/api/events` streams cached measurements via SSE with proxy buffering disabled; heartbeat every 15 seconds. Device polling remains a single collector in LXC.

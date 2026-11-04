@@ -89,7 +89,7 @@ spec:
     - {{ .Values.hostname | quote }}
   rules:
     - matches:
-        {{- range list "/" "/index.html" "/app.js" "/style.css" "/api/status" "/api/auth" "/health" }}
+        {{- range list "/" "/index.html" "/app.js" "/style.css" "/api/status" "/api/events" "/api/auth" "/health" }}
         - method: GET
           path:
             type: Exact
