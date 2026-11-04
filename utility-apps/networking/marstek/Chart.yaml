@@ -1,5 +1,5 @@
 apiVersion: v2
 name: marstek
-description: Public read-only route to the existing Marstek LAN collector.
+description: Public telemetry and owner-only automatic charging plan for Marstek.
 type: application
 version: 0.1.0

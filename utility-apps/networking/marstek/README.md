@@ -6,12 +6,11 @@ Cloudflare DNS is reconciled from the HTTPRoute by ExternalDNS. Traffic uses
 the existing Cloudflare Tunnel and public Traefik Gateway, then a small unprivileged
 NGINX proxy to `192.168.1.84:8080` in the home LAN (16 MiB memory request,
 64 MiB limit). The existing Argo CD configuration excludes external
-EndpointSlices; the proxy avoids changing cluster-wide reconciliation rules. Only GET requests to the listed page, assets,
-status JSON and process health endpoint are routed.
+EndpointSlices; the proxy avoids changing cluster-wide reconciliation rules. Only listed GET endpoints and login/logout POST endpoints are routed.
 
 The single collector remains in unprivileged Proxmox CT 104 (`marstek-dashboard`)
 on machine-1, under OpenRC service `marstek`. It polls Venus E 3.0 over LAN UDP
-30000 once per minute; public requests only read its cache. The station UDP
+30000 every 30 seconds (with error backoff); public requests only read its cache. The station UDP
 API, Proxmox and Home Assistant are not exposed by this route.
 
 The upstream currently uses DHCP, MAC `BC:24:11:3B:39:0A`. Reserve its address
@@ -27,11 +26,16 @@ Source and LAN deployment notes:
 `/Users/nekoneki/Documents/Codex/2026-09-21/home-assistant-8-9-10-8/marstek-dashboard`.
 No credentials are required or included in this chart.
 
-## Authenticated charging control
+## Automatic charging
 
 Public telemetry remains readable. React assets use GET `/assets/*`.
-POST is routed only for `/api/login`, `/api/logout`, `/api/power`.
-The LXC backend enforces owner sessions, same-origin requests and CSRF for power.
+POST is routed only for `/api/login` and `/api/logout`; `/api/power` is removed.
+The LXC controller reads the official DTEK daily schedule for group 6.2 hourly
+and attempts at most one charging command per hour, persisted across restarts.
+The authenticated `/api/auth` response includes the private schedule and charging
+plan; anonymous telemetry contains neither the address nor the plan.
+The target is 100% one hour before the next outage; the estimate accounts for
+load, assumed efficiency and charge taper. It cannot guarantee physical charge.
 Password hash lives in Vault `kv/apps/marstek` and `/etc/marstek/auth.json` in CT104.
 Never put credentials in Helm values. ConfigMap checksum rolls out proxy changes.
 
