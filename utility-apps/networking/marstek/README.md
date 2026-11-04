@@ -26,3 +26,11 @@ charge/discharge power and ETA can be estimates, as labelled by the page.
 Source and LAN deployment notes:
 `/Users/nekoneki/Documents/Codex/2026-09-21/home-assistant-8-9-10-8/marstek-dashboard`.
 No credentials are required or included in this chart.
+
+## Authenticated charging control
+
+Public telemetry remains readable. React assets use GET `/assets/*`.
+POST is routed only for `/api/login`, `/api/logout`, `/api/power`.
+The LXC backend enforces owner sessions, same-origin requests and CSRF for power.
+Password hash lives in Vault `kv/apps/marstek` and `/etc/marstek/auth.json` in CT104.
+Never put credentials in Helm values. ConfigMap checksum rolls out proxy changes.

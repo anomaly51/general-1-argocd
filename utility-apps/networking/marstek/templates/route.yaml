@@ -10,35 +10,6 @@ spec:
       port: 80
       targetPort: http
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: marstek-proxy
-data:
-  nginx.conf: |
-    worker_processes 1;
-    pid /tmp/nginx.pid;
-    error_log /dev/stderr warn;
-    events { worker_connections 128; }
-    http {
-      access_log off;
-      client_body_temp_path /tmp/client_temp;
-      proxy_temp_path /tmp/proxy_temp;
-      fastcgi_temp_path /tmp/fastcgi_temp;
-      uwsgi_temp_path /tmp/uwsgi_temp;
-      scgi_temp_path /tmp/scgi_temp;
-      server {
-        listen 8080;
-        location / {
-          limit_except GET { deny all; }
-          proxy_pass http://{{ .Values.upstream.address }}:{{ .Values.upstream.port }};
-          proxy_connect_timeout 3s;
-          proxy_read_timeout 10s;
-          proxy_set_header Host $host;
-        }
-      }
-    }
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -54,6 +25,7 @@ spec:
       labels:
         app.kubernetes.io/name: marstek-proxy
       annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         upstream: {{ printf "%s:%v" .Values.upstream.address .Values.upstream.port | quote }}
     spec:
       automountServiceAccountToken: false
@@ -117,8 +89,18 @@ spec:
     - {{ .Values.hostname | quote }}
   rules:
     - matches:
-        {{- range list "/" "/index.html" "/app.js" "/style.css" "/api/status" "/health" }}
+        {{- range list "/" "/index.html" "/app.js" "/style.css" "/api/status" "/api/auth" "/health" }}
         - method: GET
+          path:
+            type: Exact
+            value: {{ . | quote }}
+        {{- end }}
+        - method: GET
+          path:
+            type: PathPrefix
+            value: /assets/
+        {{- range list "/api/login" "/api/logout" "/api/power" }}
+        - method: POST
           path:
             type: Exact
             value: {{ . | quote }}
