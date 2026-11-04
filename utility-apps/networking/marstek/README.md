@@ -6,7 +6,7 @@ Cloudflare DNS is reconciled from the HTTPRoute by ExternalDNS. Traffic uses
 the existing Cloudflare Tunnel and public Traefik Gateway, then a small unprivileged
 NGINX proxy to `192.168.1.84:8080` in the home LAN (16 MiB memory request,
 64 MiB limit). The existing Argo CD configuration excludes external
-EndpointSlices; the proxy avoids changing cluster-wide reconciliation rules. Only listed GET endpoints and login/logout POST endpoints are routed.
+EndpointSlices; the proxy avoids changing cluster-wide reconciliation rules. Only listed GET endpoints and authenticated application POST endpoints are routed.
 
 The single collector remains in unprivileged Proxmox CT 104 (`marstek-dashboard`)
 on machine-1, under OpenRC service `marstek`. It polls Venus E 3.0 over LAN UDP
@@ -29,7 +29,11 @@ No credentials are required or included in this chart.
 ## Automatic charging
 
 Public telemetry remains readable. React assets use GET `/assets/*`.
-POST is routed only for `/api/login` and `/api/logout`; `/api/power` is removed.
+POST is routed only for `/api/login`, `/api/logout` and `/api/charging`; the old `/api/power` stays removed.
+`/api/charging` requires an owner session, same-origin request and CSRF.
+It selects automatic mode or a persistent manual charging setpoint (100–2500 W).
+Manual changes require Apply, use 15-second throttling and durable request IDs;
+manual mode disables automatic power selection and renews the chosen power hourly.
 The LXC controller reads the official DTEK daily schedule for group 6.2 hourly
 and attempts at most one charging command per hour, persisted across restarts.
 The authenticated `/api/auth` response includes the private schedule and charging

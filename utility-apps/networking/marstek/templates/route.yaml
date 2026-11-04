@@ -99,7 +99,7 @@ spec:
           path:
             type: PathPrefix
             value: /assets/
-        {{- range list "/api/login" "/api/logout" }}
+        {{- range list "/api/login" "/api/logout" "/api/charging" }}
         - method: POST
           path:
             type: Exact
