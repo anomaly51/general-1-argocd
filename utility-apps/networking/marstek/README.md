@@ -3,9 +3,10 @@
 Public URL: https://marstek.api-api-api.com/
 
 Cloudflare DNS is reconciled from the HTTPRoute by ExternalDNS. Traffic uses
-the existing Cloudflare Tunnel and public Traefik Gateway, then a selectorless
-Service / EndpointSlice to `192.168.1.84:8080` in the home LAN. No additional
-workload runs in Kubernetes. Only GET requests to the listed page, assets,
+the existing Cloudflare Tunnel and public Traefik Gateway, then a small unprivileged
+NGINX proxy to `192.168.1.84:8080` in the home LAN (16 MiB memory request,
+64 MiB limit). The existing Argo CD configuration excludes external
+EndpointSlices; the proxy avoids changing cluster-wide reconciliation rules. Only GET requests to the listed page, assets,
 status JSON and process health endpoint are routed.
 
 The single collector remains in unprivileged Proxmox CT 104 (`marstek-dashboard`)
