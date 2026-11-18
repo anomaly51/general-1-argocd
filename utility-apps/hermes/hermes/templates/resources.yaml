@@ -7,11 +7,6 @@ database:
 terminal:
   backend: local
   cwd: /opt/data/workspace
-webapp:
-  enabled: true
-  host: 127.0.0.1
-  port: 9120
-  public_url: http://localhost:9120
 {{- end -}}
 apiVersion: v1
 kind: ServiceAccount
