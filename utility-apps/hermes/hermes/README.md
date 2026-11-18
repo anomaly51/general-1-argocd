@@ -39,7 +39,7 @@ is admitted. Other DMs are ignored; group access is disabled.
 `kv/apps/hermes` and injected by VSO. Keep one gateway replica with the Recreate
 strategy so two instances never poll this bot simultaneously.
 
-## Gmail through MCP
+## Gmail and Google Calendar through MCP
 
 `files/gmail_mcp.py` runs as a stdio child of Hermes, using the MCP, HTTP and
 Google auth libraries already pinned in the Hermes image. No new Deployment,
@@ -52,7 +52,7 @@ mcp_servers:
     args: [/opt/gmail/gmail_mcp.py]
 ```
 
-The five tools are `list_accounts`, `gmail_search`, `gmail_read`, `gmail_compose`
+The mail tools are `list_accounts`, `gmail_search`, `gmail_read`, `gmail_compose`
 and `gmail_api`. Every mail operation requires an explicit account email.
 Compose creates a draft unless `send: true` is supplied. The advanced API tool
 supports labels, archive, trash, attachments, settings and permanent deletion;
@@ -67,7 +67,7 @@ It is served by a separate static-only Nginx listener on 8081: only `/` exists;
 there is no upstream to the agent. The dashboard remains LAN-only on its original
 internal hostname. `files/mail-info.html` contains the page and privacy notice.
 Use a Desktop OAuth client and `https://mail.google.com/` for full mail access.
-Drive, Calendar, Workspace administration and Chrome sessions are not shared.
+Drive, Workspace administration and Chrome sessions are not shared.
 Set the OAuth application's audience to External / In production for persistent
 refresh tokens; Testing can expire them after seven days. The private, unverified
 app can show Google's consent warning. Workspace policies can still block consent,
@@ -86,6 +86,27 @@ Open the printed URL in Chrome. The helper binds only `127.0.0.1:8765`, validate
 OAuth state + PKCE and verifies the returned mailbox address before adding it to
 the private JSON bundle. Repeating with another email appends that account.
 The output is mode 0600 and contains refresh credentials, never email contents.
+
+For Calendar, enable Google Calendar API in the same Google project and run the
+same authorization command with `--calendar` for each of the three accounts.
+This preserves Gmail access and adds `calendar.events` plus
+`calendar.calendarlist.readonly`. Google scopes include deletion of events, but
+the MCP exposes only listing, reading, creation and updates, not deletion or
+calendar sharing/ACL management. Store the updated bundle in the same Vault field;
+no additional process, secret mount, service or configuration is needed.
+
+Calendar tools: `calendar_list_calendars`, `calendar_events`, `calendar_event`,
+`calendar_create`, `calendar_update`. Every call names the account. The default
+calendar is `primary`, timezone `Europe/Kyiv`; timed events need explicit UTC
+offsets. List all pages before claiming a slot is free. Creation uses a stable
+request ID to prevent duplicates on retries. Updates require a last-read etag
+and use `If-Match`, preserve unspecified fields and notify guests. Attendee arrays
+replace the old list, so retain other attendees when changing one guest or RSVP.
+Recurring instances are expanded in searches; use an instance ID for a one-off
+change. For optional Google Meet creation, set `create_meet: true`.
+
+Examples in Telegram: “Show tomorrow's meetings across all three accounts” or
+“In ACCOUNT, create a meeting tomorrow 14:00–14:30 Kyiv time titled NAME”.
 
 Store the bundle in Vault `kv/apps/hermes`, field `GMAIL_CREDENTIALS_JSON`, and
 the Desktop client JSON in `GMAIL_CLIENT_SECRET_JSON`. For example, with an

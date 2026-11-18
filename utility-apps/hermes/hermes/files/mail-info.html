@@ -5,13 +5,13 @@
 <title>Hermes Mail</title>
 <style>body{max-width:680px;margin:4rem auto;padding:0 1.2rem;font:17px/1.6 system-ui;color:#24332e;background:#f8faf9}h1,h2{line-height:1.2}a{color:#176e54}section{margin-top:3rem}small{color:#59655f}</style>
 <h1>Hermes Mail</h1>
-<p>A personal Gmail assistant running in its owner's Kubernetes cluster. Hermes can search and read mail, prepare drafts, send requested replies, and manage messages and labels through Gmail API.</p>
+<p>A personal Gmail and Google Calendar assistant running in its owner's Kubernetes cluster. Hermes can search and read mail, prepare drafts, send requested replies, manage messages and labels, and view, create and update meetings through Google APIs.</p>
 <p>This is an information page. The assistant's web interface is private; this website provides no access to mail or to the agent.</p>
 <nav><a href="#privacy">Privacy</a> · <a href="#terms">Terms of use</a> · <a href="mailto:catprogrammer.vlad@gmail.com">Contact</a></nav>
 <section id="privacy">
 <h2>Privacy</h2>
-<p>Hermes Mail is for the owner's explicitly connected Google accounts. It requests full Gmail access, including reading, composing, sending and permanently deleting mail, to perform the owner's instructions. It does not receive Chrome cookies, Google passwords, Drive or Calendar access.</p>
-<p>OAuth refresh credentials are stored in the owner's Vault and mounted into the agent. Mail content needed for a request can be processed by the configured OpenAI model under the owner's account settings. Replies requested through Telegram also pass through Telegram. Chat history and tool results may remain in the agent's persistent storage until the owner deletes them. This static information page stores no mail and uses no analytics or cookies.</p>
+<p>Hermes Mail is for the owner's explicitly connected Google accounts. It requests full Gmail access, including reading, composing, sending and permanently deleting mail, to perform the owner's instructions. When Calendar is connected, it can read the calendar list and access events, including meeting details, guests, responses and links. Google's event permission covers creation, changes and deletion; the assistant exposes viewing, creation and updates. Changes can send Google invitations or update notifications to guests. It does not receive Chrome cookies, Google passwords, Drive access or calendar-sharing permissions.</p>
+<p>OAuth refresh credentials are stored in the owner's Vault and mounted into the agent. Mail and calendar content needed for a request can be processed by the configured OpenAI model under the owner's account settings. Replies requested through Telegram also pass through Telegram. Chat history and tool results may remain in the agent's persistent storage until the owner deletes them. This static information page stores no mail or events and uses no analytics or cookies.</p>
 <p>Mail is not sold or used by this application for advertising or model training. Hermes Mail's use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including its Limited Use requirements.</p>
 <p>Access can be revoked in <a href="https://myaccount.google.com/connections">Google Account connections</a>. The owner can remove stored OAuth credentials from Vault and delete retained agent history. Contact the operator at <a href="mailto:catprogrammer.vlad@gmail.com">catprogrammer.vlad@gmail.com</a> for access or deletion requests.</p>
 </section>
@@ -19,5 +19,5 @@
 <h2>Terms of use</h2>
 <p>This is a personal, private tool, not a public mail service. Use it only with accounts you own or are authorized to manage. Review AI-generated content before requesting delivery. The owner remains in control of mailbox operations and can disconnect any account at any time. The tool is provided as-is, without a guarantee of availability or accuracy.</p>
 </section>
-<p><small>Updated 18 November 2026</small></p>
+<p><small>Updated 19 November 2026</small></p>
 </html>

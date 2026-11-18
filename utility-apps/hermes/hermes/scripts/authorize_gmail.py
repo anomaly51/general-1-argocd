@@ -33,7 +33,10 @@ def main():
     parser.add_argument("--email", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--calendar", action="store_true", help="Also authorize Calendar events and read-only calendar list")
     args = parser.parse_args()
+    scopes = SCOPES + (["https://www.googleapis.com/auth/calendar.events",
+                       "https://www.googleapis.com/auth/calendar.calendarlist.readonly"] if args.calendar else [])
     client = json.loads(args.client_secret.read_text())["installed"]
     state, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(64)
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
@@ -66,8 +69,8 @@ def main():
                     "grant_type": "authorization_code", "code_verifier": verifier,
                 })
                 granted = token.get("scope", "").split()
-                if not set(SCOPES).issubset(granted) or not token.get("refresh_token"):
-                    raise ValueError("Offline access or required mail scope was not granted")
+                if not set(scopes).issubset(granted) or not token.get("refresh_token"):
+                    raise ValueError("Offline access or required Google scopes were not granted")
                 profile = api("https://gmail.googleapis.com/gmail/v1/users/me/profile", token=token["access_token"])
                 if profile["emailAddress"].lower() != args.email.lower():
                     raise ValueError("Selected account does not match requested email")
@@ -83,7 +86,7 @@ def main():
                     json.dump(bundle, target)
                 os.replace(temporary, args.output)
                 outcome["ok"] = True
-                text = "Gmail connected to Hermes. You can close this tab."
+                text = "Google account connected to Hermes. You can close this tab."
             except urllib.error.HTTPError as error:
                 outcome["error"] = f"Google returned HTTP {error.code}; no credentials saved."
                 text = outcome["error"]
@@ -101,7 +104,7 @@ def main():
     server.timeout = 1
     params = {
         "client_id": client["client_id"], "redirect_uri": redirect, "response_type": "code",
-        "scope": " ".join(SCOPES), "access_type": "offline", "prompt": "consent",
+        "scope": " ".join(scopes), "access_type": "offline", "prompt": "consent",
         "login_hint": args.email, "state": state, "code_challenge": challenge, "code_challenge_method": "S256",
     }
     print("https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params), flush=True)
