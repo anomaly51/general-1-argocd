@@ -52,6 +52,8 @@ metadata:
   name: hermes-config
 data:
   config.yaml: |
+    model:
+      provider: openai-codex
     database:
       journal_mode: delete
     terminal:
@@ -78,6 +80,12 @@ spec:
       labels: {app: hermes}
     spec:
       automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - {key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}
       terminationGracePeriodSeconds: 60
       initContainers:
         - name: config
