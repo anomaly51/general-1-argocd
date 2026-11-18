@@ -12,6 +12,10 @@ platforms:
 terminal:
   backend: local
   cwd: /opt/data/workspace
+mcp_servers:
+  gmail:
+    command: /opt/hermes/.venv/bin/python
+    args: [/opt/gmail/gmail_mcp.py]
 webapp:
   enabled: true
   host: 127.0.0.1
@@ -124,6 +128,8 @@ data:
 {{ include "hermes.config" . | indent 4 }}
   nginx.conf: |
 {{ include "hermes.proxy" . | indent 4 }}
+  gmail_mcp.py: |
+{{ .Files.Get "files/gmail_mcp.py" | indent 4 }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -141,6 +147,7 @@ spec:
       annotations:
         checksum/config: {{ include "hermes.config" . | sha256sum }}
         checksum/proxy: {{ include "hermes.proxy" . | sha256sum }}
+        checksum/gmail: {{ .Files.Get "files/gmail_mcp.py" | sha256sum }}
     spec:
       automountServiceAccountToken: false
       affinity:
@@ -203,6 +210,8 @@ spec:
             limits: {cpu: "2", memory: 2Gi, ephemeral-storage: 2Gi}
           volumeMounts:
             - {name: data, mountPath: /opt/data}
+            - {name: config, mountPath: /opt/gmail, readOnly: true}
+            - {name: gmail-secrets, mountPath: /opt/gmail-secrets, readOnly: true}
         - name: lan-web
           image: nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a
           command: [sh, -ec]
@@ -237,6 +246,12 @@ spec:
             - {name: config, mountPath: /template, readOnly: true}
             - {name: proxy-tmp, mountPath: /tmp}
       volumes:
+        - name: gmail-secrets
+          secret:
+            secretName: hermes
+            optional: true
+            items:
+              - {key: GMAIL_CREDENTIALS_JSON, path: credentials.json}
         - name: proxy-tmp
           emptyDir: {medium: Memory, sizeLimit: 64Mi}
         - name: data
