@@ -4,6 +4,11 @@ model:
   default: gpt-6.1-sol
 database:
   journal_mode: delete
+platforms:
+  telegram:
+    extra:
+      dm_policy: allowlist
+      group_policy: disabled
 terminal:
   backend: local
   cwd: /opt/data/workspace
@@ -171,6 +176,12 @@ spec:
             - name: HERMES_DASHBOARD_SESSION_TOKEN
               valueFrom:
                 secretKeyRef: {name: hermes, key: HERMES_DASHBOARD_SESSION_TOKEN}
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef: {name: hermes, key: TELEGRAM_BOT_TOKEN}
+            - name: TELEGRAM_ALLOWED_USERS
+              valueFrom:
+                secretKeyRef: {name: hermes, key: TELEGRAM_ALLOWED_USERS}
             - name: API_SERVER_KEY
               valueFrom:
                 secretKeyRef: {name: hermes, key: API_SERVER_KEY}

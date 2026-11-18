@@ -28,6 +28,17 @@ Fetch Metadata before supplying its token. Cloudflare Tunnel rejects the entire
 `*.internal.api-api-api.com` zone; External DNS does not publish this route.
 Vault secret changes restart the deployment so both containers use the same token.
 
+## Telegram
+
+Chat with [@anomaly51_hermes_bot](https://t.me/anomaly51_hermes_bot).
+The existing gateway polls Telegram; no webhook, public ingress, or separate bot
+process is needed. Only the owner's numeric user ID in `TELEGRAM_ALLOWED_USERS`
+is admitted. Other DMs are ignored; group access is disabled.
+
+`TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_USERS` are stored in Vault
+`kv/apps/hermes` and injected by VSO. Keep one gateway replica with the Recreate
+strategy so two instances never poll this bot simultaneously.
+
 ## State and configuration
 
 State lives on the 5 GiB NFS PVC `hermes-data`. SQLite uses DELETE journaling
