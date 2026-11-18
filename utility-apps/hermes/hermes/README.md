@@ -1,6 +1,6 @@
 # Hermes Agent
 
-One official Hermes v0.23.2 container in namespace `hermes`, managed by Argo CD.
+One official Hermes v0.23.2 container with a small LAN proxy in namespace `hermes`, managed by Argo CD.
 `templates/resources.yaml` contains the complete deployment, with the image pinned by digest.
 
 Chat uses the ChatGPT/Codex subscription provider and `gpt-6.1-sol`, matching
@@ -14,22 +14,19 @@ kubectl -n hermes exec -it deployment/hermes -- hermes
 
 The internal API is `http://hermes.hermes.svc.cluster.local:8642/v1`.
 Its bearer key is in Vault `kv/apps/hermes`, field `API_SERVER_KEY`.
-The native web app is served at https://hermes.api-api-api.com through the
-existing Cloudflare Tunnel and public Gateway. External DNS manages its DNS record.
-The API on port 8642 remains internal.
+Open **https://hermes.internal.api-api-api.com** from the LAN (or a VPN with
+access to the LAN and its internal DNS). There is no browser login and no public
+route. All devices with access to this internal endpoint share the same agent.
 
-Web login uses Keycloak OIDC (`master` realm, client `hermes-web`), with the
-exact callback `https://hermes.api-api-api.com/auth/callback` and PKCE S256.
-Only the owner's administrator account should have interactive access to this
-realm; do not enable registration or add unrelated users. The client must have
-full scope disabled and only the `profile` and `email` scopes; it does not need
-admin roles, direct grants, implicit grants, or a service account.
-`keycloak-client.json` is the exact registration to import once in Keycloak;
-Helm does not reconcile this identity-provider registration.
+The internal Gateway terminates HTTPS. A small Nginx sidecar forwards a deployment
+session token to Hermes on loopback; the token stays server-side in Vault
+`kv/apps/hermes`, field `HERMES_DASHBOARD_SESSION_TOKEN`. Hermes' built-in token
+verification remains enabled. Keycloak is not used.
 
-The web listener accepts ingress only from Traefik. Proxy headers are trusted
-only from the cluster pod CIDR, with that NetworkPolicy restricting who can reach
-port 9120. No authentication bypass or public API token is configured.
+The web port accepts ingress only from Traefik. The proxy checks Host, Origin and
+Fetch Metadata before supplying its token. Cloudflare Tunnel rejects the entire
+`*.internal.api-api-api.com` zone; External DNS does not publish this route.
+Vault secret changes restart the deployment so both containers use the same token.
 
 ## State and configuration
 

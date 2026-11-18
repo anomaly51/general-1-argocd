@@ -9,16 +9,48 @@ terminal:
   cwd: /opt/data/workspace
 webapp:
   enabled: true
-  host: 0.0.0.0
+  host: 127.0.0.1
   port: 9120
   public_url: https://hermes.internal.api-api-api.com
-dashboard:
-  # Only Traefik can reach the web listener (see NetworkPolicy below).
-  trusted_proxies: [10.42.0.0/16]
-  oauth:
-    self_hosted:
-      issuer: https://keycloak-general1.api-api-api.com/realms/master
-      client_id: hermes-web
+{{- end -}}
+{{- define "hermes.proxy" -}}
+worker_processes 1;
+pid /tmp/nginx.pid;
+error_log /dev/stderr warn;
+events { worker_connections 256; }
+http {
+  access_log off;
+  client_body_temp_path /tmp/client;
+  proxy_temp_path /tmp/proxy;
+  map $http_upgrade $connection_upgrade { default upgrade; "" close; }
+  # The LAN is the access boundary. Refuse requests from unrelated web pages.
+  map $http_origin $origin_allowed {
+    default 0;
+    "" 1;
+    "https://hermes.internal.api-api-api.com" 1;
+  }
+  server {
+    listen 8080;
+    server_name hermes.internal.api-api-api.com;
+    client_max_body_size 32m;
+    if ($host != hermes.internal.api-api-api.com) { return 403; }
+    if ($origin_allowed = 0) { return 403; }
+    if ($http_sec_fetch_site = cross-site) { return 403; }
+    add_header Content-Security-Policy "frame-ancestors 'self'" always;
+    location / {
+      proxy_pass http://127.0.0.1:9120;
+      proxy_http_version 1.1;
+      proxy_set_header Host hermes.internal.api-api-api.com;
+      proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header Authorization "Bearer ${HERMES_DASHBOARD_SESSION_TOKEN}";
+      proxy_set_header X-Hermes-Session-Token "";
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection $connection_upgrade;
+      proxy_buffering off;
+      proxy_read_timeout 3600s;
+    }
+  }
+}
 {{- end -}}
 apiVersion: v1
 kind: ServiceAccount
@@ -49,6 +81,8 @@ spec:
   type: kv-v2
   path: apps/hermes
   refreshAfter: 1m
+  rolloutRestartTargets:
+    - {kind: Deployment, name: hermes}
   destination:
     create: true
     name: hermes
@@ -75,6 +109,8 @@ metadata:
 data:
   config.yaml: |
 {{ include "hermes.config" . | indent 4 }}
+  nginx.conf: |
+{{ include "hermes.proxy" . | indent 4 }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -91,6 +127,7 @@ spec:
       labels: {app: hermes}
       annotations:
         checksum/config: {{ include "hermes.config" . | sha256sum }}
+        checksum/proxy: {{ include "hermes.proxy" . | sha256sum }}
     spec:
       automountServiceAccountToken: false
       affinity:
@@ -123,18 +160,20 @@ spec:
             - {name: TZ, value: Europe/Kyiv}
             - {name: API_SERVER_ENABLED, value: "true"}
             - {name: API_SERVER_HOST, value: "0.0.0.0"}
+            - name: HERMES_DASHBOARD_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef: {name: hermes, key: HERMES_DASHBOARD_SESSION_TOKEN}
             - name: API_SERVER_KEY
               valueFrom:
                 secretKeyRef: {name: hermes, key: API_SERVER_KEY}
           ports:
             - {name: api, containerPort: 8642}
-            - {name: web, containerPort: 9120}
           startupProbe:
             httpGet: {path: /health, port: api}
             periodSeconds: 10
             failureThreshold: 60
           readinessProbe:
-            tcpSocket: {port: web}
+            httpGet: {path: /health, port: api}
             periodSeconds: 10
           livenessProbe:
             httpGet: {path: /health, port: api}
@@ -145,7 +184,42 @@ spec:
             limits: {cpu: "2", memory: 2Gi, ephemeral-storage: 2Gi}
           volumeMounts:
             - {name: data, mountPath: /opt/data}
+        - name: lan-web
+          image: nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a
+          command: [sh, -ec]
+          args:
+            - |
+              umask 077
+              envsubst '${HERMES_DASHBOARD_SESSION_TOKEN}' < /template/nginx.conf > /tmp/nginx.conf
+              exec nginx -c /tmp/nginx.conf -g 'daemon off;'
+          env:
+            - name: HERMES_DASHBOARD_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef: {name: hermes, key: HERMES_DASHBOARD_SESSION_TOKEN}
+          ports:
+            - {name: web, containerPort: 8080}
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: web
+              httpHeaders:
+                - {name: Host, value: hermes.internal.api-api-api.com}
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 101
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: config, mountPath: /template, readOnly: true}
+            - {name: proxy-tmp, mountPath: /tmp}
       volumes:
+        - name: proxy-tmp
+          emptyDir: {medium: Memory, sizeLimit: 64Mi}
         - name: data
           persistentVolumeClaim: {claimName: hermes-data}
         - name: config
@@ -176,7 +250,7 @@ spec:
           podSelector:
             matchLabels: {app.kubernetes.io/name: traefik}
       ports:
-        - {protocol: TCP, port: 9120}
+        - {protocol: TCP, port: 8080}
     - from:
         - namespaceSelector: {}
       ports:
