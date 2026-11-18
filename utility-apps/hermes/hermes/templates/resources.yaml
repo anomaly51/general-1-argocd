@@ -41,7 +41,7 @@ http {
     if ($host != hermes-mail.api-api-api.com) { return 403; }
     add_header X-Content-Type-Options nosniff always;
     add_header Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'" always;
-    location = / { default_type text/html; alias /template/mail-info.html; }
+    location = / { default_type text/html; root /template; try_files /mail-info.html =404; }
     location / { return 404; }
   }
   map $http_upgrade $connection_upgrade { default upgrade; "" close; }
