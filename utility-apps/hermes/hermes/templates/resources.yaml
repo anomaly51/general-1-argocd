@@ -7,6 +7,18 @@ database:
 terminal:
   backend: local
   cwd: /opt/data/workspace
+webapp:
+  enabled: true
+  host: 0.0.0.0
+  port: 9120
+  public_url: https://hermes.api-api-api.com
+dashboard:
+  # Only Traefik can reach the web listener (see NetworkPolicy below).
+  trusted_proxies: [10.42.0.0/16]
+  oauth:
+    self_hosted:
+      issuer: https://keycloak-general1.api-api-api.com/realms/master
+      client_id: hermes-web
 {{- end -}}
 apiVersion: v1
 kind: ServiceAccount
@@ -116,12 +128,13 @@ spec:
                 secretKeyRef: {name: hermes, key: API_SERVER_KEY}
           ports:
             - {name: api, containerPort: 8642}
+            - {name: web, containerPort: 9120}
           startupProbe:
             httpGet: {path: /health, port: api}
             periodSeconds: 10
             failureThreshold: 60
           readinessProbe:
-            httpGet: {path: /health, port: api}
+            tcpSocket: {port: web}
             periodSeconds: 10
           livenessProbe:
             httpGet: {path: /health, port: api}
@@ -146,3 +159,37 @@ spec:
   selector: {app: hermes}
   ports:
     - {name: api, port: 8642, targetPort: api}
+    - {name: web, port: 9120, targetPort: web}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hermes
+spec:
+  podSelector:
+    matchLabels: {app: hermes}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: traefik}
+      ports:
+        - {protocol: TCP, port: 9120}
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - {protocol: TCP, port: 8642}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hermes
+spec:
+  parentRefs:
+    - {name: public, namespace: networking, sectionName: https}
+  hostnames: [hermes.api-api-api.com]
+  rules:
+    - backendRefs:
+        - {name: hermes, port: 9120}

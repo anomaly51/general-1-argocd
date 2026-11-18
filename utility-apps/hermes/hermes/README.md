@@ -14,7 +14,20 @@ kubectl -n hermes exec -it deployment/hermes -- hermes
 
 The internal API is `http://hermes.hermes.svc.cluster.local:8642/v1`.
 Its bearer key is in Vault `kv/apps/hermes`, field `API_SERVER_KEY`.
-There is no public ingress or messaging integration in this initial setup.
+The native web app is served at https://hermes.api-api-api.com through the
+existing Cloudflare Tunnel and public Gateway. External DNS manages its DNS record.
+The API on port 8642 remains internal.
+
+Web login uses Keycloak OIDC (`master` realm, client `hermes-web`), with the
+exact callback `https://hermes.api-api-api.com/auth/callback` and PKCE S256.
+Only the owner's administrator account should have interactive access to this
+realm; do not enable registration or add unrelated users. The client must have
+full scope disabled and only the `profile` and `email` scopes; it does not need
+admin roles, direct grants, implicit grants, or a service account.
+
+The web listener accepts ingress only from Traefik. Proxy headers are trusted
+only from the cluster pod CIDR, with that NetworkPolicy restricting who can reach
+port 9120. No authentication bypass or public API token is configured.
 
 ## State and configuration
 

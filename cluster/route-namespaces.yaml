@@ -90,3 +90,12 @@ metadata:
     gateway.api-api-api.com/internal: "true"
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hermes
+  labels:
+    gateway.api-api-api.com/public: "true"
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
