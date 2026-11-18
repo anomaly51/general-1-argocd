@@ -1,3 +1,18 @@
+{{- define "hermes.config" -}}
+model:
+  provider: openai-codex
+  default: gpt-6.1-sol
+database:
+  journal_mode: delete
+terminal:
+  backend: local
+  cwd: /opt/data/workspace
+webapp:
+  enabled: true
+  host: 127.0.0.1
+  port: 9120
+  public_url: http://localhost:9120
+{{- end -}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -52,18 +67,7 @@ metadata:
   name: hermes-config
 data:
   config.yaml: |
-    model:
-      provider: openai-codex
-    database:
-      journal_mode: delete
-    terminal:
-      backend: local
-      cwd: /opt/data/workspace
-    webapp:
-      enabled: true
-      host: 127.0.0.1
-      port: 9120
-      public_url: http://localhost:9120
+{{ include "hermes.config" . | indent 4 }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -78,6 +82,8 @@ spec:
   template:
     metadata:
       labels: {app: hermes}
+      annotations:
+        checksum/config: {{ include "hermes.config" . | sha256sum }}
     spec:
       automountServiceAccountToken: false
       affinity:
@@ -127,8 +133,8 @@ spec:
             periodSeconds: 30
             failureThreshold: 5
           resources:
-            requests: {cpu: 100m, memory: 512Mi}
-            limits: {cpu: "2", memory: 2Gi}
+            requests: {cpu: 100m, memory: 512Mi, ephemeral-storage: 256Mi}
+            limits: {cpu: "2", memory: 2Gi, ephemeral-storage: 2Gi}
           volumeMounts:
             - {name: data, mountPath: /opt/data}
       volumes:

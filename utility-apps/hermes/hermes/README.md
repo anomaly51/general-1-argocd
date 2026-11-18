@@ -24,9 +24,16 @@ State lives on the 5 GiB NFS PVC `hermes-data`. SQLite uses DELETE journaling
 for NFS. Recreate updates keep a single gateway writer. The PVC is retained
 when the application is pruned or deleted. This is persistent storage, not a backup.
 
-Provider setup is pending selection. Provider login state is stored in
+Chat uses the ChatGPT/Codex subscription provider and `gpt-6.1-sol`, matching
+the current local Codex model. Finish login with:
+
+```sh
+kubectl -n hermes exec -it deployment/hermes -- hermes auth add openai-codex
+```
+
+Provider login state is stored in
 `/opt/data/auth.json`; OAuth refreshes require that file to remain writable.
 Save a recovery copy to Vault after authentication. Never commit credentials.
 
 Edit the ConfigMap in Git to change configuration. It is copied to the persistent
-volume at pod startup. Agent changes to config.yaml are overwritten on restart.
+volume at pod startup; the config checksum triggers a rollout. Agent changes to config.yaml are overwritten on restart.
