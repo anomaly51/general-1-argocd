@@ -24,6 +24,8 @@ Only the owner's administrator account should have interactive access to this
 realm; do not enable registration or add unrelated users. The client must have
 full scope disabled and only the `profile` and `email` scopes; it does not need
 admin roles, direct grants, implicit grants, or a service account.
+`keycloak-client.json` is the exact registration to import once in Keycloak;
+Helm does not reconcile this identity-provider registration.
 
 The web listener accepts ingress only from Traefik. Proxy headers are trusted
 only from the cluster pod CIDR, with that NetworkPolicy restricting who can reach
