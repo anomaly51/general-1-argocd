@@ -62,6 +62,10 @@ permanent deletion requires explicit confirmation. These instructions guide the
 agent; the OAuth scope itself grants full mailbox access.
 
 Google Cloud project: `anomaly51-hermes-mail` (Hermes Mail), with Gmail API.
+The OAuth information/privacy page is `https://hermes-mail.api-api-api.com/`.
+It is served by a separate static-only Nginx listener on 8081: only `/` exists;
+there is no upstream to the agent. The dashboard remains LAN-only on its original
+internal hostname. `files/mail-info.html` contains the page and privacy notice.
 Use a Desktop OAuth client and `https://mail.google.com/` for full mail access.
 Drive, Calendar, Workspace administration and Chrome sessions are not shared.
 Set the OAuth application's audience to External / In production for persistent

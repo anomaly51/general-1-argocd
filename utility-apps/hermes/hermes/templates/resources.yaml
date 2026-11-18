@@ -34,6 +34,16 @@ http {
   fastcgi_temp_path /tmp/fastcgi;
   uwsgi_temp_path /tmp/uwsgi;
   scgi_temp_path /tmp/scgi;
+  # Public OAuth information only. No proxy, secret files or agent routes.
+  server {
+    listen 8081;
+    server_name hermes-mail.api-api-api.com;
+    if ($host != hermes-mail.api-api-api.com) { return 403; }
+    add_header X-Content-Type-Options nosniff always;
+    add_header Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'" always;
+    location = / { default_type text/html; alias /template/mail-info.html; }
+    location / { return 404; }
+  }
   map $http_upgrade $connection_upgrade { default upgrade; "" close; }
   # The LAN is the access boundary. Refuse requests from unrelated web pages.
   map $http_origin $origin_allowed {
@@ -130,6 +140,8 @@ data:
 {{ include "hermes.proxy" . | indent 4 }}
   gmail_mcp.py: |
 {{ .Files.Get "files/gmail_mcp.py" | indent 4 }}
+  mail-info.html: |
+{{ .Files.Get "files/mail-info.html" | indent 4 }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -226,6 +238,7 @@ spec:
                 secretKeyRef: {name: hermes, key: HERMES_DASHBOARD_SESSION_TOKEN}
           ports:
             - {name: web, containerPort: 8080}
+            - {name: mail-info, containerPort: 8081}
           readinessProbe:
             httpGet:
               path: /api/status
@@ -268,6 +281,7 @@ spec:
   ports:
     - {name: api, port: 8642, targetPort: api}
     - {name: web, port: 9120, targetPort: web}
+    - {name: mail-info, port: 8081, targetPort: mail-info}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -285,6 +299,7 @@ spec:
             matchLabels: {app.kubernetes.io/name: traefik}
       ports:
         - {protocol: TCP, port: 8080}
+        - {protocol: TCP, port: 8081}
     - from:
         - namespaceSelector: {}
       ports:
@@ -301,3 +316,15 @@ spec:
   rules:
     - backendRefs:
         - {name: hermes, port: 9120}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hermes-mail-info
+spec:
+  parentRefs:
+    - {name: public, namespace: networking, sectionName: https}
+  hostnames: [hermes-mail.api-api-api.com]
+  rules:
+    - backendRefs:
+        - {name: hermes, port: 8081}
