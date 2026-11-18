@@ -32,13 +32,18 @@ http {
     "" 1;
     "https://hermes.internal.api-api-api.com" 1;
   }
+  map "$http_sec_fetch_site:$http_sec_fetch_mode:$request_method" $fetch_allowed {
+    default 1;
+    "cross-site:navigate:GET" 1;
+    ~^cross-site: 0;
+  }
   server {
     listen 8080;
     server_name hermes.internal.api-api-api.com;
     client_max_body_size 32m;
     if ($host != hermes.internal.api-api-api.com) { return 403; }
     if ($origin_allowed = 0) { return 403; }
-    if ($http_sec_fetch_site = cross-site) { return 403; }
+    if ($fetch_allowed = 0) { return 403; }
     add_header Content-Security-Policy "frame-ancestors 'self'" always;
     location / {
       proxy_pass http://127.0.0.1:9120;
