@@ -11,7 +11,7 @@ webapp:
   enabled: true
   host: 0.0.0.0
   port: 9120
-  public_url: https://hermes.api-api-api.com
+  public_url: https://hermes.internal.api-api-api.com
 dashboard:
   # Only Traefik can reach the web listener (see NetworkPolicy below).
   trusted_proxies: [10.42.0.0/16]
@@ -188,8 +188,8 @@ metadata:
   name: hermes
 spec:
   parentRefs:
-    - {name: public, namespace: networking, sectionName: https}
-  hostnames: [hermes.api-api-api.com]
+    - {name: internal, namespace: networking, sectionName: https}
+  hostnames: [hermes.internal.api-api-api.com]
   rules:
     - backendRefs:
         - {name: hermes, port: 9120}
