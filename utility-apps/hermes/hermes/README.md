@@ -133,10 +133,11 @@ not send messages, mark mail read or change the mailbox.
 
 The `interviews_tracker` MCP connection uses a dedicated, revocable
 `tracker:read` credential from `kv/apps/hermes`, field
-`INTERVIEWS_TRACKER_MCP_TOKEN`. Hermes loads only the account-info and DOU
-vacancy tools. To prepare a reply, select **Draft with Hermes** on the Tracker
-Vacancies page and send the prefilled Telegram message. Hermes uses its
-OpenAI model to prepare a draft from the selected vacancy.
+`INTERVIEWS_TRACKER_MCP_TOKEN`. **Prepare application** on the Tracker
+Vacancies page calls the internal Hermes API using OpenAI. This API platform
+loads only the Tracker MCP tools. Telegram continues to use its own tool policy.
+The Tracker authenticates to the internal API using the Vault field
+`APP_HERMES_DRAFT_KEY` in `kv/apps/interviews-tracker`.
 
 ## State and configuration
 

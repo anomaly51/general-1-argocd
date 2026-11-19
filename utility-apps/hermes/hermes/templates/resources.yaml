@@ -12,6 +12,8 @@ platforms:
 terminal:
   backend: local
   cwd: /opt/data/workspace
+platform_toolsets:
+  api_server: [interviews_tracker]
 mcp_servers:
   gmail:
     command: /opt/hermes/.venv/bin/python
