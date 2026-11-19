@@ -1,0 +1,15 @@
+Host hermes-windows-pc
+    HostName WINDOWS_LAN_IPV4
+    User WINDOWS_DESKTOP_USER
+    Port 22
+    HostKeyAlias hermes-windows-pc
+    IdentityFile /opt/windows-pc-ssh/key
+    UserKnownHostsFile /opt/windows-pc-ssh/known_hosts
+    GlobalKnownHostsFile /dev/null
+    IdentitiesOnly yes
+    BatchMode yes
+    StrictHostKeyChecking yes
+    ConnectTimeout 4
+    ConnectionAttempts 1
+    ForwardAgent no
+    ClearAllForwardings yes

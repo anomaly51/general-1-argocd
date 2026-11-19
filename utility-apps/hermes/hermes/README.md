@@ -141,6 +141,10 @@ The Tracker authenticates to the internal API using the Vault field
 
 ## State and configuration
 
+The optional [Windows PC setup](windows-pc/README.md) connects Computer Use
+and Codex CLI over LAN SSH and adds a live view of the Windows user's primary
+monitor in Hermes. Use the [handoff prompt](windows-pc/HANDOFF.md) on Windows.
+
 State lives on the 5 GiB NFS PVC `hermes-data`. SQLite uses DELETE journaling
 for NFS. Recreate updates keep a single gateway writer. The PVC is retained
 when the application is pruned or deleted. This is persistent storage, not a backup.
