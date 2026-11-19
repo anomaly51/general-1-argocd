@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: interviews-tracker-dou
+spec:
+  schedule: "0 0,9,12,15,18,21 * * *"
+  timeZone: Europe/Kyiv
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 1800
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 180
+      backoffLimit: 1
+      template:
+        metadata:
+          labels: {app.kubernetes.io/name: interviews-tracker-dou}
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          nodeSelector: {{ .Values.nodeSelector | toJson }}
+          imagePullSecrets: [{name: interviews-tracker-registry}]
+          containers:
+            - name: sync
+              image: {{ printf "%s:%s" .Values.images.api.repository .Values.images.api.tag | quote }}
+              command: [python, -m, app.vacancies]
+              env:
+                - {name: APP_CASSANDRA_HOSTS, value: interviews-tracker-cassandra}
+              resources:
+                requests: {cpu: 25m, memory: 96Mi}
+                limits: {cpu: 250m, memory: 256Mi}
+              securityContext:
+                runAsUser: 10001
+                runAsNonRoot: true
+                readOnlyRootFilesystem: true
+                allowPrivilegeEscalation: false
+                capabilities: {drop: [ALL]}

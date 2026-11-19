@@ -129,6 +129,15 @@ Verify from Telegram: “List my connected Gmail accounts”, then “Show unrea
 messages for ACCOUNT”. Setup checks should only read profiles/labels; they should
 not send messages, mark mail read or change the mailbox.
 
+## Interviews Tracker
+
+The `interviews_tracker` MCP connection uses a dedicated, revocable
+`tracker:read` credential from `kv/apps/hermes`, field
+`INTERVIEWS_TRACKER_MCP_TOKEN`. Hermes loads only the account-info and DOU
+vacancy tools. To prepare a reply, select **Draft with Hermes** on the Tracker
+Vacancies page and send the prefilled Telegram message. Hermes uses its
+OpenAI model to prepare a draft from the selected vacancy.
+
 ## State and configuration
 
 State lives on the 5 GiB NFS PVC `hermes-data`. SQLite uses DELETE journaling

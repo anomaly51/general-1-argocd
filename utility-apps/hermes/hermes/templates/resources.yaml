@@ -16,6 +16,14 @@ mcp_servers:
   gmail:
     command: /opt/hermes/.venv/bin/python
     args: [/opt/gmail/gmail_mcp.py]
+  interviews_tracker:
+    url: https://interviews-tracker.api-api-api.com/auth/mcp/
+    transport: streamable-http
+    strict_redirect_headers: true
+    headers:
+      Authorization: "Bearer ${INTERVIEWS_TRACKER_MCP_TOKEN}"
+    tools:
+      include: [get_tracker_info, list_vacancies, get_vacancy]
 webapp:
   enabled: true
   host: 127.0.0.1
@@ -204,6 +212,9 @@ spec:
             - name: API_SERVER_KEY
               valueFrom:
                 secretKeyRef: {name: hermes, key: API_SERVER_KEY}
+            - name: INTERVIEWS_TRACKER_MCP_TOKEN
+              valueFrom:
+                secretKeyRef: {name: hermes, key: INTERVIEWS_TRACKER_MCP_TOKEN, optional: true}
           ports:
             - {name: api, containerPort: 8642}
           startupProbe:
