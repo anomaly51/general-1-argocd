@@ -7,6 +7,7 @@ from email import policy
 from email.parser import BytesParser
 from pathlib import Path
 from unittest.mock import patch
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 spec = importlib.util.spec_from_file_location("gmail_mcp", Path(__file__).parents[1] / "files/gmail_mcp.py")
 mail = importlib.util.module_from_spec(spec)
@@ -131,6 +132,26 @@ class CalendarTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 mail.calendar_update("one@example.com", "event", '"one"', {"end": {"dateTime": "2026-11-20T14:00:00+02:00"}})
             self.assertEqual(api.call_count, 1)
+
+    def test_google_legacy_kyiv_timezone_without_legacy_tzdata(self):
+        def modern_tzdata(name):
+            if name == "Europe/Kiev":
+                raise ZoneInfoNotFoundError(name)
+            return ZoneInfo(name)
+
+        existing = {"etag": '"one"',
+                    "start": {"dateTime": "2026-11-20T14:00:00+02:00", "timeZone": "Europe/Kiev"},
+                    "end": {"dateTime": "2026-11-20T15:00:00+02:00", "timeZone": "Europe/Kiev"}}
+        changes = {"end": {"dateTime": "2026-11-20T15:30:00+02:00", "timeZone": "Europe/Kyiv"}}
+        with patch.object(mail, "ZoneInfo", side_effect=modern_tzdata):
+            with patch.object(mail, "calendar_request", side_effect=[existing, {}]) as api:
+                mail.calendar_update("one@example.com", "event", '"one"', changes)
+                self.assertEqual(api.call_args.args[1], "PATCH")
+                self.assertEqual(api.call_args.args[4], changes)
+            with patch.object(mail, "calendar_request", return_value={}) as api:
+                mail.calendar_create("one@example.com", "Meeting", "2026-11-20T14:00:00+02:00",
+                                     "2026-11-20T15:00:00+02:00", "legacy-zone", time_zone="Europe/Kiev")
+                self.assertEqual(api.call_args.args[4]["start"]["timeZone"], "Europe/Kyiv")
 
 
 if __name__ == "__main__":

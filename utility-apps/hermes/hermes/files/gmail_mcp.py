@@ -228,6 +228,13 @@ def timed_value(value):
     return parsed
 
 
+def validated_time_zone(name):
+    # Google still returns Europe/Kiev; slim tzdata images may omit legacy aliases.
+    canonical = "Europe/Kyiv" if name == "Europe/Kiev" else name
+    ZoneInfo(canonical)
+    return canonical
+
+
 def validate_event_times(event):
     start, end = event.get("start", {}), event.get("end", {})
     if "dateTime" in start and "dateTime" in end:
@@ -240,7 +247,7 @@ def validate_event_times(event):
         raise ValueError("Meeting end must be after its start; all-day end is exclusive.")
     for value in (start, end):
         if value.get("timeZone"):
-            ZoneInfo(value["timeZone"])
+            validated_time_zone(value["timeZone"])
 
 
 @mcp.tool(annotations=READ)
@@ -292,7 +299,7 @@ def calendar_create(account: str, summary: str, start: str, end: str, request_id
     """
     if not summary.strip() or not request_id.strip():
         raise ValueError("Title and a stable unique request_id are required.")
-    ZoneInfo(time_zone)
+    time_zone = validated_time_zone(time_zone)
     def point(value):
         return {"date": value} if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) else {"dateTime": value, "timeZone": time_zone}
     event_id = hashlib.sha256(json.dumps([account, calendar_id, request_id]).encode()).hexdigest()
