@@ -2,9 +2,9 @@ _release:
   policy: prod-only
   sourceRepository: anomaly51/interviews-tracker
   revision: d6eaeafdf534782734b75219615537574ce12c59
-  sourceCommit: 4b87930c0e1ebb7bd1a6a5d3d813409f2ffe6005
+  sourceCommit: 211ef049f93bb1af86142f1e3fa1c4a430bbece1
   sourceBranch: main
-  runUrl: https://github.com/anomaly51/interviews-tracker/actions/runs/44944540202
+  runUrl: https://github.com/anomaly51/interviews-tracker/actions/runs/44945554071
   imageKeys:
   - images.api
   - images.frontend
@@ -12,10 +12,10 @@ hostname: interviews-tracker.api-api-api.com
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/interviews-tracker-api
-    tag: sha-4b87930c0e1e@sha256:19fe790ab4b9422b998c5fcc7471837e080340b6b5134aafe2f34c9f5306387c
+    tag: sha-211ef049f93b@sha256:12abdf68a24dcf893c57071c455c4932d6254192097e49c2e2eb471de1b6ab29
   frontend:
     repository: harbor.internal.api-api-api.com/applications/interviews-tracker-frontend
-    tag: sha-4b87930c0e1e@sha256:0ecea442b86b8187885843493e396198d2d1558334c6fcd69168a186eb359707
+    tag: sha-211ef049f93b@sha256:7defb997c66e9a1d6fbd329846728b651668490c5369b994a6ce1b4161c34526
   cassandra:
     repository: docker.io/library/cassandra
     tag: '5.0'
