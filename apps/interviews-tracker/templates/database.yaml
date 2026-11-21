@@ -75,6 +75,4 @@ spec:
     - from:
         - podSelector:
             matchLabels: {app.kubernetes.io/name: interviews-tracker-api}
-        - podSelector:
-            matchLabels: {app.kubernetes.io/name: interviews-tracker-dou}
       ports: [{protocol: TCP, port: 9042}]
