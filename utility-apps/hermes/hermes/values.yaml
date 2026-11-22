@@ -1,2 +1,4 @@
 windowsPc:
   enabled: false
+telegramMail:
+  enabled: true

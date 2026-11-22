@@ -180,6 +180,10 @@ data:
 {{ .Files.Get "files/gmail_mcp.py" | indent 4 }}
   mail-info.html: |
 {{ .Files.Get "files/mail-info.html" | indent 4 }}
+{{- if .Values.telegramMail.enabled }}
+  telegram_mail.py: |
+{{ .Files.Get "files/telegram_mail.py" | indent 4 }}
+{{- end }}
 {{- if .Values.windowsPc.enabled }}
   windows-plugin-yaml: |
 {{ .Files.Get "files/windows-pc/plugin.yaml" | indent 4 }}
@@ -208,6 +212,9 @@ spec:
         checksum/config: {{ include "hermes.config" . | sha256sum }}
         checksum/proxy: {{ include "hermes.proxy" . | sha256sum }}
         checksum/gmail: {{ .Files.Get "files/gmail_mcp.py" | sha256sum }}
+{{- if .Values.telegramMail.enabled }}
+        checksum/telegram-mail: {{ .Files.Get "files/telegram_mail.py" | sha256sum }}
+{{- end }}
 {{- if .Values.windowsPc.enabled }}
         checksum/windows-pc: {{ printf "%s%s%s%s" (.Files.Get "files/windows-pc/plugin.yaml") (.Files.Get "files/windows-pc/manifest.json") (.Files.Get "files/windows-pc/plugin_api.py") (.Files.Get "files/windows-pc/plugin.js") | sha256sum }}
 {{- end }}
@@ -229,6 +236,11 @@ spec:
               cp /config/config.yaml /data/config.yaml
               chown 10000:10000 /data /data/config.yaml
               chmod 700 /data
+{{- if .Values.telegramMail.enabled }}
+              mkdir -p /data/telegram-mail
+              chown 10000:10000 /data/telegram-mail
+              chmod 700 /data/telegram-mail
+{{- end }}
 {{- if .Values.windowsPc.enabled }}
               umask 077
               cp /windows-pc-source/config /windows-pc-source/key /windows-pc-source/known_hosts /windows-pc-ssh/
@@ -330,7 +342,39 @@ spec:
 {{- if .Values.windowsPc.enabled }}
             - {name: windows-pc-web-auth, mountPath: /run/hermes-web-auth, readOnly: true}
 {{- end }}
+{{- if .Values.telegramMail.enabled }}
+        - name: telegram-mail
+          image: nousresearch/hermes-agent:v0.23.2@sha256:d6746a084e9341baada483e3d6210444d3c1aeb7c130f0915150065fb2851459
+          command: [/opt/hermes/.venv/bin/python, -B, /config/telegram_mail.py]
+          env:
+{{- range list "TELEGRAM_MAIL_OWNER_ID" "TELEGRAM_MAIL_ADDRESS" "TELEGRAM_MAIL_BOT_TOKEN" }}
+            - name: {{ . }}
+              valueFrom:
+                secretKeyRef: {name: hermes, key: {{ . }}}
+{{- end }}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 100m, memory: 96Mi}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10000
+            runAsGroup: 10000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: config, mountPath: /config, readOnly: true}
+            - {name: telegram-mail-credentials, mountPath: /opt/telegram-mail-credentials, readOnly: true}
+            - {name: data, mountPath: /state, subPath: telegram-mail}
+{{- end }}
       volumes:
+{{- if .Values.telegramMail.enabled }}
+        - name: telegram-mail-credentials
+          secret:
+            secretName: hermes
+            items:
+              - {key: TELEGRAM_MAIL_GMAIL_JSON, path: gmail.json}
+{{- end }}
         - name: gmail-secrets
           secret:
             secretName: hermes
