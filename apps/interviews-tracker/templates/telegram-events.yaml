@@ -1,0 +1,57 @@
+{{- if (default dict .Values.telegramEvents).enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: interviews-tracker-telegram
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: {{ .Values.storage.className | quote }}
+  resources:
+    requests: {storage: 1Gi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: interviews-tracker-telegram
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: interviews-tracker-telegram}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: interviews-tracker-telegram}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector: {{ .Values.nodeSelector | toJson }}
+      imagePullSecrets: [{name: interviews-tracker-registry}]
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: tdlib
+          image: {{ printf "%s:%s" .Values.images.api.repository .Values.images.api.tag | quote }}
+          command: [python, -m, app.telegram_events]
+          env:
+            - name: TELEGRAM_EVENTS_ENDPOINT
+              value: http://interviews-tracker-api/auth/events/ingest/telegram
+{{- range list "APP_TELEGRAM_EVENTS_API_ID" "APP_TELEGRAM_EVENTS_API_HASH" "APP_TELEGRAM_EVENTS_OWNER_ID" "APP_TELEGRAM_EVENTS_STORAGE_KEY" "APP_TELEGRAM_EVENTS_TOKEN" }}
+            - name: {{ . }}
+              valueFrom:
+                secretKeyRef: {name: interviews-tracker-oauth, key: {{ . }}}
+{{- end }}
+          resources:
+            requests: {cpu: 25m, memory: 96Mi}
+            limits: {cpu: 250m, memory: 256Mi}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: state, mountPath: /state}
+      volumes:
+        - name: state
+          persistentVolumeClaim: {claimName: interviews-tracker-telegram}
+{{- end }}
