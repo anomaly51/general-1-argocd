@@ -1,7 +1,7 @@
 _release:
   policy: prod-only
   sourceRepository: anomaly51/interviews-tracker
-  revision: d6eaeafdf534782734b75219615537574ce12c59
+  revision: 84ccbb0f4959e4dbb57c4adf2f21c6494d4164fb
   sourceCommit: 0e3bcf990858da6f65c8305e5704c9038f28855e
   sourceBranch: main
   runUrl: https://github.com/anomaly51/interviews-tracker/actions/runs/44973586824
