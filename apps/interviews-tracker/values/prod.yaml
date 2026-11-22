@@ -9,6 +9,8 @@ _release:
   - images.api
   - images.frontend
 hostname: interviews-tracker.api-api-api.com
+telegramEvents:
+  enabled: true
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/interviews-tracker-api
