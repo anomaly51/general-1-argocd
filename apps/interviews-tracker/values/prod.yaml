@@ -11,6 +11,7 @@ _release:
 hostname: interviews-tracker.api-api-api.com
 telegramEvents:
   enabled: true
+  ignoredChatIds: [-1001352932060]
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/interviews-tracker-api

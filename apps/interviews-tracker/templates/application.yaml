@@ -27,6 +27,7 @@ spec:
           env:
             - {name: APP_ENVIRONMENT, value: production}
             - {name: APP_STORAGE_BACKEND, value: cassandra}
+            - {name: APP_TELEGRAM_EVENTS_IGNORED_CHAT_IDS, value: {{ (default dict $.Values.telegramEvents).ignoredChatIds | default (list) | toJson | quote }}}
             - {name: APP_CASSANDRA_HOSTS, value: interviews-tracker-cassandra}
             - {name: APP_VACANCIES_HERMES_EMAIL, value: vladyslav.oliinyk.vo@gmail.com}
             - {name: APP_CORS_ORIGINS, value: {{ printf "https://%s" $.Values.hostname | quote }}}
