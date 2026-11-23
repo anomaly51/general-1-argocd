@@ -178,6 +178,8 @@ data:
 {{ include "hermes.proxy" . | indent 4 }}
   gmail_mcp.py: |
 {{ .Files.Get "files/gmail_mcp.py" | indent 4 }}
+  tracker_draft.py: |
+{{ .Files.Get "files/tracker_draft.py" | indent 4 }}
   mail-info.html: |
 {{ .Files.Get "files/mail-info.html" | indent 4 }}
 {{- if .Values.telegramMail.enabled }}
@@ -211,6 +213,7 @@ spec:
       annotations:
         checksum/config: {{ include "hermes.config" . | sha256sum }}
         checksum/proxy: {{ include "hermes.proxy" . | sha256sum }}
+        checksum/tracker-draft: {{ .Files.Get "files/tracker_draft.py" | sha256sum }}
         checksum/gmail: {{ .Files.Get "files/gmail_mcp.py" | sha256sum }}
 {{- if .Values.telegramMail.enabled }}
         checksum/telegram-mail: {{ .Files.Get "files/telegram_mail.py" | sha256sum }}
@@ -305,6 +308,26 @@ spec:
             - {name: windows-pc-plugin, mountPath: /opt/data/plugins/windows-pc, readOnly: true}
             - {name: windows-pc-ui, mountPath: /opt/data/desktop-plugins/windows-pc, readOnly: true}
 {{- end }}
+        - name: tracker-draft
+          image: nousresearch/hermes-agent:v0.23.2@sha256:d6746a084e9341baada483e3d6210444d3c1aeb7c130f0915150065fb2851459
+          command: [/opt/hermes/.venv/bin/python, /config/tracker_draft.py]
+          workingDir: /opt/hermes
+          env:
+            - {name: PYTHONPATH, value: /opt/hermes}
+            - {name: HERMES_HOME, value: /opt/data}
+            - name: TRACKER_DRAFT_TOKEN
+              valueFrom:
+                secretKeyRef: {name: hermes, key: TRACKER_DRAFT_TOKEN}
+          ports:
+            - {name: tracker-draft, containerPort: 8643}
+          readinessProbe:
+            httpGet: {path: /health, port: tracker-draft}
+          resources:
+            requests: {cpu: 25m, memory: 96Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          volumeMounts:
+            - {name: data, mountPath: /opt/data}
+            - {name: config, mountPath: /config, readOnly: true}
         - name: lan-web
           image: nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a
           command: [sh, -ec]
@@ -425,6 +448,7 @@ spec:
   selector: {app: hermes}
   ports:
     - {name: api, port: 8642, targetPort: api}
+    - {name: tracker-draft, port: 8643, targetPort: tracker-draft}
     - {name: web, port: 9120, targetPort: web}
     - {name: mail-info, port: 8081, targetPort: mail-info}
 ---
@@ -449,6 +473,13 @@ spec:
         - namespaceSelector: {}
       ports:
         - {protocol: TCP, port: 8642}
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: apps}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: interviews-tracker-api}
+      ports:
+        - {protocol: TCP, port: 8643}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
