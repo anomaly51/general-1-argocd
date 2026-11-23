@@ -3,6 +3,11 @@ kind: ConfigMap
 metadata:
   name: marstek-proxy
 data:
+  frontend-headers.conf: |
+    add_header Cache-Control "no-store" always;
+    add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Content-Type-Options "nosniff" always;
   nginx.conf: |
     worker_processes 1;
     pid /tmp/nginx.pid;
@@ -15,8 +20,31 @@ data:
       fastcgi_temp_path /tmp/fastcgi_temp;
       uwsgi_temp_path /tmp/uwsgi_temp;
       scgi_temp_path /tmp/scgi_temp;
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
       server {
         listen 8080;
+        root /srv/marstek;
+        location = / {
+          rewrite ^ /index.html last;
+        }
+        location = /index.html {
+          limit_except GET { deny all; }
+          charset utf-8;
+          include /etc/marstek/frontend-headers.conf;
+          try_files $uri =404;
+        }
+        location = /assets/energy-v1.webmanifest {
+          limit_except GET { deny all; }
+          types { application/manifest+json webmanifest; }
+          include /etc/marstek/frontend-headers.conf;
+          try_files $uri =404;
+        }
+        location /assets/ {
+          limit_except GET { deny all; }
+          include /etc/marstek/frontend-headers.conf;
+          try_files $uri =404;
+        }
         location = /api/events {
           limit_except GET { deny all; }
           proxy_pass http://{{ .Values.upstream.address }}:{{ .Values.upstream.port }};

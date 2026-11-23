@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "Marstek · Энергия",
+  "short_name": "Энергия",
+  "lang": "ru",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#253a30",
+  "background_color": "#f5f6f8",
+  "icons": [
+    {
+      "src": "/assets/battery-icon-v1-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/battery-icon-v1-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

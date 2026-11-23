@@ -1,0 +1,22 @@
+{{- $files := .Files.Glob "frontend/**" }}
+{{- if not ($files.Get "frontend/index.html") }}
+{{- fail "Build the Marstek frontend and copy it into the chart's frontend directory" }}
+{{- end }}
+{{- $size := 0 }}
+{{- range $path, $content := $files }}
+{{- $size = add $size (len $content) }}
+{{- end }}
+{{- if gt $size 1048576 }}
+{{- fail "Marstek frontend exceeds the Kubernetes ConfigMap limit of 1 MiB" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "marstek.frontendName" . }}
+  annotations:
+    argocd.argoproj.io/sync-options: ServerSideApply=true,PruneLast=true
+immutable: true
+binaryData:
+{{- range $path, $content := $files }}
+  {{ base $path | quote }}: {{ $content | toString | b64enc | quote }}
+{{- end }}

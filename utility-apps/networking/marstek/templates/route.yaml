@@ -44,7 +44,7 @@ spec:
               containerPort: 8080
           readinessProbe:
             httpGet:
-              path: /health
+              path: /index.html
               port: http
             timeoutSeconds: 5
           livenessProbe:
@@ -66,12 +66,23 @@ spec:
             - name: config
               mountPath: /etc/marstek
               readOnly: true
+            - name: frontend
+              mountPath: /srv/marstek
+              readOnly: true
             - name: tmp
               mountPath: /tmp
       volumes:
         - name: config
           configMap:
             name: marstek-proxy
+        - name: frontend
+          configMap:
+            name: {{ include "marstek.frontendName" . }}
+            items:
+              {{- range $path, $_ := .Files.Glob "frontend/**" }}
+              - key: {{ base $path | quote }}
+                path: {{ trimPrefix "frontend/" $path | quote }}
+              {{- end }}
         - name: tmp
           emptyDir:
             sizeLimit: 16Mi
