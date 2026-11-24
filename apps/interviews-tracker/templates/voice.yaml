@@ -1,5 +1,15 @@
 {{- with (default dict .Values.images.voice) }}
 {{- if .tag }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: interviews-tracker-voice-model
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: {{ $.Values.storage.className | quote }}
+  resources:
+    requests: {storage: 1Gi}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,6 +17,7 @@ metadata:
 spec:
   replicas: 1
   revisionHistoryLimit: 2
+  strategy: {type: Recreate}
   selector:
     matchLabels: {app.kubernetes.io/name: interviews-tracker-voice}
   template:
@@ -16,11 +27,30 @@ spec:
       automountServiceAccountToken: false
       nodeSelector: {{ $.Values.nodeSelector | toJson }}
       imagePullSecrets: [{name: interviews-tracker-registry}]
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+      initContainers:
+        - name: model
+          image: {{ printf "%s:%s" .repository .tag | quote }}
+          command: [python, voice_model.py]
+          env:
+            - {name: HF_HOME, value: /models/.cache}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: models, mountPath: /models}
+          resources: {{ $.Values.resources.voice | toJson }}
       containers:
         - name: voice
           image: {{ printf "%s:%s" .repository .tag | quote }}
           ports: [{name: http, containerPort: 8080}]
           env:
+            - {name: HF_HUB_OFFLINE, value: "1"}
             - name: APP_HERMES_DRAFT_TOKEN
               valueFrom:
                 secretKeyRef: {name: interviews-tracker-oauth, key: APP_HERMES_DRAFT_TOKEN}
@@ -40,6 +70,11 @@ spec:
             readOnlyRootFilesystem: true
             capabilities: {drop: [ALL]}
           resources: {{ $.Values.resources.voice | toJson }}
+          volumeMounts:
+            - {name: models, mountPath: /models, readOnly: true}
+      volumes:
+        - name: models
+          persistentVolumeClaim: {claimName: interviews-tracker-voice-model}
 ---
 apiVersion: v1
 kind: Service
