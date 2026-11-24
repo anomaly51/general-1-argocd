@@ -62,3 +62,6 @@ spec:
       excludeRaw: true
   rolloutRestartTargets:
     - {kind: Deployment, name: interviews-tracker-api}
+    {{- if (default dict .Values.images.voice).tag }}
+    - {kind: Deployment, name: interviews-tracker-voice}
+    {{- end }}

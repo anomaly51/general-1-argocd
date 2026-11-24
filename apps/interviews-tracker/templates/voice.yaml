@@ -54,6 +54,9 @@ spec:
             - name: APP_HERMES_DRAFT_TOKEN
               valueFrom:
                 secretKeyRef: {name: interviews-tracker-oauth, key: APP_HERMES_DRAFT_TOKEN}
+            - name: APP_VOICE_OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef: {name: interviews-tracker-oauth, key: APP_VOICE_OPENAI_API_KEY, optional: true}
           startupProbe:
             httpGet: {path: /health, port: http}
             periodSeconds: 5
