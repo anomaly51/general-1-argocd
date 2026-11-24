@@ -20,6 +20,9 @@ images:
   frontend:
     repository: harbor.internal.api-api-api.com/applications/interviews-tracker-frontend
     tag: sha-b92c8d3356d9@sha256:5b57f2fecfd0118b2f4164beff7920990ac394571e72cdec1de501e64d0c7d38
+  voice:
+    repository: harbor.internal.api-api-api.com/applications/interviews-tracker-voice
+    tag: ""
   cassandra:
     repository: docker.io/library/cassandra
     tag: '5.0'
@@ -43,6 +46,13 @@ resources:
     limits:
       cpu: 100m
       memory: 128Mi
+  voice:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: '2'
+      memory: 1280Mi
   cassandra:
     requests:
       cpu: 250m
