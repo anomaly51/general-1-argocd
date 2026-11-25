@@ -29,6 +29,9 @@ spec:
             - {name: APP_STORAGE_BACKEND, value: cassandra}
             - {name: APP_TELEGRAM_EVENTS_IGNORED_CHAT_IDS, value: {{ (default dict $.Values.telegramEvents).ignoredChatIds | default (list) | toJson | quote }}}
             - {name: APP_CASSANDRA_HOSTS, value: interviews-tracker-cassandra}
+            {{- if (default dict $.Values.calendarCache).image }}
+            - {name: APP_CALENDAR_REDIS_URL, value: "redis://127.0.0.1:6379/0"}
+            {{- end }}
             - {name: APP_VACANCIES_HERMES_EMAIL, value: vladyslav.oliinyk.vo@gmail.com}
             {{- if (default dict $.Values.images.voice).tag }}
             - {name: APP_VOICE_WORKER_URL, value: "http://interviews-tracker-voice/transcribe"}
@@ -56,6 +59,21 @@ spec:
             capabilities: {drop: [ALL]}
             {{- end }}
           resources: {{ index $.Values.resources $component | toJson }}
+        {{- if and (eq $component "api") (default dict $.Values.calendarCache).image }}
+        - name: calendar-cache
+          image: {{ $.Values.calendarCache.image | quote }}
+          command: ["redis-server"]
+          args: ["--bind", "127.0.0.1", "--save", "", "--appendonly", "no",
+                 "--maxmemory", "32mb", "--maxmemory-policy", "allkeys-lru"]
+          workingDir: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsUser: 10001
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources: {{ $.Values.resources.calendarCache | toJson }}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service
