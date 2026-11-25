@@ -2,9 +2,9 @@ _release:
   policy: prod-only
   sourceRepository: anomaly51/interviews-tracker
   revision: fd1740abf315c3d2c3b6a49946589fc0e3edb403
-  sourceCommit: b4ac5c56f8f2bccc04d8a100571c6e01c86e24d3
+  sourceCommit: 90f5be921e099d83cd2d763d9357406a1c78cf02
   sourceBranch: main
-  runUrl: https://github.com/anomaly51/interviews-tracker/actions/runs/45518238902
+  runUrl: https://github.com/anomaly51/interviews-tracker/actions/runs/45522641719
   imageKeys:
   - images.api
   - images.frontend
@@ -19,13 +19,13 @@ telegramEvents:
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/interviews-tracker-api
-    tag: sha-b4ac5c56f8f2@sha256:32a2dacfb7c2355339432204e10184423093864846146a7de4fb19480c511d1c
+    tag: sha-90f5be921e09@sha256:5c0a55135d4e1ef27d518ac8413c8695d4214d042b5790bfd29820ecf350c204
   frontend:
     repository: harbor.internal.api-api-api.com/applications/interviews-tracker-frontend
-    tag: sha-b4ac5c56f8f2@sha256:88a56424e82899dade5bc7439b631a8b97168a935af9fa3ee08f67667d07ab63
+    tag: sha-90f5be921e09@sha256:6f8bf6f885469bbc6132231331c9dcac3517e9f4bf6c00927af25aa829f50eee
   voice:
     repository: harbor.internal.api-api-api.com/applications/interviews-tracker-voice
-    tag: sha-b4ac5c56f8f2@sha256:b4f4d784f2b511531ee8a46d3e1dfdfa99b566fe7549af883600b5ae2acd71ea
+    tag: sha-90f5be921e09@sha256:ccae763488415659e545f689b238b57a24e772922558ffd2de89158904e609bf
   cassandra:
     repository: docker.io/library/cassandra
     tag: '5.0'
