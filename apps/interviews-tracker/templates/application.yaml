@@ -17,7 +17,7 @@ spec:
     spec:
       serviceAccountName: interviews-tracker
       automountServiceAccountToken: false
-      nodeSelector: {{ $.Values.nodeSelector | toJson }}
+      nodeSelector: {{ ternary ($.Values.apiNodeSelector | default $.Values.nodeSelector) $.Values.nodeSelector (eq $component "api") | toJson }}
       imagePullSecrets: [{name: interviews-tracker-registry}]
       containers:
         - name: {{ $component }}

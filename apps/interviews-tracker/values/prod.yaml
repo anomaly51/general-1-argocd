@@ -31,6 +31,8 @@ images:
     tag: '5.0'
 nodeSelector:
   kubernetes.io/hostname: general-1-worker-3
+apiNodeSelector:
+  kubernetes.io/hostname: general-1-worker-2
 storage:
   className: nfs-csi
   size: 10Gi
