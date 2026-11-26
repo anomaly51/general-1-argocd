@@ -1,0 +1,67 @@
+{{- range $component := list "api" "worker" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: find-offer-fast-{{ $component }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: find-offer-fast-{{ $component }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: find-offer-fast-{{ $component }}
+        app.kubernetes.io/part-of: find-offer-fast
+    spec:
+      serviceAccountName: find-offer-fast
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: find-offer-fast-registry
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - {key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}
+      {{- if eq $component "api" }}
+      initContainers:
+        - name: migrate
+          image: "{{ $.Values.images.api.repository }}:{{ $.Values.images.api.tag }}"
+          command: [sh, scripts/run_migrations.sh]
+          envFrom:
+            - secretRef: {name: find-offer-fast-env}
+          resources:
+            {{- toYaml $.Values.resources.api | nindent 12 }}
+      {{- end }}
+      containers:
+        - name: {{ $component }}
+          image: "{{ $.Values.images.api.repository }}:{{ $.Values.images.api.tag }}"
+          imagePullPolicy: IfNotPresent
+          {{- if eq $component "worker" }}
+          command: [python, -m, app.services.reminder_worker]
+          {{- else }}
+          ports:
+            - {name: http, containerPort: 8000}
+          startupProbe:
+            httpGet: {path: /health/live, port: http}
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: {path: /health/live, port: http}
+            periodSeconds: 15
+            timeoutSeconds: 3
+          {{- end }}
+          envFrom:
+            - secretRef: {name: find-offer-fast-env}
+          resources:
+            {{- toYaml (index $.Values.resources $component) | nindent 12 }}
+{{- end }}

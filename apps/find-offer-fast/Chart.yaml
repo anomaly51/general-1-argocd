@@ -1,0 +1,5 @@
+apiVersion: v2
+name: find-offer-fast
+description: Group IT learning from study to a job offer
+type: application
+version: 0.1.0

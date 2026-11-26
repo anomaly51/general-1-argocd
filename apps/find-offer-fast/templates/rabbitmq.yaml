@@ -1,0 +1,47 @@
+apiVersion: rabbitmq.com/v1beta1
+kind: Vhost
+metadata:
+  name: find-offer-fast
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  name: find-offer-fast
+  defaultQueueType: quorum
+  deletionPolicy: retain
+  rabbitmqClusterReference:
+    name: shared
+    namespace: rabbitmq-system
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: User
+metadata:
+  name: find-offer-fast
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  importCredentialsSecret:
+    name: find-offer-fast-env
+  rabbitmqClusterReference:
+    name: shared
+    namespace: rabbitmq-system
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Permission
+metadata:
+  name: find-offer-fast
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  vhost: find-offer-fast
+  userReference:
+    name: find-offer-fast
+  permissions:
+    configure: ".*"
+    write: ".*"
+    read: ".*"
+  rabbitmqClusterReference:
+    name: shared
+    namespace: rabbitmq-system

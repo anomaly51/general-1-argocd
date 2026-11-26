@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: find-offer-fast
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+automountServiceAccountToken: false
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: find-offer-fast
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  method: kubernetes
+  mount: {{ .Values.vault.authMount }}
+  kubernetes:
+    role: {{ .Values.vault.role }}
+    serviceAccount: find-offer-fast
+    audiences: [vault]
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: find-offer-fast-env
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: find-offer-fast
+  mount: {{ .Values.vault.mount }}
+  type: kv-v2
+  path: {{ .Values.vault.envPath }}
+  refreshAfter: {{ .Values.vault.refreshAfter }}
+  destination:
+    create: true
+    name: find-offer-fast-env
+    labels:
+      rabbitmq.com/topology-operator: "true"
+    transformation:
+      templates:
+        username:
+          text: '{{ `{{- get .Secrets "RABBITMQ_USERNAME" -}}` }}'
+        password:
+          text: '{{ `{{- get .Secrets "RABBITMQ_PASSWORD" -}}` }}'
+  rolloutRestartTargets:
+    - {kind: Deployment, name: find-offer-fast-api}
+    - {kind: Deployment, name: find-offer-fast-worker}
+    - {kind: StatefulSet, name: find-offer-fast-postgres}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: find-offer-fast-registry
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  vaultAuthRef: find-offer-fast
+  mount: {{ .Values.vault.mount }}
+  type: kv-v2
+  path: {{ .Values.registry.vaultPath }}
+  refreshAfter: 1h
+  destination:
+    create: true
+    name: find-offer-fast-registry
+    type: kubernetes.io/dockerconfigjson
+    transformation:
+      excludes: [".*"]
+      templates:
+        .dockerconfigjson:
+          text: |
+            {"auths":{"{{ .Values.registry.server }}":{"username":"{{ `{{ get .Secrets "username" }}` }}","password":"{{ `{{ get .Secrets "password" }}` }}"}}}

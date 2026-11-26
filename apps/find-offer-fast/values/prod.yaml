@@ -1,0 +1,34 @@
+_release:
+  policy: prod-only
+  sourceRepository: anomaly51/find-offer-fast-backend
+  revision: PLACEHOLDER_CHART_PIN
+images:
+  api:
+    repository: harbor.internal.api-api-api.com/applications/find-offer-fast-api
+    tag: sha-ca0b2d3472c2
+  postgres:
+    repository: docker.io/library/postgres
+    tag: 15-alpine
+registry:
+  server: harbor.internal.api-api-api.com
+  vaultPath: apps/registry
+vault:
+  mount: kv
+  authMount: kubernetes
+  role: find-offer-fast
+  envPath: apps/find-offer-fast/env
+  refreshAfter: 1m
+hostname: find-offer-fast.api-api-api.com
+storage:
+  className: nfs-csi
+  postgresSize: 5Gi
+resources:
+  api:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  worker:
+    requests: {cpu: 25m, memory: 96Mi}
+    limits: {cpu: 250m, memory: 256Mi}
+  postgres:
+    requests: {cpu: 25m, memory: 128Mi}
+    limits: {cpu: 250m, memory: 384Mi}
