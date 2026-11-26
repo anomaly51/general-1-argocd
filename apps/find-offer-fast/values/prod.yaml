@@ -2,10 +2,15 @@ _release:
   policy: prod-only
   sourceRepository: anomaly51/find-offer-fast-backend
   revision: 0c9acbaf8a69b68ef0dd68db51f9e175234e64b4
+  sourceCommit: 9394f4e0dd4512e19bc8f81f598e3a70d4201a61
+  sourceBranch: main
+  runUrl: https://github.com/anomaly51/find-offer-fast-backend/actions/runs/45750642323
+  imageKeys:
+  - images.api
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/find-offer-fast-api
-    tag: sha-ca0b2d3472c2
+    tag: sha-9394f4e0dd45@sha256:215da8b45cb88646060fb92db3dceecb982e0988f1c4cd03412285a5836bfc57
   postgres:
     repository: docker.io/library/postgres
     tag: 15-alpine
@@ -24,11 +29,23 @@ storage:
   postgresSize: 5Gi
 resources:
   api:
-    requests: {cpu: 50m, memory: 128Mi}
-    limits: {cpu: 500m, memory: 512Mi}
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
   worker:
-    requests: {cpu: 25m, memory: 96Mi}
-    limits: {cpu: 250m, memory: 256Mi}
+    requests:
+      cpu: 25m
+      memory: 96Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
   postgres:
-    requests: {cpu: 25m, memory: 128Mi}
-    limits: {cpu: 250m, memory: 384Mi}
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 384Mi
