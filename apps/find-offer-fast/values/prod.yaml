@@ -1,7 +1,7 @@
 _release:
   policy: prod-only
   sourceRepository: anomaly51/find-offer-fast-backend
-  revision: PLACEHOLDER_CHART_PIN
+  revision: 0c9acbaf8a69b68ef0dd68db51f9e175234e64b4
 images:
   api:
     repository: harbor.internal.api-api-api.com/applications/find-offer-fast-api
